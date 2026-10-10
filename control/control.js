@@ -383,46 +383,35 @@
   // --- Оформление счётчика (пресеты описаны в /overlay/presets.js) ---
 
   const presets = window.OVERLAY_PRESETS || [];
-  const presetGridEl = $("preset-grid");
-  const presetCards = new Map();
+  const presetEl = $("preset");
+  const presetPreviewEl = $("preset-preview");
+  const presetDescEl = $("preset-desc");
+  let shownPreset = null;
 
-  function buildPresets() {
-    for (const preset of presets) {
-      const card = el("button", "preset-card");
-      card.type = "button";
-      const frame = document.createElement("iframe");
-      frame.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}&size=34`;
-      frame.title = `Превью: ${preset.title}`;
-      frame.tabIndex = -1;
-      frame.loading = "lazy";
-      const text = el("span", "text");
-      text.append(el("span", "title", preset.title), el("span", "desc", preset.description));
-      card.append(frame, text);
-      card.addEventListener("click", () => choosePreset(preset.id));
-      presetCards.set(preset.id, card);
-      presetGridEl.append(card);
-    }
-  }
+  presetEl.replaceChildren(...presets.map((p) => new Option(p.title, p.id)));
 
   function showPreset(id) {
-    if (presets.length === 0) return;
+    const preset = presets.find((p) => p.id === id) || presets[0];
+    if (!preset) return;
     $("preset-section").hidden = false;
-    for (const [presetId, card] of presetCards) {
-      card.classList.toggle("current", presetId === id);
-      card.setAttribute("aria-pressed", String(presetId === id));
+    presetEl.value = preset.id;
+    presetDescEl.textContent = preset.description;
+    // Превью перезагружаем только при смене стиля: иначе анимация начиналась бы заново.
+    if (shownPreset !== preset.id) {
+      shownPreset = preset.id;
+      presetPreviewEl.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}&size=34`;
     }
   }
 
-  async function choosePreset(id) {
+  presetEl.addEventListener("change", async () => {
+    const id = presetEl.value;
     showPreset(id); // сразу, не дожидаясь сервера
     try {
       showPreset((await api("POST", "/api/overlay/preset", { preset: id })).preset);
     } catch (e) {
       setOnline(false);
     }
-  }
-
-  buildPresets();
+  });
 
   // --- Модель распознавания: карточки, выбор кликом, описание раскрывается ---
 

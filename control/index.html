@@ -61,8 +61,14 @@
     </section>
 
     <section id="preset-section" class="section" hidden>
-      <h2 class="section-title">Оформление счётчика</h2>
-      <div id="preset-grid" class="preset-grid"></div>
+      <label class="section-title" for="preset">Оформление счётчика</label>
+      <div class="preset-picker">
+        <iframe id="preset-preview" class="preset-preview" title="Превью оформления" tabindex="-1"></iframe>
+        <div class="preset-side">
+          <div class="select-wrap"><select id="preset"></select></div>
+          <p id="preset-desc" class="note"></p>
+        </div>
+      </div>
     </section>
 
     <section id="model-section" class="section" hidden>

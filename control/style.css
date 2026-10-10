@@ -262,31 +262,20 @@ select {
 .icon-btn.confirm { width: auto; padding: 0 8px; font-size: 12px; font-weight: 600; color: #fff; background: var(--danger); }
 .sound-actions { margin-top: 10px; }
 
-/* --- Оформление счётчика --- */
-.preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.preset-card {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  text-align: left;
-  overflow: hidden;
-  background: var(--bg);
+/* --- Оформление счётчика: выпадающий список и превью выбранного стиля --- */
+.preset-picker { display: flex; align-items: flex-start; gap: 10px; }
+/* Превью — тот же оверлей в режиме preview. */
+.preset-preview {
+  flex: none;
+  width: 112px;
+  height: 72px;
   border: 1px solid var(--border);
   border-radius: 10px;
-}
-.preset-card:hover:not(.current) { border-color: var(--muted); }
-.preset-card.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; cursor: default; }
-/* Превью — тот же оверлей в режиме preview; клики проходят сквозь него к карточке. */
-.preset-card iframe {
-  width: 100%;
-  height: 92px;
-  border: 0;
   pointer-events: none;
   background: #111318;
 }
-.preset-card .text { padding: 8px 10px 10px; }
-.preset-card .title { display: block; font-size: 14px; font-weight: 700; }
-.preset-card .desc { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.preset-side { flex: 1; min-width: 0; }
+.preset-side .note { margin: 6px 0 0; }
 
 /* --- Модель распознавания --- */
 .progress {
