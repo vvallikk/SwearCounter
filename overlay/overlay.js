@@ -68,6 +68,7 @@
   // --- Пресеты (overlay/presets.js) ---
   const PRESETS = window.OVERLAY_PRESETS || [{ id: "classic", color: "#ffffff" }];
   let currentPreset = "classic";
+  let player = null; // звук (создаётся ниже, если оверлей не в превью и не без звука)
 
   function findPreset(id) {
     return PRESETS.find((p) => p.id === id) || PRESETS[0];
@@ -78,6 +79,7 @@
     currentPreset = preset.id;
     root.setAttribute("data-preset", preset.id);
     root.style.setProperty("--color", colorOverride || preset.color || "#ffffff");
+    if (player) player.setStandard(preset.sound); // у пресета может быть свой стандартный звук
     fitToWindow(); // у пресетов разные шрифты и ширина цифр
   }
 
@@ -321,7 +323,10 @@
 
   // --- Звук (overlay/sound.js) ---
   // Громкость и свой звук задаются на странице управления и приходят по WebSocket.
-  const player = muted ? null : window.createDingPlayer();
+  if (!muted) {
+    player = window.createDingPlayer();
+    player.setStandard(findPreset(currentPreset).sound);
+  }
 
   // --- WebSocket с автопереподключением ---
   function connect() {
