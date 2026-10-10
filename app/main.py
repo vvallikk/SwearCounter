@@ -3,6 +3,7 @@
 import argparse
 import logging
 import multiprocessing
+import socket
 import sys
 
 import sounddevice as sd
@@ -16,7 +17,8 @@ from .settings import Settings
 from .stt import CATALOG, VoskRecognizer, find_model, installed_models
 
 HOST = "127.0.0.1"
-PORT = 8765
+PORT = 8765  # основной порт: его адрес прописывают в OBS
+PORT_ATTEMPTS = 10  # если занят, пробуем следующие: 8766, 8767, ...
 
 log = logging.getLogger("app")
 
@@ -26,6 +28,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", help="номер или часть названия микрофона (по умолчанию системный)")
     parser.add_argument("--list-devices", action="store_true", help="показать устройства и выйти")
     return parser.parse_args()
+
+
+def bind_socket(host: str, first_port: int, attempts: int) -> socket.socket:
+    """Занимает первый свободный порт, начиная с first_port."""
+    for port in range(first_port, first_port + attempts):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            sock.bind((host, port))
+        except OSError:
+            sock.close()
+            log.warning("Порт %d занят, пробую следующий", port)
+            continue
+        return sock
+    sys.exit(f"Порты {first_port}–{first_port + attempts - 1} заняты, запустить сервер не удалось.")
 
 
 def main() -> None:
@@ -66,12 +82,20 @@ def main() -> None:
 
     app = create_app(hub, recognizer, settings)
 
+    # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.
+    sock = bind_socket(HOST, PORT, PORT_ATTEMPTS)
+    port = sock.getsockname()[1]
+
     print(f"Счётчик: {hub.counter.value}")
-    print(f"Оверлей для OBS:     http://localhost:{PORT}/overlay/")
-    print(f"Страница управления: http://localhost:{PORT}/control/")
+    print(f"Оверлей для OBS:     http://localhost:{port}/overlay/")
+    print(f"Страница управления: http://localhost:{port}/control/")
+    if port != PORT:
+        print(f"ВНИМАНИЕ: порт {PORT} занят, сервер запущен на {port}.")
+        print("Если в OBS прописан старый адрес оверлея, обновите его или освободите порт.")
     print("Для остановки нажмите Ctrl+C")
 
-    uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
+    server = uvicorn.Server(uvicorn.Config(app, log_level="warning"))
+    server.run(sockets=[sock])
 
 
 if __name__ == "__main__":
