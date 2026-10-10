@@ -62,6 +62,7 @@ class _Worker:
         self.chunks: queue.Queue[bytes | None] = queue.Queue()
         self._lock = threading.Lock()
         self._pending_device = device
+        self._device_changed = False  # пришла команда сменить микрофон
         self._monitor_wanted = False  # меняет поток команд, применяет основной цикл
         self.monitor = _Monitor()
         threading.Thread(target=self._read_commands, args=(commands,), daemon=True).start()
@@ -137,10 +138,15 @@ class _Worker:
                     raise MicrophoneLost from None
                 continue
             if data is None:
+                # Сигнал «пришла команда»: смена микрофона или прослушивание. Разбираем
+                # по флагам, а не по тому, совпадает ли прослушивание: команда прослушивания
+                # могла уже примениться в начале распознавания.
+                with self._lock:
+                    if self._device_changed:
+                        return
                 if self.monitor.running != self._monitor_wanted:
                     self._apply_monitor(samplerate)
-                    continue  # команда была про прослушивание, микрофон тот же
-                return
+                continue
             self.results.send(("level", peak_level(data)))
             self.monitor.feed(data)
             if rec.AcceptWaveform(data):
@@ -180,6 +186,7 @@ class _Worker:
             except queue.Empty:
                 break
         with self._lock:
+            self._device_changed = False
             return self._pending_device
 
     def _read_commands(self, commands: Connection) -> None:
@@ -191,6 +198,7 @@ class _Worker:
             if kind == "device":
                 with self._lock:
                     self._pending_device = value
+                    self._device_changed = True
                 self.chunks.put(None)
             elif kind == "monitor":
                 self._monitor_wanted = bool(value)
