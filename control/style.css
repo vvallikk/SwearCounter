@@ -273,6 +273,8 @@ select {
   border-radius: 10px;
   pointer-events: none;
   background: #111318;
+  /* Как у оверлея: при разных color-scheme браузер заливает iframe белым. */
+  color-scheme: light;
 }
 .preset-side { flex: 1; min-width: 0; }
 .preset-side .note { margin: 6px 0 0; }
