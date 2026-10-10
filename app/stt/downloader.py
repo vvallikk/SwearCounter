@@ -134,14 +134,23 @@ def _install(download: _Download) -> None:
 
 
 def _fetch(download: _Download, archive: Path) -> None:
-    request = urllib.request.Request(download.model.url, headers={"User-Agent": "SwearCounter"})
-    with urllib.request.urlopen(request, timeout=30) as response, open(archive, "wb") as out:
-        download.total_bytes = int(response.headers.get("Content-Length") or 0)
+    fetch_to_file(download.model.url, archive, download)
+
+
+def fetch_to_file(url: str, path: Path, job) -> None:
+    """Качает url в path кусками.
+
+    job — объект с полями cancelled (threading.Event), done_bytes и total_bytes:
+    по ним видно прогресс, а установленный cancelled прерывает скачивание.
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": "SwearCounter"})
+    with urllib.request.urlopen(request, timeout=30) as response, open(path, "wb") as out:
+        job.total_bytes = int(response.headers.get("Content-Length") or 0)
         while True:
-            if download.cancelled.is_set():
+            if job.cancelled.is_set():
                 raise DownloadCancelled
             chunk = response.read(CHUNK_BYTES)
             if not chunk:
                 break
             out.write(chunk)
-            download.done_bytes += len(chunk)
+            job.done_bytes += len(chunk)

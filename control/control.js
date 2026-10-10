@@ -673,6 +673,72 @@
     }
   }
 
+  // --- Обновления программы ---
+
+  let updateState = null;
+
+  function showUpdate(state) {
+    updateState = state;
+    $("update-section").hidden = false;
+    const action = $("update-action");
+    const status = $("update-status");
+    const latest = state.latest ? `v${state.latest}` : "";
+    const loading = state.status === "downloading" || state.status === "extracting";
+    const found = ["available", "downloading", "extracting", "ready"].includes(state.status) ||
+      (state.status === "error" && state.latest);
+
+    const badge = $("update-badge");
+    badge.hidden = !found;
+    badge.textContent = `Доступна ${latest}`;
+
+    $("update-progress").hidden = !loading;
+    $("update-progress-bar").style.width = `${Math.round(state.progress * 100)}%`;
+    $("update-cancel").hidden = state.status !== "downloading";
+    $("update-auto").checked = state.auto;
+    $("update-notes").hidden = !found || !state.notes;
+    $("update-notes-text").textContent = state.notes || "";
+
+    action.hidden = loading;
+    action.disabled = state.status === "checking";
+    if (state.status === "ready") action.textContent = "Перезапустить и обновить";
+    else if (found && state.can_install) action.textContent = "Скачать и установить";
+    else action.textContent = "Проверить обновления";
+
+    if (state.status === "checking") setStatus(status, "Проверяю…");
+    else if (state.status === "none") setStatus(status, `У вас последняя версия: v${state.current}`, false, true);
+    else if (state.status === "error") setStatus(status, state.error, true);
+    else if (state.status === "downloading") {
+      const total = state.size ? ` из ${formatMB(state.size)}` : "";
+      setStatus(status, `Скачиваю ${latest}: ${Math.round(state.progress * 100)}%${total}`);
+    } else if (state.status === "extracting") setStatus(status, "Распаковываю…");
+    else if (state.status === "ready") setStatus(status, `${latest} скачана. Программа перезапустится в новой версии.`);
+    else if (found) {
+      setStatus(status, state.can_install
+        ? `Доступна новая версия ${latest} (у вас v${state.current}).`
+        : `Доступна ${latest}. Из исходников обновитесь через git pull.`);
+    } else setStatus(status, `Версия v${state.current}`);
+  }
+
+  async function updateCall(method, url, body) {
+    try {
+      showUpdate(await api(method, url, body));
+    } catch (e) {
+      setStatus($("update-status"), e.message, true);
+    }
+  }
+
+  $("update-action").addEventListener("click", () => {
+    const s = updateState;
+    if (!s) return;
+    const found = s.latest && s.status !== "none";
+    if (s.status === "ready") updateCall("POST", "/api/update/apply");
+    else if (found && s.can_install) updateCall("POST", "/api/update/download");
+    else updateCall("POST", "/api/update/check");
+  });
+  $("update-cancel").addEventListener("click", () => updateCall("DELETE", "/api/update/download"));
+  $("update-auto").addEventListener("change", (e) =>
+    updateCall("POST", "/api/update/auto", { enabled: e.target.checked }));
+
   // --- WebSocket: счёт, звук, оформление и уровень микрофона ---
 
   function connect() {
@@ -683,6 +749,7 @@
       refreshSpeech();
       loadDevices();
       api("GET", "/api/version").then(({ version }) => ($("version").textContent = `v${version}`), () => {});
+      api("GET", "/api/update").then(showUpdate, () => {});
     };
     ws.onmessage = (event) => {
       let msg;
@@ -693,6 +760,7 @@
       }
       if (msg.type === "mic_level") targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
       else if (msg.type === "sound") showSound(msg);
+      else if (msg.type === "update") showUpdate(msg);
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

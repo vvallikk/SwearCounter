@@ -6,10 +6,10 @@ import re
 import threading
 from contextlib import asynccontextmanager
 
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -19,6 +19,7 @@ from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
 from .stt import CATALOG, ModelDownloader, ModelInfo, VoskRecognizer, audio_devices, find_model
+from .updater import Updater
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +92,10 @@ class MonitorChoice(BaseModel):
     enabled: bool
 
 
+class AutoUpdateChoice(BaseModel):
+    enabled: bool
+
+
 class PresetChoice(BaseModel):
     preset: str
 
@@ -107,10 +112,32 @@ PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
 LABEL_POSITIONS = ("left", "right", "top", "bottom")
 DEFAULT_LABEL_POSITION = "left"
 LABEL_MAX_LENGTH = 40
+# Изменять состояние можно только со своих страниц: иначе любой открытый сайт
+# простым POST на localhost сбросит счёт или запустит обновление (CSRF).
+LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def foreign_origin(request: Request) -> bool:
+    """Запрос меняет состояние и пришёл не со страницы этого же сервера."""
+    if request.method in SAFE_METHODS:
+        return False
+    origin = request.headers.get("origin")
+    if origin is None:
+        # Без Origin: браузер всё равно помечает чужие запросы; curl и тесты — без метки.
+        return request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none")
+    # Тот же адрес до порта: другой локальный сервер (localhost:3000) — тоже чужой.
+    parts = urlsplit(origin)
+    return parts.hostname not in LOCAL_HOSTS or parts.netloc != request.headers.get("host")
 
 
 def create_app(
-    hub: Hub, recognizer: VoskRecognizer, settings: Settings, sound: Sound
+    hub: Hub,
+    recognizer: VoskRecognizer,
+    settings: Settings,
+    sound: Sound,
+    updater: Updater | None = None,
+    check_updates: bool = False,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -130,6 +157,14 @@ def create_app(
 
     downloader = ModelDownloader(on_downloaded)
 
+    # Без updater (тесты, разработка) установка недоступна, а сеть не трогаем.
+    updater = updater or Updater(settings, frozen=False)
+
+    async def on_update_change(state: dict) -> None:
+        await hub.broadcast({"type": "update", **state})
+
+    updater.on_change = on_update_change
+
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
 
@@ -146,13 +181,25 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await recognizer.start()
+        updater.loop = asyncio.get_running_loop()
+        check_task = asyncio.create_task(updater.auto_check()) if check_updates else None
         try:
             yield
         finally:
+            if check_task is not None:
+                check_task.cancel()
+            await updater.stop()
             await downloader.stop()
             await recognizer.stop()
 
     app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
+
+    @app.middleware("http")
+    async def reject_foreign_origin(request: Request, call_next):
+        if foreign_origin(request):
+            log.warning("Отклонён запрос %s %s: %s", request.method, request.url.path, request.headers.get("origin", "чужого сайта"))
+            return JSONResponse({"detail": "Запрос с чужого сайта отклонён"}, status_code=403)
+        return await call_next(request)
 
     @app.get("/")
     async def root():
@@ -165,6 +212,44 @@ def create_app(
     @app.get("/api/version")
     async def get_version():
         return {"version": __version__}
+
+    @app.get("/api/update")
+    async def get_update():
+        return updater.state()
+
+    @app.post("/api/update/check")
+    async def post_update_check():
+        await updater.check()
+        return updater.state()
+
+    @app.post("/api/update/auto")
+    async def post_update_auto(choice: AutoUpdateChoice):
+        updater.set_auto(choice.enabled)
+        return updater.state()
+
+    @app.post("/api/update/download")
+    async def post_update_download():
+        try:
+            updater.start_download()
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
+        return updater.state()
+
+    @app.delete("/api/update/download")
+    async def delete_update_download():
+        if not updater.cancel():
+            raise HTTPException(404, "Обновление не скачивается")
+        return updater.state()
+
+    @app.post("/api/update/apply")
+    async def post_update_apply():
+        try:
+            updater.apply()
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
+        # Выходим чуть позже, чтобы ответ успел уйти странице.
+        asyncio.get_running_loop().call_later(0.5, updater.exit)
+        return updater.state()
 
     @app.post("/api/increment")
     async def post_increment():

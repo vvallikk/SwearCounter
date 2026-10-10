@@ -1,6 +1,7 @@
 """HTTP API и WebSocket (без /api/sound: звук переписывается отдельно)."""
 
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -484,3 +485,95 @@ def test_version(client):
     from app import __version__
 
     assert client.get("/api/version").json() == {"version": __version__}
+
+
+# --- обновления ---
+
+
+@pytest.fixture
+def update_client(hub, recognizer, settings, sound, fake_sd, tmp_path, monkeypatch):
+    from app import updater as updater_module
+
+    release = {
+        "tag_name": "v9.0.0",
+        "html_url": "https://github.com/vvallikk/SwearCounter/releases/tag/v9.0.0",
+        "body": "",
+        "assets": [{"name": "SwearCounter-v9.0.0-windows.zip", "browser_download_url": "https://x/z.zip", "size": 1}],
+    }
+    monkeypatch.setattr(updater_module, "fetch_latest", lambda: release)
+    updater = updater_module.Updater(settings, install_dir=tmp_path, frozen=False)
+    app = create_app(hub, recognizer, settings, sound, updater=updater)
+    with TestClient(app) as client:
+        yield client, updater
+
+
+def test_update_state(client):
+    state = client.get("/api/update").json()
+    assert state["status"] == "idle" and state["auto"] is True and state["can_install"] is False
+
+
+def test_update_check_is_broadcast(update_client):
+    client, _ = update_client
+    with client.websocket_connect("/ws") as ws:
+        for _ in range(3):
+            ws.receive_json()  # state, sound, style
+        assert client.post("/api/update/check").json()["latest"] == "9.0.0"
+        assert ws.receive_json()["status"] == "checking"
+        message = ws.receive_json()
+    assert message["type"] == "update" and message["status"] == "available"
+
+
+def test_update_auto_setting(client, settings_path):
+    assert client.post("/api/update/auto", json={"enabled": False}).json()["auto"] is False
+    assert Settings(settings_path).get("update_auto") is False
+
+
+def test_update_download_needs_exe(update_client):
+    client, _ = update_client
+    client.post("/api/update/check")
+    resp = client.post("/api/update/download")
+    assert resp.status_code == 400 and "exe" in resp.json()["detail"]
+
+
+def test_update_cancel_and_apply_without_download(client):
+    assert client.delete("/api/update/download").status_code == 404
+    assert client.post("/api/update/apply").status_code == 400
+
+
+def test_update_apply_restarts(update_client, monkeypatch):
+    client, updater = update_client
+    calls = []
+    monkeypatch.setattr(updater, "apply", lambda: calls.append("apply"))
+    updater.quit = lambda: calls.append("quit")
+    assert client.post("/api/update/apply").status_code == 200
+    assert calls == ["apply"]  # выход — чуть позже, после ответа
+    deadline = time.monotonic() + 5
+    while len(calls) < 2 and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert calls == ["apply", "quit"]
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{"Origin": "https://evil.example"}, {"Origin": "http://localhost.evil.example:8765"}, {"Origin": "null"},
+     {"Origin": "http://localhost:3000", "Host": "localhost:8765"},
+     {"Origin": "http://evil.example", "Host": "evil.example"},  # DNS rebinding
+     {"Sec-Fetch-Site": "cross-site"}, {"Sec-Fetch-Site": "same-site"}],
+)
+def test_foreign_origin_cannot_change_state(client, headers):
+    client.post("/api/increment")
+    for url in ("/api/reset", "/api/increment", "/api/update/apply"):
+        assert client.post(url, headers=headers).status_code == 403
+    assert client.get("/api/state", headers=headers).json() == {"count": 1}
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{"Origin": "http://127.0.0.1:8765", "Host": "127.0.0.1:8765"},
+     {"Origin": "http://localhost:8766", "Host": "localhost:8766"},
+     {"Origin": "http://[::1]:8765", "Host": "[::1]:8765"},
+     {"Sec-Fetch-Site": "same-origin"}, {}],
+)
+def test_own_pages_can_change_state(client, headers):
+    assert client.post("/api/increment", headers=headers).status_code == 200
+    assert client.get("/api/state").json() == {"count": 1}
