@@ -270,7 +270,7 @@
   }
 
   // Хорёк: число исполняет «военный танец» (радостные прыжки боком с выгнутой спиной),
-  // под ним пробегает хорёк и оставляет следы лапок, рядом выскакивает «дук!».
+  // под ним пробегает хорёк и оставляет следы лапок, рядом выскакивает «гу-гу!».
   const FERRET_SVG =
     '<svg viewBox="0 0 120 44" xmlns="http://www.w3.org/2000/svg">' +
     '<path d="M22 26 Q4 22 2 30 Q8 34 22 31Z" style="fill:var(--fur-dark)"/>' + // хвост
@@ -363,11 +363,11 @@
       ).onfinish = () => paw.remove();
     }
 
-    const dook = document.createElement("span");
-    dook.className = "dook";
-    dook.textContent = "дук!";
-    numberEl.appendChild(dook);
-    dook.animate(
+    const goo = document.createElement("span");
+    goo.className = "goo";
+    goo.textContent = "гу-гу!";
+    numberEl.appendChild(goo);
+    goo.animate(
       [
         { transform: "scale(0.3) rotate(-20deg)", opacity: 0 },
         { transform: "scale(1.2) rotate(10deg)", opacity: 1, offset: 0.15 },
@@ -376,7 +376,7 @@
         { transform: "translateY(-40%) scale(1) rotate(0)", opacity: 0 },
       ],
       { duration: 1100, delay: 120, easing: "ease-out", fill: "backwards" }
-    ).onfinish = () => dook.remove();
+    ).onfinish = () => goo.remove();
 
     floatPlus(delta, [
       { transform: "translate(-50%, 0) rotate(0)", opacity: 0 },

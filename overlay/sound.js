@@ -118,38 +118,46 @@ window.createDingPlayer = function createDingPlayer() {
     bell(ctx, out, 2637.0, t + 0.18, 0.5); // E7
   }
 
-  // «Гуканье» хорька (dooking): серия коротких мягких «дук» с плавающей высотой,
-  // как радостное квохтанье во время «военного танца».
-  function synthDook(ctx, out) {
+  // «Гуканье» хорька: быстрое мягкое «гу-гу-гу-гу», как радостный смешок во время
+  // «военного танца». Голос — пилообразная волна, а два полосовых фильтра на частотах
+  // гласной «у» (форманты ~320 и ~800 Гц) делают из неё глухое «гу».
+  function synthGoo(ctx, out) {
     const t = ctx.currentTime + 0.01;
-    const count = 5 + Math.floor(Math.random() * 3);
+    const count = 4 + Math.floor(Math.random() * 3);
+    const base = 210 + Math.random() * 40;
     for (let i = 0; i < count; i++) {
-      const start = t + i * (0.085 + Math.random() * 0.03);
-      const pitch = 420 + Math.random() * 140;
+      const start = t + i * (0.11 + Math.random() * 0.02);
+      const pitch = base * (1 + (Math.random() - 0.5) * 0.12);
       const osc = ctx.createOscillator();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(pitch * 1.35, start);
-      osc.frequency.exponentialRampToValueAtTime(pitch, start + 0.05);
-      // Полосовой фильтр делает тон глухим, «горловым», а не свистящим.
-      const filter = ctx.createBiquadFilter();
-      filter.type = "bandpass";
-      filter.frequency.value = pitch * 2;
-      filter.Q.value = 1.5;
+      osc.type = "sawtooth";
+      // «г» — короткий подъём тона, «у» — плавный спад
+      osc.frequency.setValueAtTime(pitch * 0.8, start);
+      osc.frequency.linearRampToValueAtTime(pitch * 1.15, start + 0.025);
+      osc.frequency.exponentialRampToValueAtTime(pitch * 0.9, start + 0.09);
       const gain = ctx.createGain();
-      const level = 0.7 + Math.random() * 0.3;
       gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(level, start + 0.008);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.07);
-      osc.connect(filter).connect(gain).connect(out);
+      gain.gain.exponentialRampToValueAtTime(1, start + 0.015);
+      gain.gain.setValueAtTime(1, start + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.1);
+      osc.connect(gain);
+      for (const [freq, q, level] of [[320, 4, 1], [800, 6, 0.35]]) {
+        const formant = ctx.createBiquadFilter();
+        formant.type = "bandpass";
+        formant.frequency.value = freq;
+        formant.Q.value = q;
+        const amp = ctx.createGain();
+        amp.gain.value = level;
+        gain.connect(formant).connect(amp).connect(out);
+      }
       osc.start(start);
-      osc.stop(start + 0.1);
+      osc.stop(start + 0.12);
     }
   }
 
   // Синтезированная замена стандартного звука, если файла нет: [функция, громкость]
   const SYNTH = {
     ding: [synthDing, 0.3], // без ослабления звон слишком громкий
-    ferret: [synthDook, 0.9],
+    ferret: [synthGoo, 1.1], // примерно та же громкость, что у звона
   };
 
   function play(sound) {

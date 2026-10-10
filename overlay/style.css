@@ -266,7 +266,7 @@ body {
 }
 
 :root[data-preset="ferret"] .plus,
-.dook {
+.goo {
   color: var(--nose);
   -webkit-text-stroke: calc(var(--size) * 0.03) var(--fur-dark);
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
@@ -276,8 +276,8 @@ body {
   background: radial-gradient(circle, var(--nose) 0%, transparent 60%);
 }
 
-/* «дук!» — облачко-возглас рядом с числом */
-.dook {
+/* «гу-гу!» — облачко-возглас рядом с числом */
+.goo {
   position: absolute;
   right: -10%;
   top: -10%;
