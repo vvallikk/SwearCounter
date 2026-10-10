@@ -4,13 +4,15 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from .counter import Counter
 from .paths import CONTROL_DIR, OVERLAY_DIR
-from .stt import Recognizer
+from .settings import Settings
+from .stt import CATALOG, VoskRecognizer, find_model
 
 log = logging.getLogger(__name__)
 
@@ -56,16 +58,20 @@ class Hub:
                 self.clients.discard(ws)
 
 
-def create_app(hub: Hub, recognizer: Recognizer | None = None) -> FastAPI:
+class ModelChoice(BaseModel):
+    model: str
+
+
+def create_app(hub: Hub, recognizer: VoskRecognizer, settings: Settings) -> FastAPI:
+    switch_lock = asyncio.Lock()
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        if recognizer is not None:
-            await recognizer.start()
+        await recognizer.start()
         try:
             yield
         finally:
-            if recognizer is not None:
-                await recognizer.stop()
+            await recognizer.stop()
 
     app = FastAPI(title="Счётчик матов", lifespan=lifespan)
 
@@ -84,6 +90,29 @@ def create_app(hub: Hub, recognizer: Recognizer | None = None) -> FastAPI:
     @app.post("/api/reset")
     async def post_reset():
         return {"count": await hub.reset()}
+
+    @app.get("/api/speech")
+    async def get_speech():
+        return {
+            "models": [m.to_dict() for m in CATALOG],
+            "model": recognizer.model_path.name,
+            "status": recognizer.status,
+            "progress": recognizer.load_progress,
+        }
+
+    @app.post("/api/speech/model")
+    async def post_speech_model(choice: ModelChoice):
+        model = find_model(choice.model)
+        if model is None:
+            raise HTTPException(404, f"Неизвестная модель {choice.model}")
+        if not model.installed:
+            raise HTTPException(409, f"Модель {model.title} не скачана: нет папки {model.path}")
+        async with switch_lock:
+            if model.path != recognizer.model_path:
+                log.info("Переключение модели: %s", model.id)
+                await recognizer.set_model(model.path)
+                settings.set("model", model.id)
+        return await get_speech()
 
     @app.websocket("/ws")
     async def websocket_endpoint(ws: WebSocket):

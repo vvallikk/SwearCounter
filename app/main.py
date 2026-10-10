@@ -13,7 +13,7 @@ from .paths import COUNTER_FILE, MODELS_DIR, SETTINGS_FILE, words_file
 from .profanity import count_profanity, load_words
 from .server import Hub, create_app
 from .settings import Settings
-from .stt import VoskRecognizer
+from .stt import CATALOG, VoskRecognizer, find_model, installed_models
 
 HOST = "127.0.0.1"
 PORT = 8765
@@ -49,21 +49,22 @@ def main() -> None:
             count = await hub.increment(found)
             log.info("Счётчик: %d", count)
 
-    # Распакованные модели Vosk, маленькие первыми.
-    models = sorted(
-        (p for p in MODELS_DIR.glob("vosk-model-*") if p.is_dir()),
-        key=lambda p: ("small" not in p.name, p.name),
-    )
+    models = installed_models()
     if not models:
         sys.exit(
-            f"Не найдена модель Vosk в {MODELS_DIR}\n"
-            "Скачайте русскую модель с https://alphacephei.com/vosk/models и распакуйте\n"
-            "в эту папку, например models/vosk-model-small-ru-0.22."
+            f"Не найдено ни одной модели распознавания в {MODELS_DIR}\n"
+            "Скачайте и распакуйте туда одну из моделей:\n"
+            + "\n".join(f"  {m.title}: {m.url}" for m in CATALOG)
         )
     device = int(args.device) if args.device and args.device.isdigit() else args.device
-    recognizer = VoskRecognizer(on_text, models[0], settings, device=device)
+    # Модель, выбранная на странице управления, иначе первая установленная из каталога.
+    saved = settings.get("model")
+    model = find_model(saved) if saved else None
+    if model is None or not model.installed:
+        model = models[0]
+    recognizer = VoskRecognizer(on_text, model.path, settings, device=device)
 
-    app = create_app(hub, recognizer)
+    app = create_app(hub, recognizer, settings)
 
     print(f"Счётчик: {hub.counter.value}")
     print(f"Оверлей для OBS:     http://localhost:{PORT}/overlay/")
