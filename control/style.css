@@ -160,6 +160,19 @@ select {
   text-overflow: ellipsis;
   cursor: pointer;
 }
+.text-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.text-input:focus { border-color: var(--muted); outline: none; }
+.label-position { flex: 0 0 130px; }
 .square-btn {
   flex: none;
   width: 42px;
@@ -267,8 +280,8 @@ select {
 /* Превью — тот же оверлей в режиме preview. */
 .preset-preview {
   flex: none;
-  width: 112px;
-  height: 72px;
+  width: 150px;
+  height: 84px;
   border: 1px solid var(--border);
   border-radius: 10px;
   pointer-events: none;

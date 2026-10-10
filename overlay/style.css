@@ -2,6 +2,8 @@
 :root {
   --size: 120px;
   --color: #ffffff;
+  /* Подпись меньше числа; объявлено здесь, чтобы считаться от --size числа */
+  --label-size: calc(var(--size) * 0.4);
 }
 
 /* Полностью прозрачный фон для OBS */
@@ -24,9 +26,29 @@ body {
   user-select: none;
 }
 
+/* Подпись и число — один блок; положение подписи задаёт data-label-position на <html>. */
 .counter {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--size) * 0.15);
   line-height: 1;
+}
+
+:root[data-label-position="right"] .counter { flex-direction: row-reverse; }
+:root[data-label-position="top"] .counter { flex-direction: column; gap: calc(var(--size) * 0.05); }
+:root[data-label-position="bottom"] .counter { flex-direction: column-reverse; gap: calc(var(--size) * 0.05); }
+
+/* Вокруг числа строятся вспышка, «+N» и искры */
+.number {
+  position: relative;
+}
+
+/* Внутри подписи --size — её размер: обводка и тени пресетов уменьшаются вместе с ней */
+.label {
+  --size: var(--label-size);
+  font-size: var(--size);
+  color: var(--color);
+  white-space: nowrap;
 }
 
 .value {
@@ -35,7 +57,12 @@ body {
   font-size: var(--size);
   color: var(--color);
   font-variant-numeric: tabular-nums;
-  /* Обводка рисуется под заливкой, чтобы цифры не становились тоньше */
+}
+
+/* Обводка рисуется под заливкой, чтобы цифры не становились тоньше.
+   Подпись оформляется так же, как число, во всех пресетах ниже. */
+.value,
+.label {
   -webkit-text-stroke: calc(var(--size) * 0.07) #000;
   paint-order: stroke fill;
   text-shadow: 0 calc(var(--size) * 0.04) calc(var(--size) * 0.1) rgba(0, 0, 0, 0.6);
@@ -71,20 +98,14 @@ body {
    "classic" — стили выше без изменений. Цвет цифр (--color) выставляет
    overlay.js: из ?color= или из пресета (presets.js). */
 
-/* --- Режим предпросмотра (?preview=1): число чуть ниже центра,
-   чтобы «+1» не обрезалось в маленьком iframe --- */
-:root[data-preview] body {
-  box-sizing: border-box;
-  padding-top: calc(var(--size) * 0.45);
-}
-
 /* --- Мем: Impact, толстая чёрная обводка --- */
 :root[data-preset="impact"] body {
   font-family: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif;
   font-weight: 400;
 }
 
-:root[data-preset="impact"] .value {
+:root[data-preset="impact"] .value,
+:root[data-preset="impact"] .label {
   letter-spacing: 0.02em;
   -webkit-text-stroke: calc(var(--size) * 0.09) #000;
   text-shadow: calc(var(--size) * 0.03) calc(var(--size) * 0.05) 0 #000;
@@ -109,7 +130,8 @@ body {
   font-weight: 600;
 }
 
-:root[data-preset="neon"] .value {
+:root[data-preset="neon"] .value,
+:root[data-preset="neon"] .label {
   -webkit-text-stroke: 0;
   text-shadow:
     0 0 calc(var(--size) * 0.04) #fff,
@@ -142,7 +164,8 @@ body {
   font-weight: 700;
 }
 
-:root[data-preset="retro"] .value {
+:root[data-preset="retro"] .value,
+:root[data-preset="retro"] .label {
   -webkit-text-stroke: 0;
   text-shadow:
     calc(var(--size) * 0.05) calc(var(--size) * 0.05) 0 #d6262b,
@@ -164,7 +187,8 @@ body {
   font-weight: 600;
 }
 
-:root[data-preset="minimal"] .value {
+:root[data-preset="minimal"] .value,
+:root[data-preset="minimal"] .label {
   -webkit-text-stroke: 0;
   text-shadow: 0 calc(var(--size) * 0.02) calc(var(--size) * 0.08) rgba(0, 0, 0, 0.55);
 }
@@ -189,7 +213,8 @@ body {
   font-weight: 900;
 }
 
-:root[data-preset="explosion"] .value {
+:root[data-preset="explosion"] .value,
+:root[data-preset="explosion"] .label {
   -webkit-text-stroke: calc(var(--size) * 0.07) #2a0a00;
   text-shadow:
     0 0 calc(var(--size) * 0.12) var(--accent),

@@ -45,6 +45,25 @@
       <div id="mic-status" class="status-line"></div>
     </section>
 
+    <section id="label-section" class="section" hidden>
+      <label class="section-title" for="label-text">Подпись к счётчику</label>
+      <div class="row">
+        <input id="label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
+               placeholder="Например: Маты за стрим:">
+        <div class="select-wrap label-position">
+          <select id="label-position" aria-label="Где подпись">
+            <option value="left">Слева</option>
+            <option value="right">Справа</option>
+            <option value="top">Сверху</option>
+            <option value="bottom">Снизу</option>
+          </select>
+        </div>
+      </div>
+      <p class="note">Подпись и число — один источник в OBS: двигаются и масштабируются вместе.
+        Пустое поле — только число. Как это выглядит — в превью оформления ниже.</p>
+      <div id="label-status" class="status-line"></div>
+    </section>
+
     <section id="sound-section" class="section" hidden>
       <label class="section-title" for="volume">Звук оповещения</label>
       <div class="row volume-row">

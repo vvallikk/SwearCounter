@@ -18,7 +18,13 @@
       init.headers = { "Content-Type": "application/json" };
       init.body = JSON.stringify(body);
     }
-    const resp = await fetch(url, init);
+    let resp;
+    try {
+      resp = await fetch(url, init);
+    } catch (e) {
+      // Браузер пишет только «Failed to fetch»: приложение закрыто или перезапускается.
+      throw new Error("Нет связи с приложением. Проверьте, что оно запущено, и повторите");
+    }
     const data = await resp.json().catch(() => null);
     if (resp.ok) return data;
     const detail = data && data.detail;
@@ -283,7 +289,10 @@
     const play = el("button", "icon-btn", "▶");
     play.type = "button";
     play.title = "Прослушать";
-    play.addEventListener("click", () => player.preview(id));
+    play.addEventListener("click", () => {
+      setStatus(soundStatusEl, "");
+      player.preview(id);
+    });
     item.append(pick, play);
     if (id !== null) {
       const del = el("button", "icon-btn", "🗑");
@@ -389,8 +398,19 @@
   const presetPreviewEl = $("preset-preview");
   const presetDescEl = $("preset-desc");
   let shownPreset = null;
+  let presetRequests = 0; // сколько выборов ещё не подтвердил сервер
 
   presetEl.replaceChildren(...presets.map((p) => new Option(p.title, p.id)));
+
+  // Превью загружается один раз, а стиль в нём меняется сообщением. Если бы iframe
+  // перезагружался на каждую смену, при быстром переключении превью могло пропасть.
+  function sendPreviewStyle() {
+    const win = presetPreviewEl.contentWindow;
+    if (!win || !shownPreset) return;
+    const message = { type: "style", preset: shownPreset, label: labelTextEl.value.trim(), label_position: labelPositionEl.value };
+    win.postMessage(message, location.origin);
+  }
+  presetPreviewEl.addEventListener("load", sendPreviewStyle);
 
   function showPreset(id) {
     const preset = presets.find((p) => p.id === id) || presets[0];
@@ -398,22 +418,78 @@
     $("preset-section").hidden = false;
     presetEl.value = preset.id;
     presetDescEl.textContent = preset.description;
-    // Превью перезагружаем только при смене стиля: иначе анимация начиналась бы заново.
-    if (shownPreset !== preset.id) {
-      shownPreset = preset.id;
-      presetPreviewEl.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}&size=34`;
-    }
+    if (shownPreset === preset.id) return;
+    const first = shownPreset === null;
+    shownPreset = preset.id;
+    // Без ?size число в превью подгоняется под рамку, как в OBS.
+    if (first) presetPreviewEl.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}`;
+    else sendPreviewStyle();
   }
 
   presetEl.addEventListener("change", async () => {
     const id = presetEl.value;
     showPreset(id); // сразу, не дожидаясь сервера
+    presetRequests += 1;
     try {
-      showPreset((await api("POST", "/api/overlay/preset", { preset: id })).preset);
+      await api("POST", "/api/overlay/preset", { preset: id });
     } catch (e) {
       setOnline(false);
+    } finally {
+      presetRequests -= 1;
     }
   });
+
+  // Стиль от сервера (WebSocket). Пока свои выборы не подтверждены, приходят ответы
+  // на прежние — они вернули бы список назад, поэтому их пропускаем.
+  function showServerPreset(id) {
+    if (presetRequests === 0) showPreset(id);
+  }
+
+  // --- Подпись к счётчику: текст и число — один источник в OBS ---
+
+  const labelTextEl = $("label-text");
+  const labelPositionEl = $("label-position");
+  const labelStatusEl = $("label-status");
+  let labelTimer = null; // отправка текста ждёт, пока перестанут печатать
+  let labelRequests = 0;
+
+  function showLabel(text, position) {
+    $("label-section").hidden = false;
+    labelTextEl.value = text;
+    labelPositionEl.value = position;
+    sendPreviewStyle();
+  }
+
+  async function sendLabel() {
+    clearTimeout(labelTimer);
+    labelTimer = null;
+    labelRequests += 1;
+    try {
+      await api("POST", "/api/overlay/label", { text: labelTextEl.value, position: labelPositionEl.value });
+      setStatus(labelStatusEl, "");
+    } catch (e) {
+      setStatus(labelStatusEl, e.message, true);
+    } finally {
+      labelRequests -= 1;
+    }
+  }
+
+  labelTextEl.addEventListener("input", () => {
+    sendPreviewStyle(); // превью меняется сразу, оверлей — когда замрёт ввод
+    clearTimeout(labelTimer);
+    labelTimer = setTimeout(sendLabel, 400);
+  });
+  labelPositionEl.addEventListener("change", () => {
+    sendPreviewStyle();
+    sendLabel();
+  });
+
+  // Подпись от сервера. Пока её редактируют здесь, не перезаписываем поле.
+  function showServerLabel(text, position) {
+    if (typeof text !== "string") return; // сервер старее страницы
+    if (labelRequests > 0 || labelTimer !== null || document.activeElement === labelTextEl) return;
+    showLabel(text, position);
+  }
 
   // --- Модель распознавания: карточки, выбор кликом, описание раскрывается ---
 
@@ -610,7 +686,10 @@
       }
       if (msg.type === "mic_level") targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
       else if (msg.type === "sound") showSound(msg);
-      else if (msg.type === "style") showPreset(msg.preset);
+      else if (msg.type === "style") {
+        showServerPreset(msg.preset);
+        showServerLabel(msg.label, msg.label_position);
+      }
       else if (msg.count !== undefined) countEl.textContent = msg.count;
     };
     ws.onclose = () => {

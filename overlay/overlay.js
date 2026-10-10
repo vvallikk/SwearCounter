@@ -2,12 +2,21 @@
   "use strict";
 
   const RECONNECT_MS = 2000;
+  // Подгонка под окно: число не уже MIN_DIGITS цифр и занимает такую долю окна,
+  // чтобы рядом осталось место для «+N» и увеличения при анимации.
+  const FIT_BASE_PX = 100;
+  const FIT_MIN_DIGITS = 3;
+  const FIT_WIDTH = 0.9;
+  const FIT_HEIGHT = 0.7;
   const PREVIEW_INTERVAL_MS = 2500;
   const PREVIEW_COUNT = 42;
 
   // --- Параметры из адреса: ?size=120&color=ffffff&mute=1&preset=neon&preview=1 ---
   const params = new URLSearchParams(location.search);
-  const size = Math.min(Math.max(parseInt(params.get("size"), 10) || 120, 16), 1000);
+  // Без ?size число растягивается под размер окна (источника в OBS).
+  const sizeParam = parseInt(params.get("size"), 10);
+  const autoSize = !(sizeParam > 0);
+  let size = autoSize ? 120 : Math.min(Math.max(sizeParam, 16), 1000);
   const colorRaw = (params.get("color") || "").replace(/^#/, "");
   // Явный цвет перекрывает цвет пресета; без него берётся цвет пресета.
   const colorOverride = /^([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(colorRaw) ? "#" + colorRaw : null;
@@ -18,15 +27,42 @@
   const fixedPreset = params.get("preset") || null;
 
   const root = document.documentElement;
-  root.style.setProperty("--size", size + "px");
+  function setSize(px) {
+    size = px;
+    root.style.setProperty("--size", px + "px");
+  }
+  setSize(size);
   if (preview) root.setAttribute("data-preview", "");
 
   const counterEl = document.getElementById("counter");
+  const numberEl = document.getElementById("number");
+  const labelEl = document.getElementById("label");
   const valueEl = document.getElementById("value");
   const glowEl = document.getElementById("glow");
 
+  // Меряет счётчик при размере FIT_BASE_PX и масштабирует его под окно.
+  // Размеры без transform (offsetWidth), поэтому идущая анимация не мешает.
+  function fitToWindow() {
+    if (!autoSize) return;
+    const text = valueEl.textContent;
+    setSize(FIT_BASE_PX);
+    valueEl.textContent = text.padStart(FIT_MIN_DIGITS, "0");
+    const width = counterEl.offsetWidth;
+    const height = counterEl.offsetHeight;
+    valueEl.textContent = text;
+    if (!width || !height) return;
+    const scale = Math.min((innerWidth * FIT_WIDTH) / width, (innerHeight * FIT_HEIGHT) / height);
+    setSize(Math.max(8, Math.floor(FIT_BASE_PX * scale)));
+  }
+
+  window.addEventListener("resize", fitToWindow);
+  if (document.fonts) document.fonts.ready.then(fitToWindow);
+
   function setCount(n) {
-    valueEl.textContent = String(n);
+    const text = String(n);
+    const grew = text.length !== valueEl.textContent.length;
+    valueEl.textContent = text;
+    if (grew) fitToWindow();
   }
 
   // --- Пресеты (overlay/presets.js) ---
@@ -42,6 +78,7 @@
     currentPreset = preset.id;
     root.setAttribute("data-preset", preset.id);
     root.style.setProperty("--color", colorOverride || preset.color || "#ffffff");
+    fitToWindow(); // у пресетов разные шрифты и ширина цифр
   }
 
   // --- Анимации ---
@@ -51,7 +88,7 @@
     const plus = document.createElement("span");
     plus.className = "plus";
     plus.textContent = "+" + delta;
-    counterEl.appendChild(plus);
+    numberEl.appendChild(plus);
     const anim = plus.animate(
       keyframes || [
         { transform: "translate(-50%, 0) scale(0.6)", opacity: 0 },
@@ -206,7 +243,7 @@
     for (let i = 0; i < SPARK_COUNT; i++) {
       const spark = document.createElement("span");
       spark.className = "spark";
-      counterEl.appendChild(spark);
+      numberEl.appendChild(spark);
       const angle = (i / SPARK_COUNT) * Math.PI * 2 + Math.random() * 0.4;
       const dist = size * (0.7 + Math.random() * 0.5);
       const dx = Math.cos(angle) * dist;
@@ -244,9 +281,18 @@
     (INCREMENT_ANIMATIONS[currentPreset] || animateClassic)(delta);
   }
 
-  // Смена пресета «вживую» (если он не закреплён в адресе)
+  // Подпись рядом с числом: text — строка (пустая — без подписи), position — left/right/top/bottom
+  function applyLabel(text, position) {
+    labelEl.textContent = text;
+    labelEl.hidden = !text;
+    root.setAttribute("data-label-position", position || "left");
+    fitToWindow();
+  }
+
+  // Сообщение "style": пресет (если он не закреплён в адресе) и подпись
   function handleStyle(msg) {
     if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
+    if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
   }
 
   applyPreset(fixedPreset || "classic");
@@ -261,12 +307,14 @@
       playIncrementAnimation(1);
     }, PREVIEW_INTERVAL_MS);
     setTimeout(() => playIncrementAnimation(1), 400);
-    // Страница управления может сменить пресет без перезагрузки iframe:
-    // iframe.contentWindow.postMessage({ type: "style", preset: "neon" }, location.origin)
+    // Страница управления меняет стиль без перезагрузки iframe тем же сообщением, что и сервер:
+    // iframe.contentWindow.postMessage({ type: "style", preset: "neon", label: "Маты:" }, location.origin)
     window.addEventListener("message", (event) => {
       if (event.origin !== location.origin) return;
       const msg = event.data;
-      if (msg && msg.type === "style" && typeof msg.preset === "string") applyPreset(msg.preset);
+      if (!msg || msg.type !== "style") return;
+      if (typeof msg.preset === "string") applyPreset(msg.preset); // в превью ?preset — только начальный
+      if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
     });
     return;
   }

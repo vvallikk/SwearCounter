@@ -95,9 +95,18 @@ class PresetChoice(BaseModel):
     preset: str
 
 
+class LabelChoice(BaseModel):
+    text: str
+    position: str
+
+
 DEFAULT_PRESET = "classic"
 # Список пресетов знает только оверлей (overlay/presets.js); сервер проверяет форму id.
 PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
+# Подпись рядом с числом («Маты:»): где она стоит относительно числа.
+LABEL_POSITIONS = ("left", "right", "top", "bottom")
+DEFAULT_LABEL_POSITION = "left"
+LABEL_MAX_LENGTH = 40
 
 
 def create_app(
@@ -124,8 +133,15 @@ def create_app(
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
 
+    def overlay_state() -> dict:
+        return {
+            "preset": settings.get("overlay_preset", DEFAULT_PRESET),
+            "label": settings.get("overlay_label", ""),
+            "label_position": settings.get("overlay_label_position", DEFAULT_LABEL_POSITION),
+        }
+
     def style_message() -> dict:
-        return {"type": "style", "preset": settings.get("overlay_preset", DEFAULT_PRESET)}
+        return {"type": "style", **overlay_state()}
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -278,13 +294,26 @@ def create_app(
 
     @app.get("/api/overlay")
     async def get_overlay():
-        return {"preset": settings.get("overlay_preset", DEFAULT_PRESET)}
+        return overlay_state()
 
     @app.post("/api/overlay/preset")
     async def post_overlay_preset(choice: PresetChoice):
         if not PRESET_ID.fullmatch(choice.preset):
             raise HTTPException(400, "Неверный id пресета")
         settings.set("overlay_preset", choice.preset)
+        await hub.broadcast(style_message())
+        return await get_overlay()
+
+    @app.post("/api/overlay/label")
+    async def post_overlay_label(choice: LabelChoice):
+        # Подпись — одна строка: переводы строк и табуляции превращаем в пробелы.
+        text = " ".join(choice.text.split())
+        if len(text) > LABEL_MAX_LENGTH:
+            raise HTTPException(400, f"Подпись длиннее {LABEL_MAX_LENGTH} символов")
+        if choice.position not in LABEL_POSITIONS:
+            raise HTTPException(400, "Неверное положение подписи")
+        settings.set("overlay_label", text)
+        settings.set("overlay_label_position", choice.position)
         await hub.broadcast(style_message())
         return await get_overlay()
 

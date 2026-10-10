@@ -417,19 +417,53 @@ def test_preset_is_saved_and_broadcast(client, settings_path):
     with client.websocket_connect("/ws") as ws:
         for _ in range(3):
             ws.receive_json()
-        assert client.post("/api/overlay/preset", json={"preset": "neon"}).json() == {"preset": "neon"}
-        assert ws.receive_json() == {"type": "style", "preset": "neon"}
-    assert client.get("/api/overlay").json() == {"preset": "neon"}
+        assert client.post("/api/overlay/preset", json={"preset": "neon"}).json()["preset"] == "neon"
+        assert ws.receive_json() == {"type": "style", "preset": "neon", "label": "", "label_position": "left"}
+    assert client.get("/api/overlay").json()["preset"] == "neon"
     assert Settings(settings_path).get("overlay_preset") == "neon"
 
 
-def test_default_preset_is_classic(client):
-    assert client.get("/api/overlay").json() == {"preset": "classic"}
+def test_default_overlay_style(client):
+    assert client.get("/api/overlay").json() == {"preset": "classic", "label": "", "label_position": "left"}
 
 
 @pytest.mark.parametrize("preset", ["", "Neon", "../etc", "a" * 33])
 def test_invalid_preset_rejected(client, preset):
     assert client.post("/api/overlay/preset", json={"preset": preset}).status_code == 400
+
+
+def test_label_is_saved_and_broadcast(client, settings_path):
+    with client.websocket_connect("/ws") as ws:
+        for _ in range(3):
+            ws.receive_json()
+        response = client.post("/api/overlay/label", json={"text": "  Маты:\n ", "position": "top"})
+        assert response.json() == {"preset": "classic", "label": "Маты:", "label_position": "top"}
+        assert ws.receive_json() == {"type": "style", "preset": "classic", "label": "Маты:", "label_position": "top"}
+    assert Settings(settings_path).get("overlay_label") == "Маты:"
+    assert Settings(settings_path).get("overlay_label_position") == "top"
+
+
+def test_label_whitespace_is_collapsed(client):
+    response = client.post("/api/overlay/label", json={"text": "Маты\tза\n\nстрим", "position": "left"})
+    assert response.json()["label"] == "Маты за стрим"
+
+
+def test_empty_label_is_allowed(client):
+    client.post("/api/overlay/label", json={"text": "Маты:", "position": "left"})
+    assert client.post("/api/overlay/label", json={"text": "", "position": "left"}).json()["label"] == ""
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"text": "а" * 41, "position": "left"},
+        {"text": "Маты:", "position": "center"},
+        {"text": "Маты:"},
+    ],
+)
+def test_invalid_label_rejected(client, settings_path, body):
+    assert client.post("/api/overlay/label", json=body).status_code in (400, 422)
+    assert Settings(settings_path).get("overlay_label") is None
 
 
 def test_version(client):

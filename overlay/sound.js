@@ -8,7 +8,11 @@ window.createDingPlayer = function createDingPlayer() {
   let audioCtx = null;
   let buffer = null;
   let volume = 1;
-  let loadedVersion = null;
+  let activeId = null;
+  // Раскодированные звуки: id -> Promise<AudioBuffer | null>. Id у каждого файла свой,
+  // поэтому звук скачивается и раскодируется один раз, а «Прослушать» играет сразу.
+  const buffers = new Map();
+  let standard = null; // то же для overlay/sounds/ding.mp3
 
   function context() {
     if (!audioCtx) {
@@ -20,19 +24,6 @@ window.createDingPlayer = function createDingPlayer() {
     return audioCtx;
   }
 
-  // Стандартный звук: overlay/sounds/ding.mp3 или, если его нет, синтезированный (null).
-  async function standardBuffer() {
-    try {
-      return await fetchBuffer("/overlay/sounds/ding.mp3");
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function soundUrl(id, version) {
-    return `/api/sound/file/${encodeURIComponent(id)}?v=${version}`;
-  }
-
   async function fetchBuffer(url) {
     const resp = await fetch(url, { cache: "no-store" });
     if (!resp.ok) return null;
@@ -41,20 +32,42 @@ window.createDingPlayer = function createDingPlayer() {
     return ctx.decodeAudioData(await resp.arrayBuffer());
   }
 
+  // Звук из библиотеки (id) или стандартный (null). null в ответе — синтезированный звон.
+  function load(id) {
+    if (id === null) {
+      if (!standard) {
+        standard = fetchBuffer("/overlay/sounds/ding.mp3").catch(() => {
+          standard = null; // сеть недоступна — попробуем в следующий раз
+          return null;
+        });
+      }
+      return standard;
+    }
+    let promise = buffers.get(id);
+    if (!promise) {
+      promise = fetchBuffer(`/api/sound/file/${encodeURIComponent(id)}`)
+        .catch(() => null)
+        .then((sound) => {
+          if (!sound && buffers.get(id) === promise) buffers.delete(id); // не кешируем неудачу
+          return sound;
+        });
+      buffers.set(id, promise);
+    }
+    return promise;
+  }
+
   // state — ответ /api/sound или сообщение "sound" из WebSocket.
+  // Завершается, когда выбранный звук готов к проигрыванию.
   async function apply(state) {
     volume = Math.max(0, Math.min(100, state.volume)) / 100;
-    if (state.version === loadedVersion) return;
-    loadedVersion = state.version;
-    let next = null;
-    try {
-      next = state.active ? await fetchBuffer(soundUrl(state.active, state.version)) : null;
-    } catch (e) {
-      next = null; // файл не прочитался — будет стандартный звук
-    }
-    if (!next) next = await standardBuffer();
-    // Пока грузили, могла прийти ещё более новая версия.
-    if (loadedVersion === state.version) buffer = next;
+    const ids = new Set((state.sounds || []).map((s) => s.id));
+    for (const id of buffers.keys()) if (!ids.has(id)) buffers.delete(id);
+    ids.forEach(load); // заранее, чтобы «Прослушать» не ждал загрузки
+    const id = state.active || null;
+    activeId = id;
+    const sound = (id && (await load(id))) || (await load(null));
+    // Пока грузили, могли выбрать другой звук.
+    if (activeId === id) buffer = sound;
   }
 
   // Один удар колокольчика: основной тон и негармонический обертон с затуханием
@@ -103,13 +116,8 @@ window.createDingPlayer = function createDingPlayer() {
 
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
   async function preview(id) {
-    let sound = null;
-    try {
-      sound = id ? await fetchBuffer(soundUrl(id, Date.now())) : await standardBuffer();
-    } catch (e) {
-      sound = null;
-    }
-    play(sound);
+    context(); // запускаем звук сразу по клику, пока файл догружается
+    play((id && (await load(id))) || (await load(null)));
   }
 
   // Проверяет, что файл можно проиграть, до отправки на сервер.
