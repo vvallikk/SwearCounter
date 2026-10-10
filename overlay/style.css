@@ -1,0 +1,67 @@
+/* Размер и цвет задаются из overlay.js по параметрам ?size= и ?color= */
+:root {
+  --size: 120px;
+  --color: #ffffff;
+}
+
+/* Полностью прозрачный фон для OBS */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Segoe UI Black", "Arial Black", "Segoe UI", Arial, sans-serif;
+  font-weight: 900;
+  user-select: none;
+}
+
+.counter {
+  position: relative;
+  line-height: 1;
+}
+
+.value {
+  position: relative;
+  display: inline-block;
+  font-size: var(--size);
+  color: var(--color);
+  font-variant-numeric: tabular-nums;
+  /* Обводка рисуется под заливкой, чтобы цифры не становились тоньше */
+  -webkit-text-stroke: calc(var(--size) * 0.07) #000;
+  paint-order: stroke fill;
+  text-shadow: 0 calc(var(--size) * 0.04) calc(var(--size) * 0.1) rgba(0, 0, 0, 0.6);
+}
+
+/* Вспышка за числом */
+.glow {
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--color) 0%, transparent 65%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Всплывающая надпись «+1» */
+.plus {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  font-size: calc(var(--size) * 0.45);
+  color: var(--color);
+  -webkit-text-stroke: calc(var(--size) * 0.03) #000;
+  paint-order: stroke fill;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
