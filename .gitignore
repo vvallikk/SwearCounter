@@ -6,3 +6,5 @@ counter.json
 counter.json.tmp
 build/
 dist/
+settings.json
+settings.json.tmp

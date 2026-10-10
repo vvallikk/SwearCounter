@@ -1,3 +1,5 @@
 fastapi==0.143.0
 uvicorn==0.54.0
 websockets==17.2
+sounddevice==0.5.6
+vosk==0.3.45
