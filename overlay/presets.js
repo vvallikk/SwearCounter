@@ -5,6 +5,7 @@
 // Шрифт, обводка и тени описаны в style.css (селектор [data-preset="<id>"]),
 // анимации прибавления — в overlay.js (таблица INCREMENT_ANIMATIONS).
 // color — цвет цифр по умолчанию; параметр ?color= в адресе его перекрывает.
+// sound — стандартный звук пресета (overlay/sounds/<sound>.mp3, см. sound.js); без него — звон.
 window.OVERLAY_PRESETS = [
   {
     id: "classic",
@@ -41,5 +42,12 @@ window.OVERLAY_PRESETS = [
     title: "Взрыв",
     description: "Огненные цифры, резкое увеличение и разлетающиеся искры.",
     color: "#ffb21f",
+  },
+  {
+    id: "ferret",
+    title: "Хорёк 🐾",
+    description: "Спешл для хорьков: «военный танец» числа, пробегающий хорёк, следы лапок и гуканье.",
+    color: "#fff1dc",
+    sound: "ferret",
   },
 ];

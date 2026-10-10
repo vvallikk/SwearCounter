@@ -1,5 +1,6 @@
 """HTTP API и WebSocket (без /api/sound: звук переписывается отдельно)."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,7 @@ from app.sound import Sound
 from app.stt import CATALOG
 from conftest import HYPERX, REALTEK, STEAM
 
+ROOT = Path(__file__).resolve().parent.parent
 SMALL = "vosk-model-small-ru-0.22"
 LARGE = "vosk-model-ru-0.42"
 
@@ -425,6 +427,18 @@ def test_preset_is_saved_and_broadcast(client, settings_path):
 
 def test_default_overlay_style(client):
     assert client.get("/api/overlay").json() == {"preset": "classic", "label": "", "label_position": "left"}
+
+
+PRESET_IDS = re.findall(r'id: "([^"]+)"', (ROOT / "overlay" / "presets.js").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("preset", PRESET_IDS)
+def test_every_overlay_preset_is_accepted(client, preset):
+    assert client.post("/api/overlay/preset", json={"preset": preset}).json()["preset"] == preset
+
+
+def test_ferret_preset_is_listed():
+    assert "ferret" in PRESET_IDS
 
 
 @pytest.mark.parametrize("preset", ["", "Neon", "../etc", "a" * 33])

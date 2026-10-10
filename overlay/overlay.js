@@ -269,6 +269,123 @@
     ], { duration: 1200, easing: "ease-out" });
   }
 
+  // Хорёк: число исполняет «военный танец» (радостные прыжки боком с выгнутой спиной),
+  // под ним пробегает хорёк и оставляет следы лапок, рядом выскакивает «дук!».
+  const FERRET_SVG =
+    '<svg viewBox="0 0 120 44" xmlns="http://www.w3.org/2000/svg">' +
+    '<path d="M22 26 Q4 22 2 30 Q8 34 22 31Z" style="fill:var(--fur-dark)"/>' + // хвост
+    '<rect x="30" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' + // лапы
+    '<rect x="44" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' +
+    '<rect x="72" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' +
+    '<rect x="84" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' +
+    '<ellipse cx="58" cy="25" rx="38" ry="11" style="fill:var(--fur)"/>' + // туловище
+    '<ellipse cx="60" cy="30" rx="26" ry="5" fill="#c99a6b"/>' + // светлое брюшко
+    '<circle cx="92" cy="9" r="5" fill="#f3e2c7"/>' + // ухо
+    '<ellipse cx="100" cy="19" rx="15" ry="11" fill="#f3e2c7"/>' + // голова
+    '<path d="M90 16 Q101 11 112 17 Q103 21 90 21Z" style="fill:var(--fur-dark)"/>' + // «маска»
+    '<circle cx="103" cy="17" r="2.6" fill="#111"/>' + // глаз
+    '<circle cx="104" cy="16" r="0.9" fill="#fff"/>' +
+    '<circle cx="114.5" cy="22" r="2.6" style="fill:var(--nose)"/>' + // нос
+    "</svg>";
+  const PAW_SVG =
+    '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="fill:var(--fur-dark)">' +
+    '<ellipse cx="10" cy="13.5" rx="5" ry="4.5"/>' +
+    '<circle cx="3.5" cy="7.5" r="2.2"/><circle cx="7.5" cy="4" r="2.2"/>' +
+    '<circle cx="12.5" cy="4" r="2.2"/><circle cx="16.5" cy="7.5" r="2.2"/></svg>';
+  const FERRET_RUN_MS = 1300;
+  const PAW_COUNT = 6;
+
+  function svgElement(className, svg) {
+    const span = document.createElement("span");
+    span.className = className;
+    span.innerHTML = svg;
+    numberEl.appendChild(span);
+    return span;
+  }
+
+  function animateFerret(delta) {
+    valueEl.animate(
+      [
+        { transform: "translate(0, 0) skewX(0) scale(1)" },
+        { transform: "translate(-10%, -18%) skewX(12deg) scale(1.15, 1.2)", offset: 0.18 },
+        { transform: "translate(-12%, 0) skewX(0) scale(1.2, 0.85)", offset: 0.32 },
+        { transform: "translate(8%, -16%) skewX(-12deg) scale(1.15, 1.2)", offset: 0.52 },
+        { transform: "translate(10%, 0) skewX(0) scale(1.2, 0.85)", offset: 0.68 },
+        { transform: "translate(0, -6%) skewX(4deg) scale(1.05)", offset: 0.84 },
+        { transform: "translate(0, 0) skewX(0) scale(1)" },
+      ],
+      { duration: 900, easing: "ease-in-out" }
+    );
+
+    glowEl.animate(
+      [
+        { opacity: 0, transform: "scale(0.6)" },
+        { opacity: 0.45, transform: "scale(1)", offset: 0.25 },
+        { opacity: 0, transform: "scale(1.3)" },
+      ],
+      { duration: 900, easing: "ease-out" }
+    );
+
+    // Хорёк бежит слева направо галопом: спина то выгибается, то вытягивается.
+    // Направление меняется случайно, тогда хорёк разворачивается мордой по ходу.
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const from = -dir * size * 1.7;
+    const to = dir * size * 1.7;
+    const flip = dir === 1 ? "" : " scaleX(-1)";
+    const ferret = svgElement("ferret", FERRET_SVG);
+    const steps = [];
+    const HOPS = 8;
+    for (let i = 0; i <= HOPS; i++) {
+      const x = from + ((to - from) * i) / HOPS;
+      const up = i % 2 === 1;
+      steps.push({
+        transform: `translateX(${x}px) translateY(${up ? -size * 0.12 : 0}px) scaleY(${up ? 1.12 : 0.92})${flip}`,
+        opacity: i === 0 || i === HOPS ? 0 : 1,
+      });
+    }
+    ferret.animate(steps, { duration: FERRET_RUN_MS, easing: "linear" }).onfinish = () => ferret.remove();
+
+    // Следы лапок появляются за хорьком и тают.
+    for (let i = 0; i < PAW_COUNT; i++) {
+      const share = (i + 1) / (PAW_COUNT + 1);
+      const x = from + (to - from) * share;
+      const y = i % 2 ? size * 0.05 : -size * 0.02;
+      const paw = svgElement("paw", PAW_SVG);
+      const turn = dir === 1 ? 90 : -90; // пальцы смотрят по ходу бега
+      paw.animate(
+        [
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(0.4)`, opacity: 0 },
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0.85, offset: 0.1 },
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0.85, offset: 0.6 },
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0 },
+        ],
+        { duration: 1400, delay: FERRET_RUN_MS * share, easing: "ease-out", fill: "backwards" }
+      ).onfinish = () => paw.remove();
+    }
+
+    const dook = document.createElement("span");
+    dook.className = "dook";
+    dook.textContent = "дук!";
+    numberEl.appendChild(dook);
+    dook.animate(
+      [
+        { transform: "scale(0.3) rotate(-20deg)", opacity: 0 },
+        { transform: "scale(1.2) rotate(10deg)", opacity: 1, offset: 0.15 },
+        { transform: "scale(1) rotate(-6deg)", opacity: 1, offset: 0.3 },
+        { transform: "scale(1.05) rotate(6deg)", opacity: 1, offset: 0.45 },
+        { transform: "translateY(-40%) scale(1) rotate(0)", opacity: 0 },
+      ],
+      { duration: 1100, delay: 120, easing: "ease-out", fill: "backwards" }
+    ).onfinish = () => dook.remove();
+
+    floatPlus(delta, [
+      { transform: "translate(-50%, 0) rotate(0)", opacity: 0 },
+      { transform: "translate(-65%, -60%) rotate(-10deg)", opacity: 1, offset: 0.2 },
+      { transform: "translate(-35%, -100%) rotate(10deg)", opacity: 1, offset: 0.5 },
+      { transform: "translate(-50%, -160%) rotate(0)", opacity: 0 },
+    ], { duration: 1300, easing: "ease-out" });
+  }
+
   // id пресета → анимация прибавления
   const INCREMENT_ANIMATIONS = {
     classic: animateClassic,
@@ -277,6 +394,7 @@
     retro: animateRetro,
     minimal: animateMinimal,
     explosion: animateExplosion,
+    ferret: animateFerret,
   };
 
   function playIncrementAnimation(delta) {
