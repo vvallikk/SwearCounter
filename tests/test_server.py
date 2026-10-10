@@ -553,16 +553,27 @@ def test_update_apply_restarts(update_client, monkeypatch):
     assert calls == ["apply", "quit"]
 
 
-@pytest.mark.parametrize("origin", ["https://evil.example", "http://localhost.evil.example:8765", "null"])
-def test_foreign_origin_cannot_change_state(client, origin):
+@pytest.mark.parametrize(
+    "headers",
+    [{"Origin": "https://evil.example"}, {"Origin": "http://localhost.evil.example:8765"}, {"Origin": "null"},
+     {"Origin": "http://localhost:3000", "Host": "localhost:8765"},
+     {"Origin": "http://evil.example", "Host": "evil.example"},  # DNS rebinding
+     {"Sec-Fetch-Site": "cross-site"}, {"Sec-Fetch-Site": "same-site"}],
+)
+def test_foreign_origin_cannot_change_state(client, headers):
     client.post("/api/increment")
-    for method, url in [("post", "/api/reset"), ("post", "/api/increment"), ("post", "/api/update/apply")]:
-        response = getattr(client, method)(url, headers={"Origin": origin})
-        assert response.status_code == 403
-    assert client.get("/api/state", headers={"Origin": origin}).json() == {"count": 1}
+    for url in ("/api/reset", "/api/increment", "/api/update/apply"):
+        assert client.post(url, headers=headers).status_code == 403
+    assert client.get("/api/state", headers=headers).json() == {"count": 1}
 
 
-@pytest.mark.parametrize("origin", ["http://127.0.0.1:8765", "http://localhost:8766", "http://[::1]:8765"])
-def test_own_pages_can_change_state(client, origin):
-    assert client.post("/api/increment", headers={"Origin": origin}).status_code == 200
+@pytest.mark.parametrize(
+    "headers",
+    [{"Origin": "http://127.0.0.1:8765", "Host": "127.0.0.1:8765"},
+     {"Origin": "http://localhost:8766", "Host": "localhost:8766"},
+     {"Origin": "http://[::1]:8765", "Host": "[::1]:8765"},
+     {"Sec-Fetch-Site": "same-origin"}, {}],
+)
+def test_own_pages_can_change_state(client, headers):
+    assert client.post("/api/increment", headers=headers).status_code == 200
     assert client.get("/api/state").json() == {"count": 1}

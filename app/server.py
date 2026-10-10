@@ -119,10 +119,16 @@ SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 
 
 def foreign_origin(request: Request) -> bool:
-    origin = request.headers.get("origin")
-    if request.method in SAFE_METHODS or origin is None:
+    """Запрос меняет состояние и пришёл не со страницы этого же сервера."""
+    if request.method in SAFE_METHODS:
         return False
-    return urlsplit(origin).hostname not in LOCAL_HOSTS
+    origin = request.headers.get("origin")
+    if origin is None:
+        # Без Origin: браузер всё равно помечает чужие запросы; curl и тесты — без метки.
+        return request.headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none")
+    # Тот же адрес до порта: другой локальный сервер (localhost:3000) — тоже чужой.
+    parts = urlsplit(origin)
+    return parts.hostname not in LOCAL_HOSTS or parts.netloc != request.headers.get("host")
 
 
 def create_app(
@@ -191,7 +197,7 @@ def create_app(
     @app.middleware("http")
     async def reject_foreign_origin(request: Request, call_next):
         if foreign_origin(request):
-            log.warning("Отклонён запрос %s %s с %s", request.method, request.url.path, request.headers["origin"])
+            log.warning("Отклонён запрос %s %s: %s", request.method, request.url.path, request.headers.get("origin", "чужого сайта"))
             return JSONResponse({"detail": "Запрос с чужого сайта отклонён"}, status_code=403)
         return await call_next(request)
 
