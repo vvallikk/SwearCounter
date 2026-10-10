@@ -20,13 +20,19 @@
     }
     const resp = await fetch(url, init);
     const data = await resp.json().catch(() => null);
-    if (!resp.ok) throw new Error((data && data.detail) || `Ошибка ${resp.status}`);
-    return data;
+    if (resp.ok) return data;
+    const detail = data && data.detail;
+    // Стандартные ответы FastAPI на незнакомый адрес: сервер старее страницы.
+    if (detail === "Not Found" || detail === "Method Not Allowed") {
+      throw new Error("Сервер не знает этой команды: перезапустите приложение, оно запущено со старой версией");
+    }
+    throw new Error((typeof detail === "string" && detail) || `Ошибка сервера (${resp.status})`);
   }
 
-  function setStatus(node, text, error) {
+  function setStatus(node, text, error, ok) {
     node.textContent = text;
     node.classList.toggle("error", Boolean(error));
+    node.classList.toggle("ok", Boolean(ok));
   }
 
   // Подтверждение вторым нажатием, а не confirm(): во встроенных браузерах
@@ -173,9 +179,14 @@
     else if (state.mic) text = `Слушает: ${state.mic}`;
     else if (loading) text = "Микрофон откроется, когда модель загрузится";
     setStatus(micStatusEl, text, error);
-    micMonitorBtn.setAttribute("aria-pressed", String(Boolean(state.monitor)));
+    showMonitor(Boolean(state.monitor));
     micMonitorBtn.disabled = !state.mic;
     if (!state.mic) targetLevel = 0;
+  }
+
+  function showMonitor(on) {
+    micMonitorBtn.setAttribute("aria-pressed", String(on));
+    micMonitorBtn.textContent = on ? "⏹ Остановить прослушивание" : "🎧 Слушать себя";
   }
 
   async function loadDevices() {
@@ -201,6 +212,7 @@
 
   micRefreshBtn.addEventListener("click", loadDevices);
   micEl.addEventListener("change", async () => {
+    showMonitor(false); // новый микрофон начинаем без прослушивания
     setStatus(micStatusEl, "Переключение микрофона…");
     try {
       showSpeech(await api("POST", "/api/speech/device", { device: micEl.value || null }));
@@ -436,6 +448,7 @@
     const pick = el("button", "model-pick");
     pick.type = "button";
     const title = el("span", "title", m.title);
+    title.append(el("span", "model-name", ` (${m.name})`));
     if (m.id === current) title.append(el("span", "badge", "выбрана"));
     else if (!m.installed) title.append(el("span", "badge", "не скачана"));
     pick.append(title, el("span", "summary", m.summary));
@@ -490,11 +503,13 @@
     speechNoteEl.hidden = !loading;
     const percent = Math.round(state.progress * 100);
     progressBarEl.style.width = `${percent}%`;
-    const title = state.models.find((m) => m.id === state.model)?.title ?? state.model;
+    const model = state.models.find((m) => m.id === state.model);
+    const title = model ? `${model.title} (${model.name})` : state.model;
     setStatus(
       speechStatusEl,
       loading ? `Загрузка модели «${title}» в память… ${percent}%` : STATUS_TEXT[state.status] || state.status,
-      state.status === "error"
+      state.status === "error",
+      state.status === "listening"
     );
   }
 

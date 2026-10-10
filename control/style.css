@@ -126,6 +126,9 @@ h1 { margin: 0 0 4px; font-size: 20px; }
 .row { display: flex; align-items: center; gap: 8px; }
 .status-line { margin-top: 6px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .status-line.error { color: var(--danger); }
+/* «Модель работает» — с зелёной галочкой, чтобы было видно с первого взгляда. */
+.status-line.ok { color: var(--ok); font-weight: 600; }
+.status-line.ok::before { content: "✓ "; }
 .note { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
 
 .select-wrap { position: relative; flex: 1; min-width: 0; }
@@ -199,6 +202,7 @@ select {
   background: var(--meter-off);
 }
 .monitor-row { margin-top: 10px; flex-wrap: wrap; }
+#mic-monitor[aria-pressed="true"] { background: var(--danger); border-color: var(--danger); }
 .monitor-row .note { margin: 0; flex: 1; min-width: 160px; }
 
 /* --- Звук оповещения --- */
@@ -319,6 +323,7 @@ select {
 .model-card.current .model-pick[aria-disabled="true"],
 .model-card.unavailable .model-pick { cursor: default; }
 .model-pick .title { font-size: 14px; font-weight: 700; }
+.model-pick .model-name { font-weight: 400; color: var(--muted); }
 .model-pick .summary { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
 .model-expand {
   flex: none;

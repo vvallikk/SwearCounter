@@ -278,3 +278,12 @@ def test_corrupted_saved_load_time_falls_back_to_estimate(recognizer, settings, 
     assert recognizer._expected_load_seconds() == 5
     recognizer._remember_load_seconds(2.0)  # и запись не падает
     assert settings.get("load_seconds")[MODEL] == 2.0
+
+
+def test_set_device_turns_monitor_off(recognizer):
+    recognizer._commands = FakeCommands()
+    recognizer.status = "listening"
+    recognizer.monitor = True
+    recognizer.monitor_error = "старая ошибка"
+    recognizer.set_device(None)
+    assert recognizer.monitor is False and recognizer.monitor_error is None
