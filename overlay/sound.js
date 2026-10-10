@@ -2,7 +2,7 @@
 //
 // Какой звук играет, по порядку: звук, выбранный в библиотеке на странице управления
 // (/api/sound/file/<id>); стандартный звук пресета — файл из overlay/sounds/
-// (ding.mp3, у хорька ferret.mp3); если файла нет — его синтезированная замена.
+// (ding.mp3, у хорька ferret.wav); если файла нет — его синтезированная замена.
 window.createDingPlayer = function createDingPlayer() {
   "use strict";
 
@@ -40,7 +40,7 @@ window.createDingPlayer = function createDingPlayer() {
   function loadStandard(name) {
     let promise = standards.get(name);
     if (!promise) {
-      promise = fetchBuffer(`/overlay/sounds/${name}.mp3`)
+      promise = fetchBuffer(`/overlay/sounds/${STANDARD[name].file}`)
         .catch(() => {
           standards.delete(name); // сеть недоступна — попробуем в следующий раз
           return null;
@@ -87,7 +87,7 @@ window.createDingPlayer = function createDingPlayer() {
 
   // Стандартный звук зависит от пресета оформления (поле sound в presets.js).
   function setStandard(name) {
-    standardName = SYNTH[name] ? name : "ding";
+    standardName = STANDARD[name] ? name : "ding";
     loadStandard(standardName);
   }
 
@@ -154,25 +154,28 @@ window.createDingPlayer = function createDingPlayer() {
     }
   }
 
-  // Синтезированная замена стандартного звука, если файла нет: [функция, громкость]
-  const SYNTH = {
-    ding: [synthDing, 0.3], // без ослабления звон слишком громкий
-    ferret: [synthGoo, 1.1], // примерно та же громкость, что у звона
+  // Стандартные звуки: файл в overlay/sounds/ и его громкость (fileLevel),
+  // синтезированная замена, если файла нет, и её громкость (level)
+  const STANDARD = {
+    ding: { file: "ding.mp3", fileLevel: 1, synth: synthDing, level: 0.3 }, // без ослабления звон слишком громкий
+    // запись гуканья тихая (пик ~0.03), поднимаем примерно до громкости звона
+    ferret: { file: "ferret.wav", fileLevel: 10, synth: synthGoo, level: 1.1 },
   };
 
-  function play(sound) {
+  // sound — звук из библиотеки, стандартный (standard = true) или null — синтезированный
+  function play(sound, standard = false) {
     const ctx = context();
     if (!ctx || volume === 0) return;
     const out = ctx.createGain();
     out.connect(ctx.destination);
     if (sound) {
-      out.gain.value = volume;
+      out.gain.value = (standard ? STANDARD[standardName].fileLevel : 1) * volume;
       const src = ctx.createBufferSource();
       src.buffer = sound;
       src.connect(out);
       src.start();
     } else {
-      const [synth, level] = SYNTH[standardName];
+      const { synth, level } = STANDARD[standardName];
       out.gain.value = level * volume;
       synth(ctx, out);
     }
@@ -180,13 +183,16 @@ window.createDingPlayer = function createDingPlayer() {
 
   // Выбранный звук; если он из библиотеки, но не загрузился, — стандартный.
   function playActive() {
-    play((activeId && buffer) || standardsReady.get(standardName) || null);
+    if (activeId && buffer) play(buffer);
+    else play(standardsReady.get(standardName) || null, true);
   }
 
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
   async function preview(id) {
     context(); // запускаем звук сразу по клику, пока файл догружается
-    play((id && (await load(id))) || (await load(null)));
+    const sound = id && (await load(id));
+    if (sound) play(sound);
+    else play(await load(null), true);
   }
 
   // Проверяет, что файл можно проиграть, до отправки на сервер.
