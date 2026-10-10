@@ -177,7 +177,26 @@
     .speech-status.error { color: var(--danger); }
     .speech-note { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
     .hint { margin-top: 20px; font-size: 13px; color: var(--muted); }
-    .hint code { user-select: all; }
+    .copy-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      padding: 8px 12px;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      color: var(--accent);
+      background: var(--bg);
+      border: 1px dashed var(--accent);
+      border-radius: 8px;
+    }
+    .copy-link:hover { border-style: solid; }
+    .copy-link .copy-label {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .copy-link.copied { color: var(--ok); border-color: var(--ok); border-style: solid; }
   </style>
 </head>
 <body>
@@ -205,7 +224,12 @@
       </div>
       <div id="model-info" class="model-info"></div>
     </div>
-    <div class="hint">Оверлей для OBS: <code id="overlay-url"></code></div>
+    <div class="hint">
+      Оверлей для OBS (адрес для источника «Браузер»):<br>
+      <button id="overlay-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
+        <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
+      </button>
+    </div>
   </div>
 
   <script>
@@ -217,7 +241,39 @@
       const incBtn = document.getElementById("inc");
       const resetBtn = document.getElementById("reset");
 
-      document.getElementById("overlay-url").textContent = `${location.origin}/overlay/`;
+      // Адрес оверлея копируется по клику.
+      const overlayBtn = document.getElementById("overlay-url");
+      const overlayLabel = overlayBtn.querySelector(".copy-label");
+      const overlayUrl = `${location.origin}/overlay/`;
+      document.getElementById("overlay-url-text").textContent = overlayUrl;
+      let copiedTimer = null;
+
+      async function copyText(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (e) {
+          // Встроенные браузеры (док OBS) могут не давать доступ к Clipboard API.
+          const area = document.createElement("textarea");
+          area.value = text;
+          document.body.append(area);
+          area.select();
+          const ok = document.execCommand("copy");
+          area.remove();
+          return ok;
+        }
+      }
+
+      overlayBtn.addEventListener("click", async () => {
+        const ok = await copyText(overlayUrl);
+        overlayBtn.classList.toggle("copied", ok);
+        overlayLabel.textContent = ok ? "Скопировано ✓" : "Не удалось скопировать";
+        clearTimeout(copiedTimer);
+        copiedTimer = setTimeout(() => {
+          overlayBtn.classList.remove("copied");
+          overlayLabel.textContent = "Копировать";
+        }, 2000);
+      });
 
       function setOnline(online) {
         dotEl.classList.toggle("online", online);
