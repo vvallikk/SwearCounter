@@ -154,22 +154,19 @@ window.createDingPlayer = function createDingPlayer() {
     }
   }
 
-  // Стандартные звуки: файл в overlay/sounds/ и его громкость (fileLevel),
-  // синтезированная замена, если файла нет, и её громкость (level)
+  // Стандартные звуки: файл в overlay/sounds/ и синтезированная замена, если файла нет
   const STANDARD = {
-    ding: { file: "ding.mp3", fileLevel: 1, synth: synthDing, level: 0.3 }, // без ослабления звон слишком громкий
-    // запись гуканья тихая (пик ~0.03), поднимаем примерно до громкости звона
-    ferret: { file: "ferret.wav", fileLevel: 10, synth: synthGoo, level: 1.1 },
+    ding: { file: "ding.mp3", synth: synthDing, level: 0.3 }, // без ослабления звон слишком громкий
+    ferret: { file: "ferret.wav", synth: synthGoo, level: 1.1 }, // примерно как звон
   };
 
-  // sound — звук из библиотеки, стандартный (standard = true) или null — синтезированный
-  function play(sound, standard = false) {
+  function play(sound) {
     const ctx = context();
     if (!ctx || volume === 0) return;
     const out = ctx.createGain();
     out.connect(ctx.destination);
     if (sound) {
-      out.gain.value = (standard ? STANDARD[standardName].fileLevel : 1) * volume;
+      out.gain.value = volume;
       const src = ctx.createBufferSource();
       src.buffer = sound;
       src.connect(out);
@@ -183,16 +180,13 @@ window.createDingPlayer = function createDingPlayer() {
 
   // Выбранный звук; если он из библиотеки, но не загрузился, — стандартный.
   function playActive() {
-    if (activeId && buffer) play(buffer);
-    else play(standardsReady.get(standardName) || null, true);
+    play((activeId && buffer) || standardsReady.get(standardName) || null);
   }
 
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
   async function preview(id) {
     context(); // запускаем звук сразу по клику, пока файл догружается
-    const sound = id && (await load(id));
-    if (sound) play(sound);
-    else play(await load(null), true);
+    play((id && (await load(id))) || (await load(null)));
   }
 
   // Проверяет, что файл можно проиграть, до отправки на сервер.
