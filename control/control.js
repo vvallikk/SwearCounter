@@ -158,7 +158,8 @@
     // Пока модель грузится или переключается микрофон, опрашиваем сервер,
     // чтобы увидеть, чем это закончилось.
     clearTimeout(speechTimer);
-    if (loading || state.mic_pending) speechTimer = setTimeout(refreshSpeech, 1000);
+    const downloading = state.models.some((m) => m.download && m.download.status !== "error");
+    if (loading || downloading || state.mic_pending) speechTimer = setTimeout(refreshSpeech, 1000);
   }
 
   // --- Микрофон ---
@@ -178,6 +179,7 @@
     else if (state.monitor_error) [text, error] = [state.monitor_error, true];
     else if (state.mic) text = `Слушает: ${state.mic}`;
     else if (loading) text = "Микрофон откроется, когда модель загрузится";
+    else if (state.status === "no_model") text = "Микрофон откроется, когда модель скачается";
     setStatus(micStatusEl, text, error);
     showMonitor(Boolean(state.monitor));
     micMonitorBtn.disabled = !state.mic;
@@ -420,8 +422,11 @@
   const speechStatusEl = $("speech-status");
   const speechNoteEl = $("speech-note");
   const modelListEl = $("model-list");
+  const downloadNoteEl = $("download-note");
   const expandedModels = new Set();
+  const downloadBars = new Map(); // id модели → {bar, text} в её карточке
   const STATUS_TEXT = {
+    no_model: "Модель ещё не скачана. Нажмите на модель ниже — она скачается и включится",
     listening: "Модель работает",
     mic_error: "Модель загружена, но микрофон не открылся",
     error: "Ошибка распознавания, подробности в консоли приложения. Нажмите на модель, чтобы перезапустить",
@@ -429,20 +434,37 @@
   };
   let renderedModelsKey = "";
 
+  function formatMB(bytes) {
+    const mb = bytes / 1024 / 1024;
+    return mb >= 1024 ? `${(mb / 1024).toFixed(1).replace(".", ",")} ГБ` : `${Math.round(mb)} МБ`;
+  }
+
+  function downloadText(download) {
+    if (download.status === "extracting") return "Распаковка…";
+    const done = formatMB(download.done_bytes);
+    if (!download.total_bytes) return `Скачано ${done}`;
+    return `Скачано ${done} из ${formatMB(download.total_bytes)} · ${Math.round(download.progress * 100)}%`;
+  }
+
   function modelCard(m, current, failed) {
     const card = el("div", "model-card");
-    if (m.id === current) card.classList.add("current");
-    if (!m.installed) card.classList.add("unavailable");
+    const download = m.download;
+    const active = download && download.status !== "error"; // качается или распаковывается
+    // Модель «выбрана», только когда скачана: до этого работает прежняя (или никакая).
+    const selected = m.id === current && m.installed;
+    if (selected) card.classList.add("current");
+    if (active) card.classList.add("downloading");
 
     const pick = el("button", "model-pick");
     pick.type = "button";
     const title = el("span", "title", m.title);
     title.append(el("span", "model-name", ` (${m.name})`));
-    if (m.id === current) title.append(el("span", "badge", "выбрана"));
-    else if (!m.installed) title.append(el("span", "badge", "не скачана"));
+    if (selected) title.append(el("span", "badge", "выбрана"));
+    else if (active) title.append(el("span", "badge", "скачивается"));
+    else if (!m.installed) title.append(el("span", "badge", `не скачана · ${m.download_size}`));
     pick.append(title, el("span", "summary", m.summary));
-    // Упавшую модель можно перезапустить кликом по её же карточке.
-    if (m.installed && (m.id !== current || failed)) pick.addEventListener("click", () => chooseModel(m.id));
+    // Нескачанная модель по клику скачивается; упавшую можно перезапустить кликом по ней же.
+    if (!active && (!m.installed || !selected || failed)) pick.addEventListener("click", () => chooseModel(m));
     else pick.setAttribute("aria-disabled", "true");
 
     const details = el("div", "model-details");
@@ -454,10 +476,10 @@
       el("p", "specs", `Загрузка в память при запуске: ${m.load_time}`)
     );
     if (!m.installed) {
-      const hint = el("p", "specs", "Скачайте ");
+      const hint = el("p", "specs", `Нажмите на модель, чтобы скачать её (${m.download_size}). Или скачайте `);
       const link = el("a", "", "архив");
       link.href = m.url;
-      hint.append(link, " и распакуйте его в папку models/");
+      hint.append(link, " вручную и распакуйте в папку models/ рядом с программой.");
       details.append(hint);
     }
 
@@ -475,7 +497,26 @@
 
     const head = el("div", "model-head");
     head.append(pick, expand);
-    card.append(head, details);
+    card.append(head);
+
+    if (active) {
+      const box = el("div", "model-download");
+      const progress = el("div", "progress");
+      const bar = el("div", "progress-bar");
+      progress.append(bar);
+      const row = el("div", "row download-row");
+      const text = el("span", "download-text");
+      const cancel = el("button", "secondary-btn small-btn", "Отменить");
+      cancel.type = "button";
+      cancel.addEventListener("click", () => cancelDownload(m.id, cancel));
+      row.append(text, cancel);
+      box.append(progress, row);
+      card.append(box);
+      downloadBars.set(m.id, { bar, text });
+    } else if (download && download.status === "error") {
+      card.append(el("div", "model-download status-line error", `${download.error}. Нажмите на модель, чтобы попробовать ещё раз`));
+    }
+    card.append(details);
     return card;
   }
 
@@ -483,10 +524,30 @@
     $("model-section").hidden = false;
     // Перерисовываем только при изменениях: опрос идёт раз в секунду.
     const failed = state.status === "error";
-    const key = JSON.stringify([state.models, state.model, failed]);
+    // Байты скачивания в ключ не входят: полосы обновляются на месте, без перерисовки карточек.
+    const key = JSON.stringify([
+      state.models.map((m) => [m.id, m.installed, m.download && m.download.status, m.download && m.download.error]),
+      state.model,
+      failed,
+    ]);
     if (key !== renderedModelsKey) {
       renderedModelsKey = key;
+      downloadBars.clear();
       modelListEl.replaceChildren(...state.models.map((m) => modelCard(m, state.model, failed)));
+    }
+    for (const m of state.models) {
+      const shown = downloadBars.get(m.id);
+      if (!shown || !m.download) continue;
+      shown.bar.style.width = `${Math.round(m.download.progress * 100)}%`;
+      shown.text.textContent = downloadText(m.download);
+    }
+    const downloading = state.models.find((m) => m.download && m.download.status !== "error");
+    downloadNoteEl.hidden = !downloading;
+    if (downloading) {
+      downloadNoteEl.textContent =
+        `Модель «${downloading.title}» ещё не была скачана — скачиваю её (${downloading.download_size}). ` +
+        (downloading.id === state.wanted ? "Когда скачается, она включится сама. " : "") +
+        "Страницу можно закрыть: скачивание идёт в приложении.";
     }
     progressEl.hidden = !loading;
     speechNoteEl.hidden = !loading;
@@ -502,16 +563,30 @@
     );
   }
 
-  async function chooseModel(id) {
-    // Новая загрузка: полоса сразу с нуля, без анимации назад.
-    progressBarEl.style.transition = "none";
-    progressBarEl.style.width = "0";
-    void progressBarEl.offsetWidth;
-    progressBarEl.style.transition = "";
+  async function chooseModel(m) {
+    if (!m.installed) {
+      setStatus(speechStatusEl, `Модель «${m.title}» не скачана — начинаю скачивание (${m.download_size})…`);
+    } else {
+      // Новая загрузка: полоса сразу с нуля, без анимации назад.
+      progressBarEl.style.transition = "none";
+      progressBarEl.style.width = "0";
+      void progressBarEl.offsetWidth;
+      progressBarEl.style.transition = "";
+    }
     try {
-      showSpeech(await api("POST", "/api/speech/model", { model: id }));
+      showSpeech(await api("POST", "/api/speech/model", { model: m.id }));
     } catch (e) {
       setStatus(speechStatusEl, e.message, true);
+    }
+  }
+
+  async function cancelDownload(id, button) {
+    button.disabled = true;
+    try {
+      showSpeech(await api("DELETE", `/api/speech/download/${encodeURIComponent(id)}`));
+    } catch (e) {
+      setStatus(speechStatusEl, e.message, true);
+      button.disabled = false;
     }
   }
 

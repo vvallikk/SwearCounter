@@ -18,8 +18,12 @@ DIST = ROOT / "dist"
 APP_DIR = DIST / "SwearCounter"
 ARCHIVE = DIST / f"SwearCounter-v{__version__}-windows"
 
-MODELS_README = """Сюда распакуйте модель распознавания речи Vosk, например:
+MODELS_README = """Здесь хранятся модели распознавания речи Vosk.
 
+Обычно ничего делать не нужно: нажмите на модель на странице управления,
+и программа сама скачает её сюда.
+
+Вручную: распакуйте архив так, чтобы получилось
   models/vosk-model-small-ru-0.22/am, conf, graph, ...
 
 Маленькая модель (45 МБ, быстрая):

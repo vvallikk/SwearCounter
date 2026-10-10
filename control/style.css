@@ -299,7 +299,7 @@ select {
   border-radius: 10px;
 }
 .model-card.current { border-color: var(--accent); }
-.model-card:not(.current):not(.unavailable):hover { border-color: var(--muted); }
+.model-card:not(.current):not(.downloading):hover { border-color: var(--muted); }
 .model-head { display: flex; align-items: stretch; }
 .model-pick {
   flex: 1;
@@ -310,8 +310,7 @@ select {
   border: 0;
   border-radius: 10px;
 }
-.model-card.current .model-pick[aria-disabled="true"],
-.model-card.unavailable .model-pick { cursor: default; }
+.model-pick[aria-disabled="true"] { cursor: default; }
 .model-pick .title { font-size: 14px; font-weight: 700; }
 .model-pick .model-name { font-weight: 400; color: var(--muted); }
 .model-pick .summary { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
@@ -354,3 +353,12 @@ select {
   border: 1px solid var(--border);
 }
 .model-card.current .badge { color: var(--accent); border-color: var(--accent); }
+.model-card.downloading .badge { color: var(--accent); border-color: var(--accent); }
+/* Скачивание модели: полоса и «Отменить» внутри карточки. */
+.model-download { padding: 0 12px 10px; }
+.model-download .progress { margin-top: 0; }
+.model-download.status-line { margin-top: 0; }
+.download-row { margin-top: 6px; justify-content: space-between; }
+.download-text { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.small-btn { padding: 4px 10px; font-size: 12px; }
+.download-note { margin-top: 6px; }

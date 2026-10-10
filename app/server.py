@@ -18,7 +18,7 @@ from .counter import Counter
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
-from .stt import CATALOG, VoskRecognizer, audio_devices, find_model
+from .stt import CATALOG, ModelDownloader, ModelInfo, VoskRecognizer, audio_devices, find_model
 
 log = logging.getLogger(__name__)
 
@@ -104,6 +104,22 @@ def create_app(
     hub: Hub, recognizer: VoskRecognizer, settings: Settings, sound: Sound
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
+    # Модель, которую выбрали последней: если она ещё скачивается, то включится
+    # после скачивания. Выбрали другую — скачанная просто останется на диске.
+    wanted: dict[str, str | None] = {"model": None}
+
+    async def switch_model(model: ModelInfo) -> None:
+        async with switch_lock:
+            if model.path != recognizer.model_path or recognizer.status in ("error", "no_model"):
+                log.info("Переключение модели: %s", model.id)
+                await recognizer.set_model(model.path)
+                settings.set("model", model.id)
+
+    async def on_downloaded(model: ModelInfo) -> None:
+        if wanted["model"] == model.id:
+            await switch_model(model)
+
+    downloader = ModelDownloader(on_downloaded)
 
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
@@ -117,6 +133,7 @@ def create_app(
         try:
             yield
         finally:
+            await downloader.stop()
             await recognizer.stop()
 
     app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
@@ -144,7 +161,7 @@ def create_app(
     @app.get("/api/speech")
     async def get_speech():
         return {
-            "models": [m.to_dict() for m in CATALOG],
+            "models": [m.to_dict() | {"download": downloader.state(m.id)} for m in CATALOG],
             "model": recognizer.model_path.name,
             "status": recognizer.status,
             "progress": recognizer.load_progress,
@@ -153,6 +170,8 @@ def create_app(
             "mic_pending": recognizer.mic_pending,
             "monitor": recognizer.monitor,
             "monitor_error": recognizer.monitor_error,
+            # Модель, которая включится сама, когда скачается.
+            "wanted": wanted["model"] if downloader.state(wanted["model"] or "") else None,
         }
 
     @app.post("/api/speech/model")
@@ -160,13 +179,19 @@ def create_app(
         model = find_model(choice.model)
         if model is None:
             raise HTTPException(404, f"Неизвестная модель {choice.model}")
-        if not model.installed:
-            raise HTTPException(409, f"Модель {model.title} не скачана: нет папки {model.path}")
-        async with switch_lock:
-            if model.path != recognizer.model_path or recognizer.status == "error":
-                log.info("Переключение модели: %s", model.id)
-                await recognizer.set_model(model.path)
-                settings.set("model", model.id)
+        wanted["model"] = model.id
+        if model.installed:
+            await switch_model(model)
+        else:
+            downloader.start(model)  # включится в on_downloaded
+        return await get_speech()
+
+    @app.delete("/api/speech/download/{model_id}")
+    async def delete_speech_download(model_id: str):
+        if not downloader.cancel(model_id):
+            raise HTTPException(404, "Эта модель не скачивается")
+        if wanted["model"] == model_id:
+            wanted["model"] = None
         return await get_speech()
 
     devices_lock = threading.Lock()  # PortAudio нельзя перезапускать из двух потоков сразу
