@@ -25,6 +25,7 @@
       }
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -65,20 +66,116 @@
       line-height: 1;
     }
     .buttons { display: flex; gap: 12px; }
-    button {
+    button { font: inherit; color: inherit; cursor: pointer; }
+    button:disabled { cursor: default; }
+    .buttons button {
       flex: 1;
       padding: 12px;
-      font: inherit;
       font-size: 16px;
       font-weight: 600;
       border: 0;
       border-radius: 10px;
       color: #fff;
-      cursor: pointer;
     }
-    button:disabled { opacity: 0.6; cursor: default; }
+    .buttons button:disabled { opacity: 0.6; }
     #inc { background: var(--accent); }
     #reset { background: var(--danger); }
+    .speech {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      text-align: left;
+    }
+    .speech label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+    .model-row { display: flex; gap: 8px; }
+    .select-wrap { position: relative; flex: 1; min-width: 0; }
+    /* Своя стрелка вместо системной: у системной нельзя задать отступ от края. */
+    .select-wrap::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 16px;
+      width: 7px;
+      height: 7px;
+      margin-top: -6px;
+      border-right: 2px solid var(--muted);
+      border-bottom: 2px solid var(--muted);
+      transform: rotate(45deg);
+      pointer-events: none;
+    }
+    .speech select {
+      width: 100%;
+      padding: 10px 40px 10px 12px;
+      font: inherit;
+      font-size: 15px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      appearance: none;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    #model-info-btn {
+      flex: none;
+      width: 42px;
+      padding: 0;
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 18px;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    #model-info-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+    .model-info { margin-top: 10px; display: grid; gap: 8px; }
+    .model-card {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      text-align: left;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    button.model-card:hover:not(.current) { border-color: var(--muted); }
+    .model-card.current { border-color: var(--accent); cursor: default; }
+    .model-card .title { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 700; }
+    .model-card .desc { display: block; margin-bottom: 6px; }
+    .model-card .specs { display: block; color: var(--muted); }
+    .model-card a { color: var(--accent); }
+    .badge {
+      margin-left: 6px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      vertical-align: 1px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .model-card.current .badge { color: var(--accent); border-color: var(--accent); }
+    .progress {
+      margin-top: 8px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .progress-bar {
+      width: 0;
+      height: 100%;
+      background: var(--accent);
+      /* Сервер опрашивается раз в секунду; переход сглаживает шаги. */
+      transition: width 1s linear;
+    }
+    .speech-status { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .speech-status.error { color: var(--danger); }
+    .speech-note { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
     .hint { margin-top: 20px; font-size: 13px; color: var(--muted); }
     .hint code { user-select: all; }
   </style>
@@ -92,6 +189,22 @@
       <button id="inc">+1 (тест)</button>
       <button id="reset">Сбросить</button>
     </div>
+    <div id="speech" class="speech" hidden>
+      <label for="model">Модель распознавания</label>
+      <div class="model-row">
+        <div class="select-wrap"><select id="model"></select></div>
+        <button id="model-info-btn" type="button" aria-expanded="true" aria-controls="model-info"
+                title="Описание моделей">i</button>
+      </div>
+      <div id="progress" class="progress" hidden><div id="progress-bar" class="progress-bar"></div></div>
+      <div id="speech-status" class="speech-status"></div>
+      <div id="speech-note" class="speech-note" hidden>
+        Модель уже скачана, сейчас она читается с диска в оперативную память.
+        Пока загрузка не закончится, маты не считаются. Можно выбрать другую модель —
+        эта загрузка прервётся.
+      </div>
+      <div id="model-info" class="model-info"></div>
+    </div>
     <div class="hint">Оверлей для OBS: <code id="overlay-url"></code></div>
   </div>
 
@@ -103,6 +216,7 @@
       const statusEl = document.getElementById("status");
       const incBtn = document.getElementById("inc");
       const resetBtn = document.getElementById("reset");
+
       document.getElementById("overlay-url").textContent = `${location.origin}/overlay/`;
 
       function setOnline(online) {
@@ -142,10 +256,142 @@
         post("/api/reset", resetBtn);
       });
 
+      // Выбор модели распознавания. Блок показывается после первого ответа сервера.
+      const speechEl = document.getElementById("speech");
+      const modelEl = document.getElementById("model");
+      const speechStatusEl = document.getElementById("speech-status");
+      const speechNoteEl = document.getElementById("speech-note");
+      const progressEl = document.getElementById("progress");
+      const progressBarEl = document.getElementById("progress-bar");
+      const modelInfoEl = document.getElementById("model-info");
+      const modelInfoBtn = document.getElementById("model-info-btn");
+      const STATUS_TEXT = {
+        listening: "Слушает микрофон",
+        error: "Ошибка распознавания, подробности в консоли приложения",
+        stopped: "Распознавание остановлено",
+      };
+      let speechTimer = null;
+      let renderedKey = "";
+
+      // Описание моделей открыто по умолчанию; свёрнутое состояние запоминаем.
+      function setInfoOpen(open) {
+        modelInfoEl.hidden = !open;
+        modelInfoBtn.setAttribute("aria-expanded", String(open));
+      }
+      try {
+        setInfoOpen(localStorage.getItem("modelInfoOpen") !== "0");
+      } catch (e) {}
+      modelInfoBtn.addEventListener("click", () => {
+        setInfoOpen(modelInfoEl.hidden);
+        try {
+          localStorage.setItem("modelInfoOpen", modelInfoEl.hidden ? "0" : "1");
+        } catch (e) {}
+      });
+
+      function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+
+      function modelCard(m, current) {
+        // Скачанную модель можно выбрать кликом по карточке; нескачанную — нет,
+        // поэтому она не кнопка (и ссылка на архив в ней остаётся рабочей).
+        const card = el(m.installed ? "button" : "div", "model-card");
+        if (m.installed) card.type = "button";
+        if (m.id === current) card.classList.add("current");
+        else if (m.installed) card.addEventListener("click", () => chooseModel(m.id));
+        const title = el("span", "title", m.title);
+        if (m.id === current) title.append(el("span", "badge", "выбрана"));
+        else if (!m.installed) title.append(el("span", "badge", "не скачана"));
+        card.append(
+          title,
+          el("span", "desc", m.description),
+          el("span", "specs", `Размер на диске: ${m.disk} · в памяти: ${m.memory}`),
+          el("span", "specs", `Загрузка в память при запуске: ${m.load_time}`)
+        );
+        if (!m.installed) {
+          const hint = el("span", "specs", "Скачайте ");
+          const link = el("a", "", "архив");
+          link.href = m.url;
+          hint.append(link, " и распакуйте его в папку models/");
+          card.append(hint);
+        }
+        return card;
+      }
+
+      function renderModels(models, current) {
+        // Перерисовываем только при изменениях: иначе опрос раз в секунду
+        // закрывал бы раскрытый выпадающий список.
+        const key = JSON.stringify([models, current]);
+        if (key === renderedKey) return;
+        renderedKey = key;
+        modelEl.replaceChildren(
+          ...models.map((m) => {
+            const label = `${m.title} — ${m.summary}` + (m.installed ? "" : " (не скачана)");
+            const option = new Option(label, m.id);
+            option.disabled = !m.installed;
+            return option;
+          })
+        );
+        modelEl.value = current;
+        modelInfoEl.replaceChildren(...models.map((m) => modelCard(m, current)));
+      }
+
+      function showSpeech(state) {
+        speechEl.hidden = false;
+        renderModels(state.models, state.model);
+        const loading = state.status === "loading";
+        progressEl.hidden = !loading;
+        speechNoteEl.hidden = !loading;
+        const percent = Math.round(state.progress * 100);
+        progressBarEl.style.width = `${percent}%`;
+        const title = state.models.find((m) => m.id === state.model)?.title ?? state.model;
+        speechStatusEl.textContent = loading
+          ? `Загрузка модели «${title}» в память… ${percent}%`
+          : STATUS_TEXT[state.status] || state.status;
+        speechStatusEl.classList.toggle("error", state.status === "error");
+        // Пока модель грузится, опрашиваем сервер, чтобы увидеть окончание загрузки.
+        clearTimeout(speechTimer);
+        if (loading) speechTimer = setTimeout(refreshSpeech, 1000);
+      }
+
+      async function refreshSpeech() {
+        try {
+          const resp = await fetch("/api/speech");
+          if (resp.ok) showSpeech(await resp.json());
+        } catch (e) {}
+      }
+
+      async function chooseModel(id) {
+        // Новая загрузка: полоса сразу с нуля, без анимации назад.
+        progressBarEl.style.transition = "none";
+        progressBarEl.style.width = "0";
+        void progressBarEl.offsetWidth;
+        progressBarEl.style.transition = "";
+        try {
+          const resp = await fetch("/api/speech/model", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model: id }),
+          });
+          if (resp.ok) showSpeech(await resp.json());
+          else refreshSpeech();
+        } catch (e) {
+          setOnline(false);
+        }
+      }
+
+      modelEl.addEventListener("change", () => chooseModel(modelEl.value));
+
       function connect() {
         const proto = location.protocol === "https:" ? "wss" : "ws";
         const ws = new WebSocket(`${proto}://${location.host}/ws`);
-        ws.onopen = () => setOnline(true);
+        ws.onopen = () => {
+          setOnline(true);
+          refreshSpeech();
+        };
         ws.onmessage = (event) => {
           try {
             countEl.textContent = JSON.parse(event.data).count;
