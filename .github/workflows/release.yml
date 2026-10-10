@@ -31,6 +31,10 @@ jobs:
             echo "::error::Тег ${GITHUB_REF_NAME} не совпадает с __version__ = ${version} (app/__init__.py)"
             exit 1
           fi
+          if [ ! -f "docs/releases/v${version}.md" ]; then
+            echo "::error::Нет заметок к релизу docs/releases/v${version}.md"
+            exit 1
+          fi
           echo "VERSION=${version}" >> "$GITHUB_ENV"
 
       - name: Install dependencies
@@ -48,4 +52,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" "dist/SwearCounter-v${VERSION}-windows.zip" \
-            --title "${GITHUB_REF_NAME}" --generate-notes --verify-tag
+            --title "${GITHUB_REF_NAME}" --notes-file "docs/releases/v${VERSION}.md" --verify-tag
