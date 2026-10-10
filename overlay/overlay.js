@@ -35,6 +35,8 @@
   if (preview) root.setAttribute("data-preview", "");
 
   const counterEl = document.getElementById("counter");
+  const numberEl = document.getElementById("number");
+  const labelEl = document.getElementById("label");
   const valueEl = document.getElementById("value");
   const glowEl = document.getElementById("glow");
 
@@ -86,7 +88,7 @@
     const plus = document.createElement("span");
     plus.className = "plus";
     plus.textContent = "+" + delta;
-    counterEl.appendChild(plus);
+    numberEl.appendChild(plus);
     const anim = plus.animate(
       keyframes || [
         { transform: "translate(-50%, 0) scale(0.6)", opacity: 0 },
@@ -241,7 +243,7 @@
     for (let i = 0; i < SPARK_COUNT; i++) {
       const spark = document.createElement("span");
       spark.className = "spark";
-      counterEl.appendChild(spark);
+      numberEl.appendChild(spark);
       const angle = (i / SPARK_COUNT) * Math.PI * 2 + Math.random() * 0.4;
       const dist = size * (0.7 + Math.random() * 0.5);
       const dx = Math.cos(angle) * dist;
@@ -279,9 +281,18 @@
     (INCREMENT_ANIMATIONS[currentPreset] || animateClassic)(delta);
   }
 
-  // Смена пресета «вживую» (если он не закреплён в адресе)
+  // Подпись рядом с числом: text — строка (пустая — без подписи), position — left/right/top/bottom
+  function applyLabel(text, position) {
+    labelEl.textContent = text;
+    labelEl.hidden = !text;
+    root.setAttribute("data-label-position", position || "left");
+    fitToWindow();
+  }
+
+  // Сообщение "style": пресет (если он не закреплён в адресе) и подпись
   function handleStyle(msg) {
     if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
+    if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
   }
 
   applyPreset(fixedPreset || "classic");
@@ -296,12 +307,14 @@
       playIncrementAnimation(1);
     }, PREVIEW_INTERVAL_MS);
     setTimeout(() => playIncrementAnimation(1), 400);
-    // Страница управления может сменить пресет без перезагрузки iframe:
-    // iframe.contentWindow.postMessage({ type: "style", preset: "neon" }, location.origin)
+    // Страница управления меняет стиль без перезагрузки iframe тем же сообщением, что и сервер:
+    // iframe.contentWindow.postMessage({ type: "style", preset: "neon", label: "Маты:" }, location.origin)
     window.addEventListener("message", (event) => {
       if (event.origin !== location.origin) return;
       const msg = event.data;
-      if (msg && msg.type === "style" && typeof msg.preset === "string") applyPreset(msg.preset);
+      if (!msg || msg.type !== "style") return;
+      if (typeof msg.preset === "string") applyPreset(msg.preset); // в превью ?preset — только начальный
+      if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
     });
     return;
   }
