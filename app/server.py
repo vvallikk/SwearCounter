@@ -6,10 +6,10 @@ import re
 import threading
 from contextlib import asynccontextmanager
 
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -112,6 +112,17 @@ PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
 LABEL_POSITIONS = ("left", "right", "top", "bottom")
 DEFAULT_LABEL_POSITION = "left"
 LABEL_MAX_LENGTH = 40
+# Изменять состояние можно только со своих страниц: иначе любой открытый сайт
+# простым POST на localhost сбросит счёт или запустит обновление (CSRF).
+LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def foreign_origin(request: Request) -> bool:
+    origin = request.headers.get("origin")
+    if request.method in SAFE_METHODS or origin is None:
+        return False
+    return urlsplit(origin).hostname not in LOCAL_HOSTS
 
 
 def create_app(
@@ -176,6 +187,13 @@ def create_app(
             await recognizer.stop()
 
     app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
+
+    @app.middleware("http")
+    async def reject_foreign_origin(request: Request, call_next):
+        if foreign_origin(request):
+            log.warning("Отклонён запрос %s %s с %s", request.method, request.url.path, request.headers["origin"])
+            return JSONResponse({"detail": "Запрос с чужого сайта отклонён"}, status_code=403)
+        return await call_next(request)
 
     @app.get("/")
     async def root():

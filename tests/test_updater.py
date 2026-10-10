@@ -1,6 +1,7 @@
 import asyncio
 import io
 import json
+import time
 import urllib.error
 import zipfile
 
@@ -38,6 +39,24 @@ def make_zip(with_exe=True) -> bytes:
     return buf.getvalue()
 
 
+class SlowResponse(io.BytesIO):
+    """Отдаёт по байту с паузой: скачивание не успевает закончиться до отмены."""
+
+    def __init__(self, data: bytes):
+        super().__init__(data)
+        self.headers = {"Content-Length": str(len(data))}
+
+    def read(self, size=-1):
+        time.sleep(0.01)
+        return super().read(1)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+
 class FakeResponse(io.BytesIO):
     def __init__(self, data: bytes):
         super().__init__(data)
@@ -59,7 +78,7 @@ def responses(monkeypatch):
         result = table[request.full_url]
         if isinstance(result, Exception):
             raise result
-        return FakeResponse(result)
+        return result if isinstance(result, SlowResponse) else FakeResponse(result)
 
     monkeypatch.setattr(updater_module.urllib.request, "urlopen", fake_urlopen)
     monkeypatch.setattr("app.stt.downloader.urllib.request.urlopen", fake_urlopen)
@@ -225,10 +244,9 @@ def test_download_rejects_archive_without_exe(updater, responses):
     assert not updater.update_dir.exists()
 
 
-def test_cancel_download(updater, responses, monkeypatch):
-    monkeypatch.setattr("app.stt.downloader.CHUNK_BYTES", 1)
+def test_cancel_download(updater, responses):
     responses[updater_module.LATEST_URL] = json.dumps(make_release()).encode()
-    responses[ZIP_URL] = make_zip() * 50
+    responses[ZIP_URL] = SlowResponse(make_zip())
 
     async def scenario():
         await updater.check()
