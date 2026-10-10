@@ -30,3 +30,6 @@ def words_file() -> Path:
 SETTINGS_FILE = DATA_DIR / "settings.json"
 SOUNDS_DIR = DATA_DIR / "sounds"  # свой звук оповещения, загруженный со страницы управления
 MODELS_DIR = DATA_DIR / "models"
+LOG_FILE = DATA_DIR / "swearcounter.log"
+WEBVIEW_DIR = DATA_DIR / "webview"  # данные окна приложения (localStorage страницы управления)
+ICON_FILE = RESOURCE_DIR / "assets" / "icon.png"
