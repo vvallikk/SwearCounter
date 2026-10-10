@@ -400,7 +400,7 @@
           { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0.85, offset: 0.6 },
           { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0 },
         ],
-        { duration: 400, delay: FERRET_RUN_MS * share, easing: "ease-out", fill: "backwards" }
+        { duration: 700, delay: FERRET_RUN_MS * share, easing: "ease-out", fill: "backwards" }
       ).onfinish = () => paw.remove();
     }
 
