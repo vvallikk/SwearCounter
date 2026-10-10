@@ -213,6 +213,7 @@ def test_set_model_restarts_with_new_model(recognizer, monkeypatch, tmp_path):
 
     monkeypatch.setattr(VoskRecognizer, "run", fake_run)
     other = tmp_path / "models" / "vosk-model-ru-0.42"
+    other.mkdir()
 
     async def scenario():
         await recognizer.start()
@@ -231,6 +232,21 @@ def test_set_model_restarts_with_new_model(recognizer, monkeypatch, tmp_path):
     assert model_path == other
     assert load_started is None  # прогресс новой загрузки не считается от старой
     assert recognizer.status == "stopped"
+
+
+def test_start_without_downloaded_model_waits(recognizer, monkeypatch, tmp_path):
+    runs = []
+
+    async def fake_run(self):
+        runs.append(self.model_path.name)
+
+    monkeypatch.setattr(VoskRecognizer, "run", fake_run)
+    recognizer.model_path = tmp_path / "models" / "vosk-model-ru-0.42"  # папки нет
+
+    asyncio.run(recognizer.start())
+
+    assert recognizer.status == "no_model"
+    assert runs == []
 
 
 # --- уровень громкости, прослушивание, испорченные настройки ---

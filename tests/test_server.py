@@ -9,6 +9,7 @@ from app.counter import Counter
 from app.server import Hub, create_app
 from app.settings import Settings
 from app.sound import Sound
+from app.stt import CATALOG
 from conftest import HYPERX, REALTEK, STEAM
 
 SMALL = "vosk-model-small-ru-0.22"
@@ -127,11 +128,99 @@ def test_switch_model_unknown(client, recognizer):
     assert recognizer.calls == [("start",)]
 
 
-def test_switch_model_not_installed(client, recognizer, settings):
+class FakeDownloader:
+    """Вместо настоящего скачивания: запоминает, что просили, и даёт «закончить» вручную."""
+
+    instances: list["FakeDownloader"] = []
+
+    def __init__(self, on_done):
+        self.on_done = on_done
+        self.started: list[str] = []
+        self.cancelled: list[str] = []
+        self.states: dict[str, dict] = {}
+        FakeDownloader.instances.append(self)
+
+    def state(self, model_id):
+        return self.states.get(model_id)
+
+    def start(self, model):
+        self.started.append(model.id)
+        self.states[model.id] = {"status": "downloading", "progress": 0.0}
+
+    def cancel(self, model_id):
+        if model_id not in self.states:
+            return False
+        self.cancelled.append(model_id)
+        del self.states[model_id]
+        return True
+
+    async def stop(self):
+        pass
+
+
+@pytest.fixture
+def downloader(monkeypatch):
+    from app import server
+
+    FakeDownloader.instances.clear()
+    monkeypatch.setattr(server, "ModelDownloader", FakeDownloader)
+    return FakeDownloader.instances
+
+
+def finish_download(client, downloader, models_dir, model_id):
+    """Имитирует конец скачивания: папка модели появилась, сервер узнал об этом."""
+    (models_dir / model_id).mkdir()
+    downloader[0].states.pop(model_id, None)
+    model = next(m for m in CATALOG if m.id == model_id)
+    client.portal.call(downloader[0].on_done, model)
+
+
+def test_switch_model_not_installed_starts_download(downloader, client, recognizer, settings):
     response = client.post("/api/speech/model", json={"model": LARGE})
-    assert response.status_code == 409
-    assert recognizer.calls == [("start",)]
+
+    assert response.status_code == 200
+    assert downloader[0].started == [LARGE]
+    large = next(m for m in response.json()["models"] if m["id"] == LARGE)
+    assert large["download"]["status"] == "downloading"
+    assert response.json()["wanted"] == LARGE
+    assert recognizer.calls == [("start",)]  # модель переключится только после скачивания
     assert settings.get("model") is None
+
+
+def test_downloaded_model_is_switched_on(downloader, client, recognizer, models_dir, settings_path):
+    client.post("/api/speech/model", json={"model": LARGE})
+
+    finish_download(client, downloader, models_dir, LARGE)
+
+    assert recognizer.calls[-1] == ("set_model", models_dir / LARGE)
+    assert Settings(settings_path).get("model") == LARGE
+
+
+def test_downloaded_model_not_switched_if_other_chosen(downloader, client, recognizer, models_dir):
+    client.post("/api/speech/model", json={"model": LARGE})
+    data = client.post("/api/speech/model", json={"model": SMALL}).json()  # передумали, пока качалось
+    assert data["wanted"] is None
+
+    finish_download(client, downloader, models_dir, LARGE)
+
+    assert recognizer.calls == [("start",)]
+
+
+def test_cancel_download(downloader, client, recognizer, models_dir):
+    client.post("/api/speech/model", json={"model": LARGE})
+
+    response = client.delete(f"/api/speech/download/{LARGE}")
+
+    assert response.status_code == 200
+    assert downloader[0].cancelled == [LARGE]
+    assert all(m["download"] is None for m in response.json()["models"])
+    assert client.delete(f"/api/speech/download/{LARGE}").status_code == 404
+
+
+def test_model_without_files_starts_after_download(downloader, client, recognizer, models_dir):
+    recognizer.status = "no_model"  # первый запуск: ни одной модели не скачано
+    client.post("/api/speech/model", json={"model": SMALL})
+    assert recognizer.calls[-1] == ("set_model", models_dir / SMALL)
 
 
 def test_switch_model_saves_choice(client, recognizer, models_dir, settings_path):
@@ -341,3 +430,9 @@ def test_default_preset_is_classic(client):
 @pytest.mark.parametrize("preset", ["", "Neon", "../etc", "a" * 33])
 def test_invalid_preset_rejected(client, preset):
     assert client.post("/api/overlay/preset", json={"preset": preset}).status_code == 400
+
+
+def test_version(client):
+    from app import __version__
+
+    assert client.get("/api/version").json() == {"version": __version__}

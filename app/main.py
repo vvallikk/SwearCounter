@@ -9,8 +9,9 @@ import sys
 import sounddevice as sd
 import uvicorn
 
+from . import __version__
 from .counter import Counter
-from .paths import COUNTER_FILE, MODELS_DIR, SETTINGS_FILE, SOUNDS_DIR, words_file
+from .paths import COUNTER_FILE, SETTINGS_FILE, SOUNDS_DIR, words_file
 from .profanity import count_profanity, load_words
 from .server import Hub, create_app
 from .settings import Settings
@@ -88,28 +89,26 @@ def main() -> None:
             count = await hub.increment(found)
             log.info("Счётчик: %d", count)
 
-    models = installed_models()
-    if not models:
-        sys.exit(
-            f"Не найдено ни одной модели распознавания в {MODELS_DIR}\n"
-            "Скачайте и распакуйте туда одну из моделей:\n"
-            + "\n".join(f"  {m.title}: {m.url}" for m in CATALOG)
-        )
     # Микрофон: ключ --device, иначе выбранный на странице управления, иначе системный.
     if args.device:
         device = int(args.device) if args.device.isdigit() else args.device
     else:
         device = settings.get("device")
     # Модель, выбранная на странице управления, иначе первая установленная из каталога.
+    # Если не скачано ни одной, сервер всё равно запускается: модель скачается
+    # по клику на странице управления.
     saved = settings.get("model")
     model = find_model(saved) if saved else None
     if model is None or not model.installed:
-        model = models[0]
+        models = installed_models()
+        model = models[0] if models else None
     async def on_level(level: float) -> None:
         # Для индикатора громкости на странице управления; оверлей это сообщение пропускает.
         await hub.broadcast({"type": "mic_level", "level": round(level, 3)})
 
-    recognizer = VoskRecognizer(on_text, model.path, settings, device=device, on_level=on_level)
+    recognizer = VoskRecognizer(
+        on_text, (model or CATALOG[0]).path, settings, device=device, on_level=on_level
+    )
 
     app = create_app(hub, recognizer, settings, Sound(settings, SOUNDS_DIR))
 
@@ -117,12 +116,15 @@ def main() -> None:
     sock = bind_socket(HOST, PORT, PORT_ATTEMPTS)
     port = sock.getsockname()[1]
 
+    print(f"Счётчик матов {__version__}")
     print(f"Счётчик: {hub.counter.value}")
     print(f"Оверлей для OBS:     http://localhost:{port}/overlay/")
     print(f"Страница управления: http://localhost:{port}/control/")
     if port != PORT:
         print(f"ВНИМАНИЕ: порт {PORT} занят, сервер запущен на {port}.")
         print("Если в OBS прописан старый адрес оверлея, обновите его или освободите порт.")
+    if model is None:
+        print("Модель распознавания ещё не скачана: выберите её на странице управления.")
     print("Для остановки нажмите Ctrl+C")
 
     server = uvicorn.Server(uvicorn.Config(app, log_level="warning"))

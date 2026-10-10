@@ -79,6 +79,14 @@ class VoskRecognizer(Recognizer):
         load_seconds[self.model_path.name] = round(seconds, 1)
         self.settings.set("load_seconds", load_seconds)
 
+    async def start(self) -> None:
+        # Модель ещё не скачана (первый запуск): ждём, пока её выберут
+        # на странице управления — тогда она скачается и запустится.
+        if not self.model_path.is_dir():
+            self.status = "no_model"
+            return
+        await super().start()
+
     async def set_model(self, model_path: Path) -> None:
         """Перезапускает распознавание с другой моделью.
 

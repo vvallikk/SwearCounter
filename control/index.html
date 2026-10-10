@@ -16,7 +16,7 @@
   <main class="card">
     <button id="theme" class="theme-btn" type="button"></button>
     <div class="header">
-      <h1>Счётчик матов</h1>
+      <h1>Счётчик матов <span id="version" class="version"></span></h1>
       <div class="status"><span id="dot" class="dot"></span><span id="status">Нет связи с сервером</span></div>
     </div>
     <div id="count" class="count">—</div>
@@ -61,8 +61,14 @@
     </section>
 
     <section id="preset-section" class="section" hidden>
-      <h2 class="section-title">Оформление счётчика</h2>
-      <div id="preset-grid" class="preset-grid"></div>
+      <label class="section-title" for="preset">Оформление счётчика</label>
+      <div class="preset-picker">
+        <iframe id="preset-preview" class="preset-preview" title="Превью оформления" tabindex="-1"></iframe>
+        <div class="preset-side">
+          <div class="select-wrap"><select id="preset"></select></div>
+          <p id="preset-desc" class="note"></p>
+        </div>
+      </div>
     </section>
 
     <section id="model-section" class="section" hidden>
@@ -74,6 +80,7 @@
         Пока загрузка не закончится, маты не считаются. Можно выбрать другую модель —
         эта загрузка прервётся.
       </div>
+      <div id="download-note" class="note download-note" hidden></div>
       <div id="model-list" class="model-list"></div>
     </section>
   </main>
