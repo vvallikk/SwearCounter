@@ -2,15 +2,29 @@
 
 Процесс нужен, чтобы загрузку модели можно было прервать в любой момент:
 поток остановить нельзя, а процесс можно завершить, и Windows сразу вернёт
-всю его память. Результаты отправляются в основной процесс через канал (Pipe)
-кортежами:
+всю его память. Связь с основным процессом — два канала (Pipe).
+
+Результаты (results), кортежами:
 
     ("loaded", секунды)               модель загружена в память
     ("listening", микрофон, частота)  микрофон открыт, идёт распознавание
+    ("mic_error", описание)           микрофон не открылся; модель остаётся
+                                      в памяти и ждёт другой микрофон
     ("text", текст, is_final)         распознанный текст
+    ("level", пик)                    громкость последнего куска звука, 0..1
+    ("monitor", включено, ошибка)     прослушивание включилось/выключилось;
+                                      ошибка — строка, если не удалось
     ("error", описание)               ошибка; процесс после неё завершается
+
+Команды (commands):
+
+    ("device", микрофон)              переключиться на другой микрофон
+                                      (полное имя, номер или None — по умолчанию)
+    ("monitor", включить)             проигрывать звук микрофона в системные
+                                      динамики/наушники (True/False)
 """
 
+import array
 import json
 import multiprocessing
 import os
@@ -20,64 +34,248 @@ import time
 import traceback
 from multiprocessing.connection import Connection
 
-BLOCK_SECONDS = 0.25  # длина одного куска звука, который отдаём распознавателю
+BLOCK_SECONDS = 0.1  # длина куска звука: распознавателю и для индикатора громкости
+MONITOR_MAX_SECONDS = 0.3  # больше в очереди прослушивания не копим, иначе растёт задержка
+SILENCE_TIMEOUT = 3.0  # столько секунд без звука — повод проверить, жив ли микрофон
 
 
-def run_worker(conn: Connection, model_path: str, device: int | str | None) -> None:
+class MicrophoneLost(Exception):
+    pass
+
+
+def run_worker(
+    results: Connection, commands: Connection, model_path: str, device: int | str | None
+) -> None:
     _exit_with_parent()
     try:
-        _recognize(conn, model_path, device)
+        _Worker(results, commands, device).run(model_path)
     except (BrokenPipeError, EOFError):
         pass  # основной процесс закрыл канал: распознавание больше не нужно
     except Exception:
-        _send_error(conn)
+        _send_error(results)
 
 
-def _recognize(conn: Connection, model_path: str, device: int | str | None) -> None:
-    # Тяжёлые импорты здесь, чтобы основной процесс их не загружал.
-    import sounddevice as sd
-    import vosk
+class _Worker:
+    def __init__(self, results: Connection, commands: Connection, device: int | str | None):
+        self.results = results
+        # Куски звука из микрофона; None — сигнал «пришла команда».
+        self.chunks: queue.Queue[bytes | None] = queue.Queue()
+        self._lock = threading.Lock()
+        self._pending_device = device
+        self._device_changed = False  # пришла команда сменить микрофон
+        self._monitor_wanted = False  # меняет поток команд, применяет основной цикл
+        self.monitor = _Monitor()
+        threading.Thread(target=self._read_commands, args=(commands,), daemon=True).start()
 
-    vosk.SetLogLevel(-1)  # иначе Kaldi засыпает консоль служебными сообщениями
+    def run(self, model_path: str) -> None:
+        # Тяжёлые импорты здесь, чтобы основной процесс их не загружал.
+        import vosk
 
-    started = time.monotonic()
-    model = vosk.Model(model_path)
-    conn.send(("loaded", time.monotonic() - started))
+        vosk.SetLogLevel(-1)  # иначе Kaldi засыпает консоль служебными сообщениями
 
-    info = sd.query_devices(device, "input")
-    samplerate = int(info["default_samplerate"])
-    rec = vosk.KaldiRecognizer(model, samplerate)
-    chunks: queue.Queue[bytes] = queue.Queue()
+        started = time.monotonic()
+        model = vosk.Model(model_path)
+        self.results.send(("loaded", time.monotonic() - started))
 
-    def callback(indata, frames, time_info, status) -> None:
-        chunks.put(bytes(indata))
+        while True:
+            device = self._take_device()
+            try:
+                stream, samplerate, name = self._open(device)
+            except Exception as e:
+                # Модель не выгружаем: ждём, пока выберут другой микрофон.
+                self.results.send(("mic_error", str(e)))
+                self._wait_for_command()
+                continue
+            try:
+                self.results.send(("listening", name, samplerate))
+                self._recognize(vosk.KaldiRecognizer(model, samplerate), stream, samplerate)
+            except MicrophoneLost:
+                lost = True
+            else:
+                lost = False
+            finally:
+                self.monitor.stop()
+                _close_stream(stream)
+            if lost:
+                # Поток уже закрыт; модель в памяти, ждём другой (или тот же, снова подключённый) микрофон.
+                self.results.send(("mic_error", f"Микрофон «{name}» перестал отвечать"))
+                self._wait_for_command()
 
-    with sd.RawInputStream(
-        device=device,
-        samplerate=samplerate,
-        blocksize=int(samplerate * BLOCK_SECONDS),
-        dtype="int16",
-        channels=1,
-        callback=callback,
-    ):
-        conn.send(("listening", info["name"], samplerate))
+    def _open(self, device: int | str | None):
+        import sounddevice as sd
+
+        from .audio_devices import display_name, refresh, resolve
+
+        refresh()  # микрофон могли подключить после запуска
+        index = resolve(device)
+        info = sd.query_devices(index, "input")
+        samplerate = int(info["default_samplerate"])
+
+        def callback(indata, frames, time_info, status) -> None:
+            self.chunks.put(bytes(indata))
+
+        stream = sd.RawInputStream(
+            device=index,
+            samplerate=samplerate,
+            blocksize=int(samplerate * BLOCK_SECONDS),
+            dtype="int16",
+            channels=1,
+            callback=callback,
+        )
+        stream.start()
+        return stream, samplerate, display_name(info["index"])
+
+    def _recognize(self, rec, stream, samplerate: int) -> None:
+        """Распознаёт звук, пока не придёт команда сменить микрофон."""
+        if self._monitor_wanted:  # прослушивание было включено до смены микрофона
+            self._apply_monitor(samplerate)
         last_partial = ""
         while True:
-            if rec.AcceptWaveform(chunks.get()):
+            try:
+                data = self.chunks.get(timeout=SILENCE_TIMEOUT)
+            except queue.Empty:
+                if not stream.active:  # например, микрофон отключили
+                    raise MicrophoneLost from None
+                continue
+            if data is None:
+                # Сигнал «пришла команда»: смена микрофона или прослушивание. Разбираем
+                # по флагам, а не по тому, совпадает ли прослушивание: команда прослушивания
+                # могла уже примениться в начале распознавания.
+                with self._lock:
+                    if self._device_changed:
+                        return
+                if self.monitor.running != self._monitor_wanted:
+                    self._apply_monitor(samplerate)
+                continue
+            self.results.send(("level", peak_level(data)))
+            self.monitor.feed(data)
+            if rec.AcceptWaveform(data):
                 text = json.loads(rec.Result())["text"]
                 last_partial = ""
                 if text:
-                    conn.send(("text", text, True))
+                    self.results.send(("text", text, True))
             else:
                 partial = json.loads(rec.PartialResult())["partial"]
                 if partial and partial != last_partial:
                     last_partial = partial
-                    conn.send(("text", partial, False))
+                    self.results.send(("text", partial, False))
+
+    def _apply_monitor(self, samplerate: int) -> None:
+        if not self._monitor_wanted:
+            self.monitor.stop()
+            self.results.send(("monitor", False, None))
+            return
+        try:
+            self.monitor.start(samplerate)
+        except Exception as e:
+            self._monitor_wanted = False
+            self.results.send(("monitor", False, f"Не удалось включить прослушивание: {e}"))
+            return
+        self.results.send(("monitor", True, None))
+
+    def _wait_for_command(self) -> None:
+        while self.chunks.get() is not None:
+            pass
+
+    def _take_device(self) -> int | str | None:
+        # Звук старого микрофона больше не нужен. Очередь чистим до чтения
+        # устройства: команда, пришедшая после, снова положит в очередь None.
+        while True:
+            try:
+                self.chunks.get_nowait()
+            except queue.Empty:
+                break
+        with self._lock:
+            self._device_changed = False
+            return self._pending_device
+
+    def _read_commands(self, commands: Connection) -> None:
+        while True:
+            try:
+                kind, value = commands.recv()
+            except (EOFError, OSError):
+                os._exit(0)  # основной процесс закрыл канал
+            if kind == "device":
+                with self._lock:
+                    self._pending_device = value
+                    self._device_changed = True
+                self.chunks.put(None)
+            elif kind == "monitor":
+                self._monitor_wanted = bool(value)
+                self.chunks.put(None)
 
 
-def _send_error(conn: Connection) -> None:
+def _close_stream(stream) -> None:
     try:
-        conn.send(("error", traceback.format_exc()))
+        stream.abort()  # не ждём, пока доиграют буферы: звук старого микрофона не нужен
+        stream.close()
+    except Exception:
+        pass  # у отключённого устройства закрытие может не получиться — это уже неважно
+
+
+def peak_level(data: bytes) -> float:
+    """Пиковая громкость куска звука (int16) от 0 до 1."""
+    samples = array.array("h", data[: len(data) // 2 * 2])  # неполный отсчёт в конце пропускаем
+    if not samples:
+        return 0.0
+    return min(max(max(samples), -min(samples)) / 32768, 1.0)
+
+
+class _Monitor:
+    """Прослушивание: звук микрофона в системные динамики или наушники."""
+
+    def __init__(self):
+        self.stream = None
+        self._lock = threading.Lock()
+        self._pending = bytearray()
+        self._max_bytes = 0
+
+    @property
+    def running(self) -> bool:
+        return self.stream is not None
+
+    def start(self, samplerate: int) -> None:
+        import sounddevice as sd
+
+        self.stop()
+        self._max_bytes = int(samplerate * MONITOR_MAX_SECONDS) * 2
+
+        def callback(outdata, frames, time_info, status) -> None:
+            need = len(outdata)
+            with self._lock:
+                chunk = bytes(self._pending[:need])
+                del self._pending[:need]
+            outdata[: len(chunk)] = chunk
+            outdata[len(chunk) :] = bytes(need - len(chunk))  # тишина, если звука не хватило
+
+        stream = sd.RawOutputStream(
+            samplerate=samplerate, channels=1, dtype="int16", callback=callback
+        )
+        stream.start()
+        self.stream = stream
+
+    def feed(self, data: bytes) -> None:
+        if self.stream is None:
+            return
+        with self._lock:
+            self._pending += data
+            # Если динамики не успевают, выбрасываем старое: лучше пропуск, чем эхо через секунду.
+            overflow = len(self._pending) - self._max_bytes
+            if overflow > 0:
+                del self._pending[:overflow]
+
+    def stop(self) -> None:
+        if self.stream is not None:
+            self.stream.abort()
+            self.stream.close()
+            self.stream = None
+        with self._lock:
+            self._pending.clear()
+
+
+def _send_error(results: Connection) -> None:
+    try:
+        results.send(("error", traceback.format_exc()))
     except OSError:
         pass  # основной процесс уже закрыл канал
 

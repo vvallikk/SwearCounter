@@ -28,4 +28,5 @@ def words_file() -> Path:
 
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
+SOUNDS_DIR = DATA_DIR / "sounds"  # свой звук оповещения, загруженный со страницы управления
 MODELS_DIR = DATA_DIR / "models"

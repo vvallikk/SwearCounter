@@ -10,10 +10,11 @@ import sounddevice as sd
 import uvicorn
 
 from .counter import Counter
-from .paths import COUNTER_FILE, MODELS_DIR, SETTINGS_FILE, words_file
+from .paths import COUNTER_FILE, MODELS_DIR, SETTINGS_FILE, SOUNDS_DIR, words_file
 from .profanity import count_profanity, load_words
 from .server import Hub, create_app
 from .settings import Settings
+from .sound import Sound
 from .stt import CATALOG, VoskRecognizer, find_model, installed_models
 
 HOST = "127.0.0.1"
@@ -30,10 +31,32 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _busy_on_any_interface(port: int) -> bool:
+    """Занят ли порт хоть на каком-то адресе.
+
+    Windows разрешает занять 127.0.0.1:порт, даже если другая программа слушает
+    этот порт на всех адресах (0.0.0.0) — и запросы ушли бы не туда. Поэтому
+    сначала пробуем исключительно занять порт на всех адресах и сразу отпускаем.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        try:
+            probe.bind(("0.0.0.0", port))
+        except OSError:
+            return True
+    return False
+
+
 def bind_socket(host: str, first_port: int, attempts: int) -> socket.socket:
     """Занимает первый свободный порт, начиная с first_port."""
     for port in range(first_port, first_port + attempts):
+        if _busy_on_any_interface(port):
+            log.warning("Порт %d занят, пробую следующий", port)
+            continue
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         try:
             sock.bind((host, port))
         except OSError:
@@ -72,15 +95,23 @@ def main() -> None:
             "Скачайте и распакуйте туда одну из моделей:\n"
             + "\n".join(f"  {m.title}: {m.url}" for m in CATALOG)
         )
-    device = int(args.device) if args.device and args.device.isdigit() else args.device
+    # Микрофон: ключ --device, иначе выбранный на странице управления, иначе системный.
+    if args.device:
+        device = int(args.device) if args.device.isdigit() else args.device
+    else:
+        device = settings.get("device")
     # Модель, выбранная на странице управления, иначе первая установленная из каталога.
     saved = settings.get("model")
     model = find_model(saved) if saved else None
     if model is None or not model.installed:
         model = models[0]
-    recognizer = VoskRecognizer(on_text, model.path, settings, device=device)
+    async def on_level(level: float) -> None:
+        # Для индикатора громкости на странице управления; оверлей это сообщение пропускает.
+        await hub.broadcast({"type": "mic_level", "level": round(level, 3)})
 
-    app = create_app(hub, recognizer, settings)
+    recognizer = VoskRecognizer(on_text, model.path, settings, device=device, on_level=on_level)
+
+    app = create_app(hub, recognizer, settings, Sound(settings, SOUNDS_DIR))
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.
     sock = bind_socket(HOST, PORT, PORT_ATTEMPTS)

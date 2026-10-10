@@ -8,6 +8,8 @@ import asyncio
 import logging
 import multiprocessing
 import time
+from collections.abc import Awaitable, Callable
+from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from pathlib import Path
 
@@ -33,11 +35,19 @@ class VoskRecognizer(Recognizer):
         model_path: Path,
         settings: Settings,
         device: int | str | None = None,
+        on_level: Callable[[float], Awaitable[None]] | None = None,
     ):
         super().__init__(on_text)
+        self.on_level = on_level  # громкость микрофона 0..1, примерно 10 раз в секунду
         self.model_path = Path(model_path)
         self.settings = settings
         self.device = device
+        self.mic_name: str | None = None  # микрофон, который сейчас слушаем
+        self.mic_error: str | None = None  # почему микрофон не открылся
+        self.mic_pending = False  # смена микрофона отправлена, ответа ещё нет
+        self.monitor = False  # звук микрофона выводится в динамики/наушники
+        self.monitor_error: str | None = None
+        self._commands: Connection | None = None
         self._load_started: float | None = None
         self._load_expected = 1.0
 
@@ -53,15 +63,19 @@ class VoskRecognizer(Recognizer):
         elapsed = time.monotonic() - self._load_started
         return min(elapsed / self._load_expected, 0.99)
 
+    def _saved_load_seconds(self) -> dict:
+        saved = self.settings.get("load_seconds", {})
+        return saved if isinstance(saved, dict) else {}  # файл могли испортить вручную
+
     def _expected_load_seconds(self) -> float:
-        saved = self.settings.get("load_seconds", {}).get(self.model_path.name)
-        if saved:
+        saved = self._saved_load_seconds().get(self.model_path.name)
+        if isinstance(saved, (int, float)) and saved > 0:
             return saved
         size = sum(f.stat().st_size for f in self.model_path.rglob("*") if f.is_file())
         return max(size / LOAD_BYTES_PER_SECOND, 1.0)
 
     def _remember_load_seconds(self, seconds: float) -> None:
-        load_seconds = dict(self.settings.get("load_seconds", {}))
+        load_seconds = dict(self._saved_load_seconds())
         load_seconds[self.model_path.name] = round(seconds, 1)
         self.settings.set("load_seconds", load_seconds)
 
@@ -79,13 +93,35 @@ class VoskRecognizer(Recognizer):
         self.model_path = Path(model_path)
         await self.start()
 
+    def set_device(self, device: int | str | None) -> None:
+        """Переключает микрофон. Модель при этом не перезагружается."""
+        self.device = device
+        if self._commands is not None:
+            # Пока модель грузится, микрофон и так откроется после загрузки.
+            self.mic_pending = self.status in ("listening", "mic_error")
+            try:
+                self._commands.send(("device", device))
+            except OSError:
+                pass  # процесс как раз завершается; новый возьмёт self.device
+
+    def set_monitor(self, enabled: bool) -> None:
+        """Включает или выключает прослушивание микрофона."""
+        self.monitor_error = None
+        if self._commands is None:
+            return  # процесса ещё нет; прослушивание включают у работающего микрофона
+        try:
+            self._commands.send(("monitor", enabled))
+        except OSError:
+            pass
+
     async def run(self) -> None:
         self._load_expected = await asyncio.to_thread(self._expected_load_seconds)
 
         recv_conn, send_conn = _mp.Pipe(duplex=False)
+        cmd_recv, cmd_send = _mp.Pipe(duplex=False)
         process = _mp.Process(
             target=run_worker,
-            args=(send_conn, str(self.model_path), self.device),
+            args=(send_conn, cmd_recv, str(self.model_path), self.device),
             name=self.model_path.name,
             daemon=True,  # при выходе из программы процесс завершится вместе с ней
         )
@@ -95,6 +131,8 @@ class VoskRecognizer(Recognizer):
         # Свой экземпляр передающего конца закрываем: тогда при завершении
         # процесса recv() получит EOFError, а не будет ждать вечно.
         send_conn.close()
+        cmd_recv.close()
+        self._commands = cmd_send
         try:
             while True:
                 try:
@@ -105,11 +143,19 @@ class VoskRecognizer(Recognizer):
                     ) from None
                 await self._handle(message)
         finally:
+            self._commands = None
+            self.mic_name = None
+            self.mic_pending = False
+            self.monitor = False
+            cmd_send.close()
             await asyncio.to_thread(_terminate, process)
 
     async def _handle(self, message: tuple) -> None:
         kind, *data = message
-        if kind == "text":
+        if kind == "level":
+            if self.on_level is not None:
+                await self.on_level(data[0])
+        elif kind == "text":
             await self.on_text(*data)
         elif kind == "loaded":
             # Считаем от запуска процесса: это время, которое реально ждёт пользователь.
@@ -119,7 +165,20 @@ class VoskRecognizer(Recognizer):
         elif kind == "listening":
             name, samplerate = data
             self.status = "listening"
+            self.mic_name = name
+            self.mic_error = None
+            self.mic_pending = False
             log.info("Слушаю микрофон: %s (%d Гц)", name, samplerate)
+        elif kind == "monitor":
+            self.monitor, self.monitor_error = data
+            if self.monitor_error:
+                log.error("%s", self.monitor_error)
+        elif kind == "mic_error":
+            self.status = "mic_error"
+            self.mic_name = None
+            self.mic_error = data[0]
+            self.mic_pending = False
+            log.error("Микрофон: %s", data[0])
         elif kind == "error":
             raise RuntimeError(f"Ошибка в процессе распознавания:\n{data[0]}")
 

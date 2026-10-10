@@ -124,6 +124,24 @@ models/vosk-model-small-ru-0.22/am, conf, graph, ...
 если начинается с одного из корней. Регистр и ё/е не важны, пустые строки и
 строки с `#` пропускаются. После правки файла перезапустите приложение.
 
+## Тесты
+
+Зависимости для тестов (pytest и httpx2 для TestClient) ставятся отдельно:
+
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.venv\Scripts\python.exe -m pytest -q
+```
+
+Тесты лежат в `tests/` и выполняются за пару секунд. Им не нужны ни микрофон,
+ни модели Vosk, ни интернет: `sounddevice` и `vosk` подменены, файлы
+(`counter.json`, `settings.json`, `models/`) создаются во временной папке,
+а процесс распознавания проверяется в потоке текущего процесса.
+Работающее приложение тесты не трогают, его порты 8765–8774 не занимают.
+
+На GitHub тесты запускаются автоматически для каждого пул-реквеста и коммита
+в `main` (`.github/workflows/tests.yml`, Windows).
+
 ## Структура
 
 ```
@@ -135,6 +153,7 @@ app/profanity.py   поиск корней из words.txt
 app/paths.py       пути к файлам (работают и из исходников, и из exe)
 app/stt/           распознавание речи: VoskRecognizer, процесс vosk_worker, каталог моделей
 models/            модели Vosk (в git не попадают)
+tests/             автотесты (pytest)
 overlay/           оверлей для OBS
 control/           страница управления
 ```
