@@ -2,16 +2,24 @@
   "use strict";
 
   const RECONNECT_MS = 2000;
+  const PREVIEW_INTERVAL_MS = 2500;
+  const PREVIEW_COUNT = 42;
 
-  // --- Параметры из адреса: ?size=120&color=ffffff&mute=1 ---
+  // --- Параметры из адреса: ?size=120&color=ffffff&mute=1&preset=neon&preview=1 ---
   const params = new URLSearchParams(location.search);
   const size = Math.min(Math.max(parseInt(params.get("size"), 10) || 120, 16), 1000);
-  const colorRaw = (params.get("color") || "ffffff").replace(/^#/, "");
-  const color = /^([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(colorRaw) ? "#" + colorRaw : "#ffffff";
+  const colorRaw = (params.get("color") || "").replace(/^#/, "");
+  // Явный цвет перекрывает цвет пресета; без него берётся цвет пресета.
+  const colorOverride = /^([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(colorRaw) ? "#" + colorRaw : null;
   const muted = params.get("mute") === "1";
+  // ?preview=1 — предпросмотр для страницы управления: без WebSocket и без звука.
+  const preview = params.get("preview") === "1";
+  // ?preset=<id> закрепляет пресет; без него пресет приходит по WebSocket.
+  const fixedPreset = params.get("preset") || null;
 
-  document.documentElement.style.setProperty("--size", size + "px");
-  document.documentElement.style.setProperty("--color", color);
+  const root = document.documentElement;
+  root.style.setProperty("--size", size + "px");
+  if (preview) root.setAttribute("data-preview", "");
 
   const counterEl = document.getElementById("counter");
   const valueEl = document.getElementById("value");
@@ -21,9 +29,42 @@
     valueEl.textContent = String(n);
   }
 
+  // --- Пресеты (overlay/presets.js) ---
+  const PRESETS = window.OVERLAY_PRESETS || [{ id: "classic", color: "#ffffff" }];
+  let currentPreset = "classic";
+
+  function findPreset(id) {
+    return PRESETS.find((p) => p.id === id) || PRESETS[0];
+  }
+
+  function applyPreset(id) {
+    const preset = findPreset(id);
+    currentPreset = preset.id;
+    root.setAttribute("data-preset", preset.id);
+    root.style.setProperty("--color", colorOverride || preset.color || "#ffffff");
+  }
+
   // --- Анимации ---
-  function playIncrementAnimation(delta) {
-    // Подпрыгивание числа
+
+  // «+N», уплывающее вверх. Кадры можно заменить для своего пресета.
+  function floatPlus(delta, keyframes, options) {
+    const plus = document.createElement("span");
+    plus.className = "plus";
+    plus.textContent = "+" + delta;
+    counterEl.appendChild(plus);
+    const anim = plus.animate(
+      keyframes || [
+        { transform: "translate(-50%, 0) scale(0.6)", opacity: 0 },
+        { transform: "translate(-50%, -60%) scale(1.1)", opacity: 1, offset: 0.2 },
+        { transform: "translate(-50%, -160%) scale(1)", opacity: 0 },
+      ],
+      options || { duration: 1200, easing: "ease-out" }
+    );
+    anim.onfinish = () => plus.remove();
+  }
+
+  // Классика: подпрыгивание, вспышка, «+N»
+  function animateClassic(delta) {
     valueEl.animate(
       [
         { transform: "translateY(0) scale(1)" },
@@ -34,7 +75,6 @@
       { duration: 550, easing: "ease-out" }
     );
 
-    // Вспышка
     glowEl.animate(
       [
         { opacity: 0, transform: "scale(0.6)" },
@@ -44,94 +84,196 @@
       { duration: 700, easing: "ease-out" }
     );
 
-    // «+1», уплывающее вверх
-    const plus = document.createElement("span");
-    plus.className = "plus";
-    plus.textContent = "+" + delta;
-    counterEl.appendChild(plus);
-    const anim = plus.animate(
+    floatPlus(delta);
+  }
+
+  // Мем: удар с увеличением и тряска, «+N» влетает с поворотом
+  function animateImpact(delta) {
+    valueEl.animate(
       [
-        { transform: "translate(-50%, 0) scale(0.6)", opacity: 0 },
-        { transform: "translate(-50%, -60%) scale(1.1)", opacity: 1, offset: 0.2 },
-        { transform: "translate(-50%, -160%) scale(1)", opacity: 0 },
+        { transform: "scale(1) rotate(0)" },
+        { transform: "scale(1.35) rotate(-4deg)", offset: 0.12 },
+        { transform: "scale(1.2) translateX(-6%) rotate(3deg)", offset: 0.24 },
+        { transform: "scale(1.15) translateX(6%) rotate(-3deg)", offset: 0.36 },
+        { transform: "scale(1.1) translateX(-4%) rotate(2deg)", offset: 0.48 },
+        { transform: "scale(1.05) translateX(3%) rotate(-1deg)", offset: 0.6 },
+        { transform: "scale(1) translateX(-1%) rotate(0)", offset: 0.75 },
+        { transform: "scale(1) rotate(0)" },
       ],
-      { duration: 1200, easing: "ease-out" }
+      { duration: 600, easing: "linear" }
     );
-    anim.onfinish = () => plus.remove();
+
+    floatPlus(delta, [
+      { transform: "translate(-50%, -40%) scale(2.2) rotate(-12deg)", opacity: 0 },
+      { transform: "translate(-50%, -70%) scale(1) rotate(-8deg)", opacity: 1, offset: 0.15 },
+      { transform: "translate(-50%, -80%) scale(1.05) rotate(-8deg)", opacity: 1, offset: 0.6 },
+      { transform: "translate(-50%, -150%) scale(0.9) rotate(-8deg)", opacity: 0 },
+    ], { duration: 1200, easing: "ease-out" });
   }
 
-  // --- Звук ---
-  let audioCtx = null;
-  let dingBuffer = null; // загруженный sounds/ding.mp3, если он есть
+  // Неон: мерцание вывески, яркая вспышка, светящийся «+N»
+  function animateNeon(delta) {
+    valueEl.animate(
+      [
+        { opacity: 1, transform: "scale(1)" },
+        { opacity: 0.25, transform: "scale(1.08)", offset: 0.08 },
+        { opacity: 1, transform: "scale(1.12)", offset: 0.16 },
+        { opacity: 0.4, transform: "scale(1.1)", offset: 0.24 },
+        { opacity: 1, transform: "scale(1.1)", offset: 0.34 },
+        { opacity: 1, transform: "scale(1)" },
+      ],
+      { duration: 800, easing: "ease-out" }
+    );
 
-  function getAudioContext() {
-    if (!audioCtx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      audioCtx = new AC();
+    glowEl.animate(
+      [
+        { opacity: 0, transform: "scale(0.7)" },
+        { opacity: 0.55, transform: "scale(1)", offset: 0.3 },
+        { opacity: 0.2, transform: "scale(1.15)", offset: 0.6 },
+        { opacity: 0, transform: "scale(1.3)" },
+      ],
+      { duration: 1100, easing: "ease-out" }
+    );
+
+    floatPlus(delta, [
+      { transform: "translate(-50%, 0)", opacity: 0 },
+      { transform: "translate(-50%, -60%)", opacity: 1, offset: 0.15 },
+      { transform: "translate(-50%, -60%)", opacity: 0.3, offset: 0.25 },
+      { transform: "translate(-50%, -80%)", opacity: 1, offset: 0.35 },
+      { transform: "translate(-50%, -160%)", opacity: 0 },
+    ], { duration: 1300, easing: "ease-out" });
+  }
+
+  // Ретро: движение рывками (steps), как спрайт в старой игре
+  function animateRetro(delta) {
+    valueEl.animate(
+      [
+        { transform: "translateY(0) scale(1)" },
+        { transform: "translateY(-16%) scale(1.2)", offset: 0.4 },
+        { transform: "translateY(0) scale(1)" },
+      ],
+      { duration: 480, easing: "steps(6, end)" }
+    );
+
+    floatPlus(delta, [
+      { transform: "translate(-50%, 0)", opacity: 1 },
+      { transform: "translate(-50%, -150%)", opacity: 1, offset: 0.8 },
+      { transform: "translate(-50%, -150%)", opacity: 0 },
+    ], { duration: 1100, easing: "steps(8, end)" });
+  }
+
+  // Минимализм: число мягко въезжает снизу, «+N» тихо всплывает
+  function animateMinimal(delta) {
+    valueEl.animate(
+      [
+        { transform: "translateY(18%)", opacity: 0.2 },
+        { transform: "translateY(0)", opacity: 1 },
+      ],
+      { duration: 320, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" }
+    );
+
+    floatPlus(delta, [
+      { transform: "translate(-50%, 0)", opacity: 0 },
+      { transform: "translate(-50%, -80%)", opacity: 0.9, offset: 0.3 },
+      { transform: "translate(-50%, -140%)", opacity: 0 },
+    ], { duration: 1000, easing: "ease-out" });
+  }
+
+  // Взрыв: резкое увеличение, вспышка и разлетающиеся искры
+  const SPARK_COUNT = 12;
+
+  function animateExplosion(delta) {
+    valueEl.animate(
+      [
+        { transform: "scale(1)" },
+        { transform: "scale(1.7) rotate(-3deg)", offset: 0.18 },
+        { transform: "scale(0.85) rotate(2deg)", offset: 0.45 },
+        { transform: "scale(1.06)", offset: 0.7 },
+        { transform: "scale(1)" },
+      ],
+      { duration: 650, easing: "ease-out" }
+    );
+
+    glowEl.animate(
+      [
+        { opacity: 0, transform: "scale(0.3)" },
+        { opacity: 0.9, transform: "scale(1)", offset: 0.15 },
+        { opacity: 0, transform: "scale(1.6)" },
+      ],
+      { duration: 650, easing: "ease-out" }
+    );
+
+    for (let i = 0; i < SPARK_COUNT; i++) {
+      const spark = document.createElement("span");
+      spark.className = "spark";
+      counterEl.appendChild(spark);
+      const angle = (i / SPARK_COUNT) * Math.PI * 2 + Math.random() * 0.4;
+      const dist = size * (0.7 + Math.random() * 0.5);
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist;
+      const anim = spark.animate(
+        [
+          { transform: "translate(0, 0) scale(1.2)", opacity: 1 },
+          { transform: `translate(${dx * 0.7}px, ${dy * 0.7}px) scale(0.9)`, opacity: 1, offset: 0.5 },
+          { transform: `translate(${dx}px, ${dy + size * 0.15}px) scale(0.3)`, opacity: 0 },
+        ],
+        { duration: 600 + Math.random() * 250, easing: "cubic-bezier(0.1, 0.7, 0.3, 1)" }
+      );
+      anim.onfinish = () => spark.remove();
     }
-    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
-    return audioCtx;
+
+    floatPlus(delta, [
+      { transform: "translate(-50%, 0) scale(0.3)", opacity: 0 },
+      { transform: "translate(-50%, -70%) scale(1.5)", opacity: 1, offset: 0.15 },
+      { transform: "translate(-50%, -90%) scale(1.1)", opacity: 1, offset: 0.4 },
+      { transform: "translate(-50%, -160%) scale(1)", opacity: 0 },
+    ], { duration: 1200, easing: "ease-out" });
   }
 
-  async function loadDingFile() {
-    try {
-      const resp = await fetch("sounds/ding.mp3", { cache: "no-store" });
-      if (!resp.ok) return; // файла нет — будем синтезировать звук
-      const ctx = getAudioContext();
-      if (!ctx) return;
-      dingBuffer = await ctx.decodeAudioData(await resp.arrayBuffer());
-    } catch (e) {
-      dingBuffer = null;
-    }
+  // id пресета → анимация прибавления
+  const INCREMENT_ANIMATIONS = {
+    classic: animateClassic,
+    impact: animateImpact,
+    neon: animateNeon,
+    retro: animateRetro,
+    minimal: animateMinimal,
+    explosion: animateExplosion,
+  };
+
+  function playIncrementAnimation(delta) {
+    (INCREMENT_ANIMATIONS[currentPreset] || animateClassic)(delta);
   }
 
-  // Один удар колокольчика: основной тон и негармонический обертон с затуханием
-  function bell(ctx, out, freq, start, volume) {
-    const partials = [
-      [1, 1, 1.4],
-      [2.76, 0.25, 0.6],
-    ];
-    for (const [mul, amp, dur] of partials) {
-      const osc = ctx.createOscillator();
-      osc.type = "sine";
-      osc.frequency.value = freq * mul;
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(amp * volume, start + 0.005);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-      osc.connect(gain).connect(out);
-      osc.start(start);
-      osc.stop(start + dur + 0.05);
-    }
+  // Смена пресета «вживую» (если он не закреплён в адресе)
+  function handleStyle(msg) {
+    if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
   }
 
-  function synthDing(ctx) {
-    const out = ctx.createGain();
-    out.gain.value = 0.3;
-    out.connect(ctx.destination);
-    const t = ctx.currentTime + 0.01;
-    bell(ctx, out, 1318.5, t, 1.0); // E6
-    bell(ctx, out, 1975.5, t + 0.09, 0.8); // B6
-    bell(ctx, out, 2637.0, t + 0.18, 0.5); // E7
+  applyPreset(fixedPreset || "classic");
+
+  // --- Предпросмотр: пример числа и анимация по таймеру ---
+  if (preview) {
+    let count = PREVIEW_COUNT;
+    setCount(count);
+    setInterval(() => {
+      count += 1;
+      setCount(count);
+      playIncrementAnimation(1);
+    }, PREVIEW_INTERVAL_MS);
+    setTimeout(() => playIncrementAnimation(1), 400);
+    // Страница управления может сменить пресет без перезагрузки iframe:
+    // iframe.contentWindow.postMessage({ type: "style", preset: "neon" }, location.origin)
+    window.addEventListener("message", (event) => {
+      if (event.origin !== location.origin) return;
+      const msg = event.data;
+      if (msg && msg.type === "style" && typeof msg.preset === "string") applyPreset(msg.preset);
+    });
+    return;
   }
 
-  function playDing() {
-    if (muted) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    if (dingBuffer) {
-      const src = ctx.createBufferSource();
-      src.buffer = dingBuffer;
-      src.connect(ctx.destination);
-      src.start();
-    } else {
-      synthDing(ctx);
-    }
-  }
-
-  // В обычном браузере звук разрешается только после клика по странице (в OBS это не нужно)
-  document.addEventListener("pointerdown", () => getAudioContext());
+  // --- Звук (overlay/sound.js) ---
+  // Громкость и свой звук задаются на странице управления и приходят по WebSocket.
+  const player = muted ? null : window.createDingPlayer();
 
   // --- WebSocket с автопереподключением ---
   function connect() {
@@ -150,13 +292,16 @@
       } else if (msg.type === "increment") {
         setCount(msg.count);
         playIncrementAnimation(msg.delta || 1);
-        playDing();
+        if (player) player.play();
+      } else if (msg.type === "sound") {
+        if (player) player.apply(msg);
+      } else if (msg.type === "style") {
+        handleStyle(msg);
       }
     };
     ws.onclose = () => setTimeout(connect, RECONNECT_MS);
     ws.onerror = () => ws.close();
   }
 
-  if (!muted) loadDingFile();
   connect();
 })();

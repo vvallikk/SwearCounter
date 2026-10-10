@@ -65,3 +65,157 @@ body {
   pointer-events: none;
   opacity: 0;
 }
+
+/* ===================== Пресеты оформления =====================
+   Пресет задаётся атрибутом data-preset на <html> (см. overlay.js).
+   "classic" — стили выше без изменений. Цвет цифр (--color) выставляет
+   overlay.js: из ?color= или из пресета (presets.js). */
+
+/* --- Режим предпросмотра (?preview=1): число чуть ниже центра,
+   чтобы «+1» не обрезалось в маленьком iframe --- */
+:root[data-preview] body {
+  box-sizing: border-box;
+  padding-top: calc(var(--size) * 0.45);
+}
+
+/* --- Мем: Impact, толстая чёрная обводка --- */
+:root[data-preset="impact"] body {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif;
+  font-weight: 400;
+}
+
+:root[data-preset="impact"] .value {
+  letter-spacing: 0.02em;
+  -webkit-text-stroke: calc(var(--size) * 0.09) #000;
+  text-shadow: calc(var(--size) * 0.03) calc(var(--size) * 0.05) 0 #000;
+}
+
+:root[data-preset="impact"] .plus {
+  -webkit-text-stroke: calc(var(--size) * 0.05) #000;
+  text-shadow: none;
+}
+
+:root[data-preset="impact"] .glow {
+  display: none;
+}
+
+/* --- Неон: светящиеся контуры, медленная пульсация --- */
+:root[data-preset="neon"] {
+  --accent: #ff2bd6;
+}
+
+:root[data-preset="neon"] body {
+  font-family: Bahnschrift, "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif;
+  font-weight: 600;
+}
+
+:root[data-preset="neon"] .value {
+  -webkit-text-stroke: 0;
+  text-shadow:
+    0 0 calc(var(--size) * 0.04) #fff,
+    0 0 calc(var(--size) * 0.1) var(--color),
+    0 0 calc(var(--size) * 0.22) var(--accent),
+    0 0 calc(var(--size) * 0.4) var(--accent);
+  animation: neon-pulse 2.4s ease-in-out infinite;
+}
+
+:root[data-preset="neon"] .plus {
+  color: var(--accent);
+  -webkit-text-stroke: 0;
+  text-shadow:
+    0 0 calc(var(--size) * 0.03) #fff,
+    0 0 calc(var(--size) * 0.12) var(--accent);
+}
+
+:root[data-preset="neon"] .glow {
+  background: radial-gradient(circle, var(--accent) 0%, transparent 60%);
+}
+
+@keyframes neon-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
+/* --- Ретро: моноширинный шрифт, жёсткая «пиксельная» тень --- */
+:root[data-preset="retro"] body {
+  font-family: Consolas, "Lucida Console", "Courier New", monospace;
+  font-weight: 700;
+}
+
+:root[data-preset="retro"] .value {
+  -webkit-text-stroke: 0;
+  text-shadow:
+    calc(var(--size) * 0.05) calc(var(--size) * 0.05) 0 #d6262b,
+    calc(var(--size) * 0.1) calc(var(--size) * 0.1) 0 #000;
+}
+
+:root[data-preset="retro"] .plus {
+  -webkit-text-stroke: 0;
+  text-shadow: calc(var(--size) * 0.03) calc(var(--size) * 0.03) 0 #000;
+}
+
+:root[data-preset="retro"] .glow {
+  display: none;
+}
+
+/* --- Минимализм: без обводки, мягкая тень --- */
+:root[data-preset="minimal"] body {
+  font-family: "Segoe UI Variable Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+}
+
+:root[data-preset="minimal"] .value {
+  -webkit-text-stroke: 0;
+  text-shadow: 0 calc(var(--size) * 0.02) calc(var(--size) * 0.08) rgba(0, 0, 0, 0.55);
+}
+
+:root[data-preset="minimal"] .plus {
+  font-size: calc(var(--size) * 0.3);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+:root[data-preset="minimal"] .glow {
+  display: none;
+}
+
+/* --- Взрыв: огненные цифры и искры --- */
+:root[data-preset="explosion"] {
+  --accent: #ff3d00;
+}
+
+:root[data-preset="explosion"] body {
+  font-family: "Arial Black", "Segoe UI Black", "Segoe UI", Arial, sans-serif;
+  font-weight: 900;
+}
+
+:root[data-preset="explosion"] .value {
+  -webkit-text-stroke: calc(var(--size) * 0.07) #2a0a00;
+  text-shadow:
+    0 0 calc(var(--size) * 0.12) var(--accent),
+    0 calc(var(--size) * 0.04) calc(var(--size) * 0.1) rgba(0, 0, 0, 0.6);
+}
+
+:root[data-preset="explosion"] .plus {
+  -webkit-text-stroke: calc(var(--size) * 0.03) #2a0a00;
+  text-shadow: 0 0 calc(var(--size) * 0.1) var(--accent);
+}
+
+:root[data-preset="explosion"] .glow {
+  background: radial-gradient(circle, #fff 0%, var(--color) 25%, var(--accent) 45%, transparent 68%);
+}
+
+/* Искра — маленький светящийся кружок из центра числа */
+.spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--size) * 0.09);
+  height: calc(var(--size) * 0.09);
+  margin: calc(var(--size) * -0.045) 0 0 calc(var(--size) * -0.045);
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: 0 0 calc(var(--size) * 0.08) var(--accent, var(--color));
+  pointer-events: none;
+  opacity: 0;
+}
