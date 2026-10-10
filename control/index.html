@@ -1,228 +1,28 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Счётчик матов — управление</title>
-  <style>
-    :root {
-      --bg: #f4f5f7;
-      --card: #ffffff;
-      --text: #1d2129;
-      --muted: #6b7280;
-      --accent: #2563eb;
-      --danger: #dc2626;
-      --ok: #16a34a;
-      --border: #e5e7eb;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #16181d;
-        --card: #1f2229;
-        --text: #e5e7eb;
-        --muted: #9ca3af;
-        --border: #2d313a;
-      }
-    }
-    * { box-sizing: border-box; }
-    [hidden] { display: none !important; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      background: var(--bg);
-      color: var(--text);
-      font-family: "Segoe UI", system-ui, sans-serif;
-    }
-    .card {
-      width: 100%;
-      max-width: 420px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 24px;
-      text-align: center;
-    }
-    h1 { margin: 0 0 4px; font-size: 20px; }
-    .status { font-size: 14px; color: var(--muted); }
-    .dot {
-      display: inline-block;
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      margin-right: 6px;
-      background: var(--danger);
-      vertical-align: middle;
-    }
-    .dot.online { background: var(--ok); }
-    .count {
-      margin: 20px 0;
-      font-size: 88px;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      line-height: 1;
-    }
-    .buttons { display: flex; gap: 12px; }
-    button { font: inherit; color: inherit; cursor: pointer; }
-    button:disabled { cursor: default; }
-    .buttons button {
-      flex: 1;
-      padding: 12px;
-      font-size: 16px;
-      font-weight: 600;
-      border: 0;
-      border-radius: 10px;
-      color: #fff;
-    }
-    .buttons button:disabled { opacity: 0.6; }
-    #inc { background: var(--accent); }
-    #reset { background: var(--danger); }
-    .speech {
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
-      text-align: left;
-    }
-    .speech label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
-    .model-row { display: flex; gap: 8px; }
-    .select-wrap { position: relative; flex: 1; min-width: 0; }
-    /* Своя стрелка вместо системной: у системной нельзя задать отступ от края. */
-    .select-wrap::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      right: 16px;
-      width: 7px;
-      height: 7px;
-      margin-top: -6px;
-      border-right: 2px solid var(--muted);
-      border-bottom: 2px solid var(--muted);
-      transform: rotate(45deg);
-      pointer-events: none;
-    }
-    .speech select {
-      width: 100%;
-      padding: 10px 40px 10px 12px;
-      font: inherit;
-      font-size: 15px;
-      color: var(--text);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      appearance: none;
-      text-overflow: ellipsis;
-      cursor: pointer;
-    }
-    #model-info-btn {
-      flex: none;
-      width: 42px;
-      padding: 0;
-      font-family: Georgia, serif;
-      font-style: italic;
-      font-size: 18px;
-      color: var(--muted);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-    }
-    #model-info-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
-    .model-info { margin-top: 10px; display: grid; gap: 8px; }
-    .model-card {
-      display: block;
-      width: 100%;
-      padding: 10px 12px;
-      font-size: 13px;
-      line-height: 1.45;
-      text-align: left;
-      color: var(--text);
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-    }
-    button.model-card:hover:not(.current) { border-color: var(--muted); }
-    .model-card.current { border-color: var(--accent); cursor: default; }
-    .model-card .title { display: block; margin-bottom: 4px; font-size: 14px; font-weight: 700; }
-    .model-card .desc { display: block; margin-bottom: 6px; }
-    .model-card .specs { display: block; color: var(--muted); }
-    .model-card a { color: var(--accent); }
-    .badge {
-      margin-left: 6px;
-      padding: 1px 6px;
-      font-size: 11px;
-      font-weight: 600;
-      border-radius: 6px;
-      vertical-align: 1px;
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-    .model-card.current .badge { color: var(--accent); border-color: var(--accent); }
-    .progress {
-      margin-top: 8px;
-      height: 6px;
-      border-radius: 3px;
-      background: var(--border);
-      overflow: hidden;
-    }
-    .progress-bar {
-      width: 0;
-      height: 100%;
-      background: var(--accent);
-      /* Сервер опрашивается раз в секунду; переход сглаживает шаги. */
-      transition: width 1s linear;
-    }
-    .speech-status { margin-top: 6px; font-size: 13px; color: var(--muted); }
-    .speech-status.error { color: var(--danger); }
-    .speech-note { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
-    .hint { margin-top: 20px; font-size: 13px; color: var(--muted); }
-    .copy-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 6px;
-      padding: 8px 12px;
-      font-family: Consolas, monospace;
-      font-size: 13px;
-      color: var(--accent);
-      background: var(--bg);
-      border: 1px dashed var(--accent);
-      border-radius: 8px;
-    }
-    .copy-link:hover { border-style: solid; }
-    .copy-link .copy-label {
-      font-family: "Segoe UI", system-ui, sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .copy-link.copied { color: var(--ok); border-color: var(--ok); border-style: solid; }
-  </style>
+  <script>
+    // Тема до отрисовки, чтобы страница не мигала светлой. При первом входе — всегда тёмная.
+    try {
+      if (localStorage.getItem("theme") === "light") document.documentElement.dataset.theme = "light";
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="card">
-    <h1>Счётчик матов</h1>
-    <div class="status"><span id="dot" class="dot"></span><span id="status">Нет связи с сервером</span></div>
+  <main class="card">
+    <button id="theme" class="theme-btn" type="button"></button>
+    <div class="header">
+      <h1>Счётчик матов</h1>
+      <div class="status"><span id="dot" class="dot"></span><span id="status">Нет связи с сервером</span></div>
+    </div>
     <div id="count" class="count">—</div>
     <div class="buttons">
-      <button id="inc">+1 (тест)</button>
-      <button id="reset">Сбросить</button>
-    </div>
-    <div id="speech" class="speech" hidden>
-      <label for="model">Модель распознавания</label>
-      <div class="model-row">
-        <div class="select-wrap"><select id="model"></select></div>
-        <button id="model-info-btn" type="button" aria-expanded="true" aria-controls="model-info"
-                title="Описание моделей">i</button>
-      </div>
-      <div id="progress" class="progress" hidden><div id="progress-bar" class="progress-bar"></div></div>
-      <div id="speech-status" class="speech-status"></div>
-      <div id="speech-note" class="speech-note" hidden>
-        Модель уже скачана, сейчас она читается с диска в оперативную память.
-        Пока загрузка не закончится, маты не считаются. Можно выбрать другую модель —
-        эта загрузка прервётся.
-      </div>
-      <div id="model-info" class="model-info"></div>
+      <button id="inc" type="button">+1 (тест)</button>
+      <button id="reset" type="button">Сбросить</button>
     </div>
     <div class="hint">
       Оверлей для OBS (адрес для источника «Браузер»):<br>
@@ -230,240 +30,56 @@
         <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
       </button>
     </div>
-  </div>
 
-  <script>
-    (() => {
-      "use strict";
-      const countEl = document.getElementById("count");
-      const dotEl = document.getElementById("dot");
-      const statusEl = document.getElementById("status");
-      const incBtn = document.getElementById("inc");
-      const resetBtn = document.getElementById("reset");
+    <section id="mic-section" class="section" hidden>
+      <label class="section-title" for="mic">Микрофон</label>
+      <div class="row">
+        <div class="select-wrap"><select id="mic"></select></div>
+        <button id="mic-refresh" class="square-btn" type="button" title="Обновить список микрофонов">⟳</button>
+      </div>
+      <div class="meter" title="Громкость микрофона" aria-hidden="true"><div id="meter-mask" class="meter-mask"></div></div>
+      <div class="row monitor-row">
+        <button id="mic-monitor" class="secondary-btn" type="button" aria-pressed="false">🎧 Слушать себя</button>
+        <p class="note">Звук микрофона пойдёт в наушники. Без наушников будет эхо.</p>
+      </div>
+      <div id="mic-status" class="status-line"></div>
+    </section>
 
-      // Адрес оверлея копируется по клику.
-      const overlayBtn = document.getElementById("overlay-url");
-      const overlayLabel = overlayBtn.querySelector(".copy-label");
-      const overlayUrl = `${location.origin}/overlay/`;
-      document.getElementById("overlay-url-text").textContent = overlayUrl;
-      let copiedTimer = null;
+    <section id="sound-section" class="section" hidden>
+      <label class="section-title" for="volume">Звук оповещения</label>
+      <div class="row volume-row">
+        <input id="volume" type="range" min="0" max="100" step="1" aria-describedby="volume-value">
+        <span id="volume-value" class="volume-value"></span>
+        <button id="sound-test" class="secondary-btn" type="button">▶ Проверить</button>
+      </div>
+      <div id="sound-list" class="sound-list" role="radiogroup" aria-label="Звук оповещения"></div>
+      <div class="row sound-actions">
+        <button id="sound-upload" class="secondary-btn" type="button">Загрузить звук…</button>
+        <input id="sound-input" type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" hidden>
+      </div>
+      <div id="sound-status" class="status-line"></div>
+    </section>
 
-      async function copyText(text) {
-        try {
-          await navigator.clipboard.writeText(text);
-          return true;
-        } catch (e) {
-          // Встроенные браузеры (док OBS) могут не давать доступ к Clipboard API.
-          const area = document.createElement("textarea");
-          area.value = text;
-          document.body.append(area);
-          area.select();
-          const ok = document.execCommand("copy");
-          area.remove();
-          return ok;
-        }
-      }
+    <section id="preset-section" class="section" hidden>
+      <h2 class="section-title">Оформление счётчика</h2>
+      <div id="preset-grid" class="preset-grid"></div>
+    </section>
 
-      overlayBtn.addEventListener("click", async () => {
-        const ok = await copyText(overlayUrl);
-        overlayBtn.classList.toggle("copied", ok);
-        overlayLabel.textContent = ok ? "Скопировано ✓" : "Не удалось скопировать";
-        clearTimeout(copiedTimer);
-        copiedTimer = setTimeout(() => {
-          overlayBtn.classList.remove("copied");
-          overlayLabel.textContent = "Копировать";
-        }, 2000);
-      });
+    <section id="model-section" class="section" hidden>
+      <h2 class="section-title">Модель распознавания</h2>
+      <div id="progress" class="progress" hidden><div id="progress-bar" class="progress-bar"></div></div>
+      <div id="speech-status" class="status-line"></div>
+      <div id="speech-note" class="note" hidden>
+        Модель уже скачана, сейчас она читается с диска в оперативную память.
+        Пока загрузка не закончится, маты не считаются. Можно выбрать другую модель —
+        эта загрузка прервётся.
+      </div>
+      <div id="model-list" class="model-list"></div>
+    </section>
+  </main>
 
-      function setOnline(online) {
-        dotEl.classList.toggle("online", online);
-        statusEl.textContent = online ? "Подключено" : "Нет связи с сервером";
-      }
-
-      async function post(url, button) {
-        button.disabled = true;
-        try {
-          const resp = await fetch(url, { method: "POST" });
-          if (resp.ok) countEl.textContent = (await resp.json()).count;
-        } catch (e) {
-          setOnline(false);
-        } finally {
-          button.disabled = false;
-        }
-      }
-
-      incBtn.addEventListener("click", () => post("/api/increment", incBtn));
-      // Подтверждение вторым нажатием, а не confirm(): во встроенных браузерах
-      // (док OBS, Simple Browser в VS Code) confirm() молча возвращает false.
-      const RESET_LABEL = resetBtn.textContent;
-      let resetTimer = null;
-      function disarmReset() {
-        clearTimeout(resetTimer);
-        resetTimer = null;
-        resetBtn.textContent = RESET_LABEL;
-      }
-      resetBtn.addEventListener("click", () => {
-        if (resetTimer === null) {
-          resetBtn.textContent = "Точно сбросить?";
-          resetTimer = setTimeout(disarmReset, 3000);
-          return;
-        }
-        disarmReset();
-        post("/api/reset", resetBtn);
-      });
-
-      // Выбор модели распознавания. Блок показывается после первого ответа сервера.
-      const speechEl = document.getElementById("speech");
-      const modelEl = document.getElementById("model");
-      const speechStatusEl = document.getElementById("speech-status");
-      const speechNoteEl = document.getElementById("speech-note");
-      const progressEl = document.getElementById("progress");
-      const progressBarEl = document.getElementById("progress-bar");
-      const modelInfoEl = document.getElementById("model-info");
-      const modelInfoBtn = document.getElementById("model-info-btn");
-      const STATUS_TEXT = {
-        listening: "Слушает микрофон",
-        error: "Ошибка распознавания, подробности в консоли приложения",
-        stopped: "Распознавание остановлено",
-      };
-      let speechTimer = null;
-      let renderedKey = "";
-
-      // Описание моделей открыто по умолчанию; свёрнутое состояние запоминаем.
-      function setInfoOpen(open) {
-        modelInfoEl.hidden = !open;
-        modelInfoBtn.setAttribute("aria-expanded", String(open));
-      }
-      try {
-        setInfoOpen(localStorage.getItem("modelInfoOpen") !== "0");
-      } catch (e) {}
-      modelInfoBtn.addEventListener("click", () => {
-        setInfoOpen(modelInfoEl.hidden);
-        try {
-          localStorage.setItem("modelInfoOpen", modelInfoEl.hidden ? "0" : "1");
-        } catch (e) {}
-      });
-
-      function el(tag, className, text) {
-        const node = document.createElement(tag);
-        if (className) node.className = className;
-        if (text !== undefined) node.textContent = text;
-        return node;
-      }
-
-      function modelCard(m, current) {
-        // Скачанную модель можно выбрать кликом по карточке; нескачанную — нет,
-        // поэтому она не кнопка (и ссылка на архив в ней остаётся рабочей).
-        const card = el(m.installed ? "button" : "div", "model-card");
-        if (m.installed) card.type = "button";
-        if (m.id === current) card.classList.add("current");
-        else if (m.installed) card.addEventListener("click", () => chooseModel(m.id));
-        const title = el("span", "title", m.title);
-        if (m.id === current) title.append(el("span", "badge", "выбрана"));
-        else if (!m.installed) title.append(el("span", "badge", "не скачана"));
-        card.append(
-          title,
-          el("span", "desc", m.description),
-          el("span", "specs", `Размер на диске: ${m.disk} · в памяти: ${m.memory}`),
-          el("span", "specs", `Загрузка в память при запуске: ${m.load_time}`)
-        );
-        if (!m.installed) {
-          const hint = el("span", "specs", "Скачайте ");
-          const link = el("a", "", "архив");
-          link.href = m.url;
-          hint.append(link, " и распакуйте его в папку models/");
-          card.append(hint);
-        }
-        return card;
-      }
-
-      function renderModels(models, current) {
-        // Перерисовываем только при изменениях: иначе опрос раз в секунду
-        // закрывал бы раскрытый выпадающий список.
-        const key = JSON.stringify([models, current]);
-        if (key === renderedKey) return;
-        renderedKey = key;
-        modelEl.replaceChildren(
-          ...models.map((m) => {
-            const label = `${m.title} — ${m.summary}` + (m.installed ? "" : " (не скачана)");
-            const option = new Option(label, m.id);
-            option.disabled = !m.installed;
-            return option;
-          })
-        );
-        modelEl.value = current;
-        modelInfoEl.replaceChildren(...models.map((m) => modelCard(m, current)));
-      }
-
-      function showSpeech(state) {
-        speechEl.hidden = false;
-        renderModels(state.models, state.model);
-        const loading = state.status === "loading";
-        progressEl.hidden = !loading;
-        speechNoteEl.hidden = !loading;
-        const percent = Math.round(state.progress * 100);
-        progressBarEl.style.width = `${percent}%`;
-        const title = state.models.find((m) => m.id === state.model)?.title ?? state.model;
-        speechStatusEl.textContent = loading
-          ? `Загрузка модели «${title}» в память… ${percent}%`
-          : STATUS_TEXT[state.status] || state.status;
-        speechStatusEl.classList.toggle("error", state.status === "error");
-        // Пока модель грузится, опрашиваем сервер, чтобы увидеть окончание загрузки.
-        clearTimeout(speechTimer);
-        if (loading) speechTimer = setTimeout(refreshSpeech, 1000);
-      }
-
-      async function refreshSpeech() {
-        try {
-          const resp = await fetch("/api/speech");
-          if (resp.ok) showSpeech(await resp.json());
-        } catch (e) {}
-      }
-
-      async function chooseModel(id) {
-        // Новая загрузка: полоса сразу с нуля, без анимации назад.
-        progressBarEl.style.transition = "none";
-        progressBarEl.style.width = "0";
-        void progressBarEl.offsetWidth;
-        progressBarEl.style.transition = "";
-        try {
-          const resp = await fetch("/api/speech/model", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: id }),
-          });
-          if (resp.ok) showSpeech(await resp.json());
-          else refreshSpeech();
-        } catch (e) {
-          setOnline(false);
-        }
-      }
-
-      modelEl.addEventListener("change", () => chooseModel(modelEl.value));
-
-      function connect() {
-        const proto = location.protocol === "https:" ? "wss" : "ws";
-        const ws = new WebSocket(`${proto}://${location.host}/ws`);
-        ws.onopen = () => {
-          setOnline(true);
-          refreshSpeech();
-        };
-        ws.onmessage = (event) => {
-          // Сервер шлёт и другие сообщения (звук, оформление, уровень микрофона):
-          // счёт берём только из тех, где он есть.
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.count !== undefined) countEl.textContent = msg.count;
-          } catch (e) {}
-        };
-        ws.onclose = () => {
-          setOnline(false);
-          setTimeout(connect, 2000);
-        };
-        ws.onerror = () => ws.close();
-      }
-      connect();
-    })();
-  </script>
+  <script src="/overlay/presets.js"></script>
+  <script src="/overlay/sound.js"></script>
+  <script src="control.js"></script>
 </body>
 </html>
