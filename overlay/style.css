@@ -303,12 +303,12 @@ body {
 }
 
 /* Бег прыжками: передние лапы работают парой, задние — парой, навстречу передним.
-   Один шаг туда-обратно (2 × 163 мс) — один прыжок хорька в overlay.js
-   (FERRET_RUN_MS / 8 скачков × 2). */
+   Один взмах лап (108 мс) — один скачок хорька в overlay.js
+   (FERRET_RUN_MS / FERRET_HOPS = 650 / 6), то есть одно «гу» в звуке. */
 .ferret .leg {
   transform-box: fill-box;
   transform-origin: 50% 0;
-  animation: ferret-stride 163ms ease-in-out infinite alternate;
+  animation: ferret-stride 108ms ease-in-out infinite alternate;
 }
 
 .ferret .hind {
@@ -316,7 +316,7 @@ body {
 }
 
 .ferret .far {
-  animation-delay: -40ms;
+  animation-delay: -27ms;
 }
 
 @keyframes ferret-stride {

@@ -332,7 +332,9 @@
     '<ellipse cx="10" cy="13.5" rx="5" ry="4.5"/>' +
     '<circle cx="3.5" cy="7.5" r="2.2"/><circle cx="7.5" cy="4" r="2.2"/>' +
     '<circle cx="12.5" cy="4" r="2.2"/><circle cx="16.5" cy="7.5" r="2.2"/></svg>';
-  const FERRET_RUN_MS = 1300;
+  // Вся анимация укладывается в звук хорька (ferret.wav — 0,58 с, шесть «гу»)
+  const FERRET_RUN_MS = 650;
+  const FERRET_HOPS = 6; // по скачку на каждое «гу»
   const PAW_COUNT = 6;
 
   function svgElement(className, svg) {
@@ -354,7 +356,7 @@
         { transform: "translate(0, -6%) skewX(4deg) scale(1.05)", offset: 0.84 },
         { transform: "translate(0, 0) skewX(0) scale(1)" },
       ],
-      { duration: 900, easing: "ease-in-out" }
+      { duration: 600, easing: "ease-in-out" }
     );
 
     glowEl.animate(
@@ -363,7 +365,7 @@
         { opacity: 0.45, transform: "scale(1)", offset: 0.25 },
         { opacity: 0, transform: "scale(1.3)" },
       ],
-      { duration: 900, easing: "ease-out" }
+      { duration: 600, easing: "ease-out" }
     );
 
     // Хорёк бежит слева направо галопом: спина то выгибается, то вытягивается.
@@ -374,13 +376,12 @@
     const flip = dir === 1 ? "" : " scaleX(-1)";
     const ferret = svgElement("ferret", FERRET_SVG);
     const steps = [];
-    const HOPS = 8;
-    for (let i = 0; i <= HOPS; i++) {
-      const x = from + ((to - from) * i) / HOPS;
+    for (let i = 0; i <= FERRET_HOPS; i++) {
+      const x = from + ((to - from) * i) / FERRET_HOPS;
       const up = i % 2 === 1;
       steps.push({
         transform: `translateX(${x}px) translateY(${up ? -size * 0.12 : 0}px) scaleY(${up ? 1.12 : 0.92})${flip}`,
-        opacity: i === 0 || i === HOPS ? 0 : 1,
+        opacity: i === 0 || i === FERRET_HOPS ? 0 : 1,
       });
     }
     ferret.animate(steps, { duration: FERRET_RUN_MS, easing: "linear" }).onfinish = () => ferret.remove();
@@ -399,7 +400,7 @@
           { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0.85, offset: 0.6 },
           { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0 },
         ],
-        { duration: 1400, delay: FERRET_RUN_MS * share, easing: "ease-out", fill: "backwards" }
+        { duration: 400, delay: FERRET_RUN_MS * share, easing: "ease-out", fill: "backwards" }
       ).onfinish = () => paw.remove();
     }
 
@@ -415,7 +416,7 @@
         { transform: "scale(1.05) rotate(6deg)", opacity: 1, offset: 0.45 },
         { transform: "translateY(-40%) scale(1) rotate(0)", opacity: 0 },
       ],
-      { duration: 1100, delay: 120, easing: "ease-out", fill: "backwards" }
+      { duration: 650, easing: "ease-out" }
     ).onfinish = () => goo.remove();
     // «+1» здесь нет: прибавление показывает «гу-гу!»
   }
