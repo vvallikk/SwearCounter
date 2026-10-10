@@ -265,7 +265,6 @@ body {
     0 calc(var(--size) * 0.06) calc(var(--size) * 0.12) rgba(0, 0, 0, 0.5);
 }
 
-:root[data-preset="ferret"] .plus,
 .goo {
   color: var(--nose);
   -webkit-text-stroke: calc(var(--size) * 0.03) var(--fur-dark);

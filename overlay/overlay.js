@@ -303,7 +303,7 @@
     return span;
   }
 
-  function animateFerret(delta) {
+  function animateFerret() {
     valueEl.animate(
       [
         { transform: "translate(0, 0) skewX(0) scale(1)" },
@@ -377,13 +377,7 @@
       ],
       { duration: 1100, delay: 120, easing: "ease-out", fill: "backwards" }
     ).onfinish = () => goo.remove();
-
-    floatPlus(delta, [
-      { transform: "translate(-50%, 0) rotate(0)", opacity: 0 },
-      { transform: "translate(-65%, -60%) rotate(-10deg)", opacity: 1, offset: 0.2 },
-      { transform: "translate(-35%, -100%) rotate(10deg)", opacity: 1, offset: 0.5 },
-      { transform: "translate(-50%, -160%) rotate(0)", opacity: 0 },
-    ], { duration: 1300, easing: "ease-out" });
+    // «+1» здесь нет: прибавление показывает «гу-гу!»
   }
 
   // id пресета → анимация прибавления
