@@ -244,3 +244,92 @@ body {
   pointer-events: none;
   opacity: 0;
 }
+
+/* --- Хорёк: тёплые «соболиные» цвета, круглый шрифт, хорёк и следы лапок --- */
+:root[data-preset="ferret"] {
+  --fur: #8a5a34;
+  --fur-dark: #4a2c17;
+  --nose: #ff8fb1;
+}
+
+:root[data-preset="ferret"] body {
+  font-family: "Comic Sans MS", "Segoe Print", "Segoe UI Black", Arial, sans-serif;
+  font-weight: 700;
+}
+
+:root[data-preset="ferret"] .value,
+:root[data-preset="ferret"] .label {
+  -webkit-text-stroke: calc(var(--size) * 0.08) var(--fur-dark);
+  text-shadow:
+    0 calc(var(--size) * 0.05) 0 var(--fur),
+    0 calc(var(--size) * 0.06) calc(var(--size) * 0.12) rgba(0, 0, 0, 0.5);
+}
+
+.goo {
+  color: var(--nose);
+  -webkit-text-stroke: calc(var(--size) * 0.03) var(--fur-dark);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-preset="ferret"] .glow {
+  background: radial-gradient(circle, var(--nose) 0%, transparent 60%);
+}
+
+/* «гу-гу!» — облачко-возглас рядом с числом */
+.goo {
+  position: absolute;
+  right: -10%;
+  top: -10%;
+  font-size: calc(var(--size) * 0.3);
+  paint-order: stroke fill;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Пробегающий хорёк (SVG из overlay.js) и следы лапок у нижнего края числа */
+.ferret,
+.paw {
+  position: absolute;
+  left: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.ferret {
+  bottom: calc(var(--size) * -0.14);
+  width: calc(var(--size) * 1.2);
+  margin-left: calc(var(--size) * -0.6);
+}
+
+/* Бег прыжками: передние лапы работают парой, задние — парой, навстречу передним.
+   Один взмах лап (108 мс) — один скачок хорька в overlay.js
+   (FERRET_RUN_MS / FERRET_HOPS = 650 / 6), то есть одно «гу» в звуке. */
+.ferret .leg {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: ferret-stride 108ms ease-in-out infinite alternate;
+}
+
+.ferret .hind {
+  animation-direction: alternate-reverse;
+}
+
+.ferret .far {
+  animation-delay: -27ms;
+}
+
+@keyframes ferret-stride {
+  from {
+    transform: rotate(28deg);
+  }
+  to {
+    transform: rotate(-28deg);
+  }
+}
+
+.paw {
+  bottom: calc(var(--size) * -0.08);
+  width: calc(var(--size) * 0.14);
+  margin-left: calc(var(--size) * -0.07);
+}

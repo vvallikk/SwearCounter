@@ -68,6 +68,7 @@
   // --- Пресеты (overlay/presets.js) ---
   const PRESETS = window.OVERLAY_PRESETS || [{ id: "classic", color: "#ffffff" }];
   let currentPreset = "classic";
+  let player = null; // звук (создаётся ниже, если оверлей не в превью и не без звука)
 
   function findPreset(id) {
     return PRESETS.find((p) => p.id === id) || PRESETS[0];
@@ -78,6 +79,7 @@
     currentPreset = preset.id;
     root.setAttribute("data-preset", preset.id);
     root.style.setProperty("--color", colorOverride || preset.color || "#ffffff");
+    if (player) player.setStandard(preset.sound); // у пресета может быть свой стандартный звук
     fitToWindow(); // у пресетов разные шрифты и ширина цифр
   }
 
@@ -267,6 +269,158 @@
     ], { duration: 1200, easing: "ease-out" });
   }
 
+  // Хорёк: число исполняет «военный танец» (радостные прыжки боком с выгнутой спиной),
+  // под ним пробегает хорёк и оставляет следы лапок, рядом выскакивает «гу-гу!».
+  // Соболиный хорёк сбоку в прыжке: выгнутая спина, тёмные «чулки» и хвост, светлая
+  // морда с маской. Лапы — группы .leg, их шаг анимирует style.css.
+  // Лапы: от бедра/плеча вниз, ступня смотрит вперёд (вправо)
+  const LEG_HIND =
+    "M-2 0 C-4 8 0 12 1 16 L1 20 C1 22 3 23 6 23 L10 23 C12 23 12 21 10 20 L7 19 L7 14 C9 10 11 6 10 0Z";
+  const LEG_FRONT = "M0 0 C-1 7 0 13 0 19 C0 22 2 23 5 23 L9 23 C11 23 11 21 9 20 L6 19 C6 13 7 7 7 0Z";
+  const leg = (cls, x, y, d, fill) =>
+    // внешняя группа ставит лапу на место, внутреннюю поворачивает CSS-анимация
+    `<g transform="translate(${x} ${y})"><g class="leg ${cls}"><path d="${d}" fill="${fill}"/></g></g>`;
+  const FERRET_SVG =
+    '<svg viewBox="0 0 160 64" xmlns="http://www.w3.org/2000/svg">' +
+    '<defs><linearGradient id="ferret-fur" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" style="stop-color:var(--fur-dark)"/>' +
+    '<stop offset="0.45" style="stop-color:var(--fur)"/>' +
+    '<stop offset="1" stop-color="#e2c193"/></linearGradient></defs>' +
+    // хвост, пушистый, сужается к кончику
+    '<path d="M33 29 C24 24 14 18 3 19 C0 21 1 25 5 27 C10 30 14 31 18 33 C24 35 29 37 35 38Z" ' +
+    'style="fill:var(--fur-dark)"/>' +
+    '<path d="M8 22 l5 2 M14 23 l5 3 M21 27 l5 2" stroke="#2f1b0d" stroke-width="1" stroke-linecap="round"/>' +
+    // дальние лапы темнее
+    leg("hind far", 44, 36, LEG_HIND, "#2f1b0d") +
+    leg("front far", 102, 34, LEG_FRONT, "#2f1b0d") +
+    // туловище с выгнутой спиной
+    '<path d="M30 38 C24 30 30 20 44 16 C56 9 74 7 88 12 C100 16 108 20 116 24 L118 36 ' +
+    'C108 42 96 44 84 42 C70 40 56 44 44 44 C36 44 32 42 30 38Z" fill="url(#ferret-fur)" ' +
+    'style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    // ость на спине
+    '<path d="M48 17 l4 -2 M58 14 l4 -2 M68 12 l4 -1 M78 12 l4 0 M88 14 l4 1" ' +
+    'style="stroke:var(--fur-dark)" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>' +
+    // объём бедра
+    '<ellipse cx="45" cy="33" rx="12" ry="8" style="fill:var(--fur-dark)" opacity="0.3"/>' +
+    // ближние лапы
+    leg("hind near", 50, 37, LEG_HIND, "#3d2414") +
+    leg("front near", 108, 33, LEG_FRONT, "#3d2414") +
+    // светлая грудка
+    '<path d="M106 22 C114 25 119 31 117 38 C112 40 107 37 105 32Z" fill="#f3e2c7"/>' +
+    // ухо (за головой)
+    '<ellipse cx="117" cy="13" rx="5.5" ry="6.5" fill="#f3e2c7" style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    '<ellipse cx="117.5" cy="13.8" rx="3" ry="4" fill="#e9a0a8"/>' +
+    // голова: клин мордочкой вперёд
+    '<path d="M108 24 C108 14 120 9 132 11 C142 13 150 20 155 26 C156 29 153 32 148 33 ' +
+    'C140 35 126 35 116 33 C110 32 108 28 108 24Z" fill="#f3e2c7" style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    // тёмная шерсть на лбу и «маска» вокруг глаз
+    '<path d="M110 21 C113 13 125 9 134 11 C129 14 121 17 115 23Z" style="fill:var(--fur)" opacity="0.7"/>' +
+    '<path d="M118 19 C126 15 138 16 147 23 C142 27 132 27 124 26 C120 25 117 23 118 19Z" ' +
+    'style="fill:var(--fur-dark)" opacity="0.9"/>' +
+    // глаз с бликом
+    '<circle cx="136" cy="21" r="3.2" fill="#111"/>' +
+    '<circle cx="137.2" cy="19.8" r="1.1" fill="#fff"/>' +
+    // белая мордочка, нос, рот и усы
+    '<path d="M140 28 C146 27 151 28 155 27 C155 31 150 34 144 33 C140 33 138 31 140 28Z" fill="#fffaf0"/>' +
+    '<ellipse cx="155" cy="25.5" rx="3" ry="2.4" style="fill:var(--nose)"/>' +
+    '<path d="M152 30 Q149 32 146 31" fill="none" style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    '<path d="M148 28 L159 24.5 M148 29 L159.5 29 M148 30 L158 33.5" stroke="#fff" ' +
+    'stroke-width="0.5" opacity="0.85"/>' +
+    "</svg>";
+  const PAW_SVG =
+    '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="fill:var(--fur-dark)">' +
+    '<ellipse cx="10" cy="13.5" rx="5" ry="4.5"/>' +
+    '<circle cx="3.5" cy="7.5" r="2.2"/><circle cx="7.5" cy="4" r="2.2"/>' +
+    '<circle cx="12.5" cy="4" r="2.2"/><circle cx="16.5" cy="7.5" r="2.2"/></svg>';
+  // Вся анимация укладывается в звук хорька (ferret.wav — 0,58 с, шесть «гу»)
+  const FERRET_RUN_MS = 650;
+  const FERRET_HOPS = 6; // по скачку на каждое «гу»
+  const PAW_COUNT = 6;
+
+  function svgElement(className, svg) {
+    const span = document.createElement("span");
+    span.className = className;
+    span.innerHTML = svg;
+    numberEl.appendChild(span);
+    return span;
+  }
+
+  function animateFerret() {
+    valueEl.animate(
+      [
+        { transform: "translate(0, 0) skewX(0) scale(1)" },
+        { transform: "translate(-10%, -18%) skewX(12deg) scale(1.15, 1.2)", offset: 0.18 },
+        { transform: "translate(-12%, 0) skewX(0) scale(1.2, 0.85)", offset: 0.32 },
+        { transform: "translate(8%, -16%) skewX(-12deg) scale(1.15, 1.2)", offset: 0.52 },
+        { transform: "translate(10%, 0) skewX(0) scale(1.2, 0.85)", offset: 0.68 },
+        { transform: "translate(0, -6%) skewX(4deg) scale(1.05)", offset: 0.84 },
+        { transform: "translate(0, 0) skewX(0) scale(1)" },
+      ],
+      { duration: 600, easing: "ease-in-out" }
+    );
+
+    glowEl.animate(
+      [
+        { opacity: 0, transform: "scale(0.6)" },
+        { opacity: 0.45, transform: "scale(1)", offset: 0.25 },
+        { opacity: 0, transform: "scale(1.3)" },
+      ],
+      { duration: 600, easing: "ease-out" }
+    );
+
+    // Хорёк бежит слева направо галопом: спина то выгибается, то вытягивается.
+    // Направление меняется случайно, тогда хорёк разворачивается мордой по ходу.
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const from = -dir * size * 1.7;
+    const to = dir * size * 1.7;
+    const flip = dir === 1 ? "" : " scaleX(-1)";
+    const ferret = svgElement("ferret", FERRET_SVG);
+    const steps = [];
+    for (let i = 0; i <= FERRET_HOPS; i++) {
+      const x = from + ((to - from) * i) / FERRET_HOPS;
+      const up = i % 2 === 1;
+      steps.push({
+        transform: `translateX(${x}px) translateY(${up ? -size * 0.12 : 0}px) scaleY(${up ? 1.12 : 0.92})${flip}`,
+        opacity: i === 0 || i === FERRET_HOPS ? 0 : 1,
+      });
+    }
+    ferret.animate(steps, { duration: FERRET_RUN_MS, easing: "linear" }).onfinish = () => ferret.remove();
+
+    // Следы лапок появляются за хорьком и тают.
+    for (let i = 0; i < PAW_COUNT; i++) {
+      const share = (i + 1) / (PAW_COUNT + 1);
+      const x = from + (to - from) * share;
+      const y = i % 2 ? size * 0.05 : -size * 0.02;
+      const paw = svgElement("paw", PAW_SVG);
+      const turn = dir === 1 ? 90 : -90; // пальцы смотрят по ходу бега
+      paw.animate(
+        [
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(0.4)`, opacity: 0 },
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0.85, offset: 0.1 },
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0.85, offset: 0.6 },
+          { transform: `translate(${x}px, ${y}px) rotate(${turn}deg) scale(1)`, opacity: 0 },
+        ],
+        { duration: 700, delay: FERRET_RUN_MS * share, easing: "ease-out", fill: "backwards" }
+      ).onfinish = () => paw.remove();
+    }
+
+    const goo = document.createElement("span");
+    goo.className = "goo";
+    goo.textContent = "гу-гу!";
+    numberEl.appendChild(goo);
+    goo.animate(
+      [
+        { transform: "scale(0.3) rotate(-20deg)", opacity: 0 },
+        { transform: "scale(1.2) rotate(10deg)", opacity: 1, offset: 0.15 },
+        { transform: "scale(1) rotate(-6deg)", opacity: 1, offset: 0.3 },
+        { transform: "scale(1.05) rotate(6deg)", opacity: 1, offset: 0.45 },
+        { transform: "translateY(-40%) scale(1) rotate(0)", opacity: 0 },
+      ],
+      { duration: 650, easing: "ease-out" }
+    ).onfinish = () => goo.remove();
+    // «+1» здесь нет: прибавление показывает «гу-гу!»
+  }
+
   // id пресета → анимация прибавления
   const INCREMENT_ANIMATIONS = {
     classic: animateClassic,
@@ -275,6 +429,7 @@
     retro: animateRetro,
     minimal: animateMinimal,
     explosion: animateExplosion,
+    ferret: animateFerret,
   };
 
   function playIncrementAnimation(delta) {
@@ -321,7 +476,10 @@
 
   // --- Звук (overlay/sound.js) ---
   // Громкость и свой звук задаются на странице управления и приходят по WebSocket.
-  const player = muted ? null : window.createDingPlayer();
+  if (!muted) {
+    player = window.createDingPlayer();
+    player.setStandard(findPreset(currentPreset).sound);
+  }
 
   // --- WebSocket с автопереподключением ---
   function connect() {

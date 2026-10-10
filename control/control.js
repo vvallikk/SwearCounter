@@ -271,6 +271,9 @@
   const soundUploadBtn = $("sound-upload");
   let volumeTimer = null;
   let renderedSoundsKey = "";
+  let soundState = null; // последний ответ /api/sound: список перерисовывается и при смене пресета
+  let standardSound = "ding"; // стандартный звук выбранного пресета (поле sound в presets.js)
+  const STANDARD_NAMES = { ding: "Стандартный звон", ferret: "Стандартный: гуканье хорька" };
 
   function showVolume(volume) {
     volumeEl.value = volume;
@@ -309,11 +312,12 @@
     $("sound-section").hidden = false;
     // Ползунок не трогаем, пока его двигают: иначе он прыгал бы назад.
     if (volumeTimer === null && document.activeElement !== volumeEl) showVolume(state.volume);
-    const key = JSON.stringify([state.sounds, state.active]);
+    soundState = state;
+    const key = JSON.stringify([state.sounds, state.active, standardSound]);
     if (key !== renderedSoundsKey) {
       renderedSoundsKey = key;
       soundListEl.replaceChildren(
-        soundItem(null, "Стандартный звон", state.active === null),
+        soundItem(null, STANDARD_NAMES[standardSound], state.active === null),
         ...state.sounds.map((s) => soundItem(s.id, s.name, s.id === state.active))
       );
     }
@@ -418,6 +422,9 @@
     $("preset-section").hidden = false;
     presetEl.value = preset.id;
     presetDescEl.textContent = preset.description;
+    standardSound = STANDARD_NAMES[preset.sound] ? preset.sound : "ding";
+    player.setStandard(standardSound);
+    if (soundState) showSound(soundState);
     if (shownPreset === preset.id) return;
     const first = shownPreset === null;
     shownPreset = preset.id;

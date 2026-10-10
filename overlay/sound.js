@@ -1,18 +1,22 @@
 // Звук оповещения: общий для оверлея и страницы управления (кнопка «Проверить»).
 //
 // Какой звук играет, по порядку: звук, выбранный в библиотеке на странице управления
-// (/api/sound/file/<id>); файл overlay/sounds/ding.mp3; синтезированный звон.
+// (/api/sound/file/<id>); стандартный звук пресета — файл из overlay/sounds/
+// (ding.mp3, у хорька ferret.wav); если файла нет — его синтезированная замена.
 window.createDingPlayer = function createDingPlayer() {
   "use strict";
 
   let audioCtx = null;
-  let buffer = null;
+  let buffer = null; // выбранный звук из библиотеки
   let volume = 1;
   let activeId = null;
   // Раскодированные звуки: id -> Promise<AudioBuffer | null>. Id у каждого файла свой,
   // поэтому звук скачивается и раскодируется один раз, а «Прослушать» играет сразу.
   const buffers = new Map();
-  let standard = null; // то же для overlay/sounds/ding.mp3
+  // Стандартные звуки: имя -> Promise<AudioBuffer | null>, и уже готовые: имя -> AudioBuffer | null
+  const standards = new Map();
+  const standardsReady = new Map();
+  let standardName = "ding";
 
   function context() {
     if (!audioCtx) {
@@ -32,17 +36,27 @@ window.createDingPlayer = function createDingPlayer() {
     return ctx.decodeAudioData(await resp.arrayBuffer());
   }
 
-  // Звук из библиотеки (id) или стандартный (null). null в ответе — синтезированный звон.
-  function load(id) {
-    if (id === null) {
-      if (!standard) {
-        standard = fetchBuffer("/overlay/sounds/ding.mp3").catch(() => {
-          standard = null; // сеть недоступна — попробуем в следующий раз
+  // Стандартный звук по имени (ding, ferret). null в ответе — играть синтезированный.
+  function loadStandard(name) {
+    let promise = standards.get(name);
+    if (!promise) {
+      promise = fetchBuffer(`/overlay/sounds/${STANDARD[name].file}`)
+        .catch(() => {
+          standards.delete(name); // сеть недоступна — попробуем в следующий раз
           return null;
+        })
+        .then((sound) => {
+          standardsReady.set(name, sound);
+          return sound;
         });
-      }
-      return standard;
+      standards.set(name, promise);
     }
+    return promise;
+  }
+
+  // Звук из библиотеки (id) или стандартный (null).
+  function load(id) {
+    if (id === null) return loadStandard(standardName);
     let promise = buffers.get(id);
     if (!promise) {
       promise = fetchBuffer(`/api/sound/file/${encodeURIComponent(id)}`)
@@ -65,9 +79,16 @@ window.createDingPlayer = function createDingPlayer() {
     ids.forEach(load); // заранее, чтобы «Прослушать» не ждал загрузки
     const id = state.active || null;
     activeId = id;
-    const sound = (id && (await load(id))) || (await load(null));
+    loadStandard(standardName);
+    const sound = id && (await load(id));
     // Пока грузили, могли выбрать другой звук.
-    if (activeId === id) buffer = sound;
+    if (activeId === id) buffer = sound || null;
+  }
+
+  // Стандартный звук зависит от пресета оформления (поле sound в presets.js).
+  function setStandard(name) {
+    standardName = STANDARD[name] ? name : "ding";
+    loadStandard(standardName);
   }
 
   // Один удар колокольчика: основной тон и негармонический обертон с затуханием
@@ -97,7 +118,49 @@ window.createDingPlayer = function createDingPlayer() {
     bell(ctx, out, 2637.0, t + 0.18, 0.5); // E7
   }
 
-  function play(sound = buffer) {
+  // «Гуканье» хорька: быстрое мягкое «гу-гу-гу-гу», как радостный смешок во время
+  // «военного танца». Голос — пилообразная волна, а два полосовых фильтра на частотах
+  // гласной «у» (форманты ~320 и ~800 Гц) делают из неё глухое «гу».
+  function synthGoo(ctx, out) {
+    const t = ctx.currentTime + 0.01;
+    const count = 4 + Math.floor(Math.random() * 3);
+    const base = 210 + Math.random() * 40;
+    for (let i = 0; i < count; i++) {
+      const start = t + i * (0.11 + Math.random() * 0.02);
+      const pitch = base * (1 + (Math.random() - 0.5) * 0.12);
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      // «г» — короткий подъём тона, «у» — плавный спад
+      osc.frequency.setValueAtTime(pitch * 0.8, start);
+      osc.frequency.linearRampToValueAtTime(pitch * 1.15, start + 0.025);
+      osc.frequency.exponentialRampToValueAtTime(pitch * 0.9, start + 0.09);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(1, start + 0.015);
+      gain.gain.setValueAtTime(1, start + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.1);
+      osc.connect(gain);
+      for (const [freq, q, level] of [[320, 4, 1], [800, 6, 0.35]]) {
+        const formant = ctx.createBiquadFilter();
+        formant.type = "bandpass";
+        formant.frequency.value = freq;
+        formant.Q.value = q;
+        const amp = ctx.createGain();
+        amp.gain.value = level;
+        gain.connect(formant).connect(amp).connect(out);
+      }
+      osc.start(start);
+      osc.stop(start + 0.12);
+    }
+  }
+
+  // Стандартные звуки: файл в overlay/sounds/ и синтезированная замена, если файла нет
+  const STANDARD = {
+    ding: { file: "ding.mp3", synth: synthDing, level: 0.3 }, // без ослабления звон слишком громкий
+    ferret: { file: "ferret.wav", synth: synthGoo, level: 1.1 }, // примерно как звон
+  };
+
+  function play(sound) {
     const ctx = context();
     if (!ctx || volume === 0) return;
     const out = ctx.createGain();
@@ -109,9 +172,15 @@ window.createDingPlayer = function createDingPlayer() {
       src.connect(out);
       src.start();
     } else {
-      out.gain.value = 0.3 * volume; // без ослабления синтезированный звон слишком громкий
-      synthDing(ctx, out);
+      const { synth, level } = STANDARD[standardName];
+      out.gain.value = level * volume;
+      synth(ctx, out);
     }
+  }
+
+  // Выбранный звук; если он из библиотеки, но не загрузился, — стандартный.
+  function playActive() {
+    play((activeId && buffer) || standardsReady.get(standardName) || null);
   }
 
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
@@ -135,5 +204,5 @@ window.createDingPlayer = function createDingPlayer() {
   // В обычном браузере звук разрешается только после клика по странице (в OBS это не нужно)
   document.addEventListener("pointerdown", () => context());
 
-  return { apply, play: () => play(), preview, canDecode, setVolume: (v) => (volume = v / 100) };
+  return { apply, play: playActive, preview, setStandard, canDecode, setVolume: (v) => (volume = v / 100) };
 };
