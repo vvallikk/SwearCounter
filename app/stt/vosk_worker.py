@@ -19,7 +19,8 @@
 Команды (commands):
 
     ("device", микрофон)              переключиться на другой микрофон
-                                      (полное имя, номер или None — по умолчанию)
+                                      (полное имя, номер или None — по умолчанию);
+                                      прослушивание при этом выключается
     ("monitor", включить)             проигрывать звук микрофона в системные
                                       динамики/наушники (True/False)
 """
@@ -127,8 +128,6 @@ class _Worker:
 
     def _recognize(self, rec, stream, samplerate: int) -> None:
         """Распознаёт звук, пока не придёт команда сменить микрофон."""
-        if self._monitor_wanted:  # прослушивание было включено до смены микрофона
-            self._apply_monitor(samplerate)
         last_partial = ""
         while True:
             try:
@@ -138,12 +137,9 @@ class _Worker:
                     raise MicrophoneLost from None
                 continue
             if data is None:
-                # Сигнал «пришла команда»: смена микрофона или прослушивание. Разбираем
-                # по флагам, а не по тому, совпадает ли прослушивание: команда прослушивания
-                # могла уже примениться в начале распознавания.
                 with self._lock:
                     if self._device_changed:
-                        return
+                        return  # смена микрофона важнее: прослушивание закроется вместе с ним
                 if self.monitor.running != self._monitor_wanted:
                     self._apply_monitor(samplerate)
                 continue
@@ -199,6 +195,8 @@ class _Worker:
                 with self._lock:
                     self._pending_device = value
                     self._device_changed = True
+                # Новый микрофон начинаем без прослушивания: его включают осознанно.
+                self._monitor_wanted = False
                 self.chunks.put(None)
             elif kind == "monitor":
                 self._monitor_wanted = bool(value)

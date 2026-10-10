@@ -15,6 +15,7 @@ class ModelInfo:
     id: str  # имя папки в models/
     engine: str  # движок распознавания; пока только "vosk"
     title: str  # название в списке
+    name: str  # техническое название (движок и версия), показывается в скобках
     summary: str  # короткая подпись рядом с названием
     description: str  # подробности, показываются по кнопке «Подробнее»
     disk: str
@@ -39,6 +40,7 @@ CATALOG = [
         id="vosk-model-small-ru-0.22",
         engine="vosk",
         title="Маленькая",
+        name="Vosk small-ru 0.22",
         summary="быстрая, мало памяти",
         description=(
             "Загружается за секунду и почти не нагружает компьютер во время стрима. "
@@ -54,6 +56,7 @@ CATALOG = [
         id="vosk-model-ru-0.42",
         engine="vosk",
         title="Большая",
+        name="Vosk ru 0.42",
         summary="точная, много памяти",
         description=(
             "Ошибается в 1,5–2,5 раза реже маленькой и лучше понимает разговорную речь. "

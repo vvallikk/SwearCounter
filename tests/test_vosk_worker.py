@@ -359,15 +359,15 @@ def test_monitor_failure_is_reported(worker, fake_sd):
     assert "нет устройства вывода" in error
 
 
-def test_monitor_survives_microphone_switch(worker, speakers):
+def test_microphone_switch_turns_monitor_off(worker, speakers):
     start_listening(worker)
     worker.commands.send(("monitor", True))
     worker.expect("monitor")
     worker.device(HYPERX)
     assert worker.expect("listening")[1] == HYPERX
-    assert worker.expect("monitor") == ("monitor", True, None)
-    assert speakers[0].closed  # старый вывод закрыт вместе со старым микрофоном
-    assert speakers[-1].active and speakers[-1].samplerate == 16000
+    worker.assert_silent()  # прослушивание само не включилось
+    assert speakers[0].closed
+    assert len(speakers) == 1
 
 
 def test_lost_microphone_is_closed_right_away(worker, monkeypatch):

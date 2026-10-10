@@ -41,4 +41,4 @@ def test_to_dict_reports_installed_flag(models_dir):
     assert data["id"] == SMALL
     assert data["installed"] is True
     assert find_model(LARGE).to_dict()["installed"] is False
-    assert {"title", "summary", "description", "disk", "memory", "load_time", "url"} <= data.keys()
+    assert {"title", "name", "summary", "description", "disk", "memory", "load_time", "url"} <= data.keys()

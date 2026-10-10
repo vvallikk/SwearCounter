@@ -94,8 +94,13 @@ class VoskRecognizer(Recognizer):
         await self.start()
 
     def set_device(self, device: int | str | None) -> None:
-        """Переключает микрофон. Модель при этом не перезагружается."""
+        """Переключает микрофон. Модель при этом не перезагружается.
+
+        Прослушивание выключается: новый микрофон начинаем без него.
+        """
         self.device = device
+        self.monitor = False
+        self.monitor_error = None
         if self._commands is not None:
             # Пока модель грузится, микрофон и так откроется после загрузки.
             self.mic_pending = self.status in ("listening", "mic_error")

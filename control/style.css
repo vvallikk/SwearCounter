@@ -1,0 +1,366 @@
+/* Тема задаётся атрибутом data-theme на <html> (см. скрипт в <head> index.html). */
+:root {
+  --bg: #16181d;
+  --card: #1f2229;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #3b82f6;
+  --danger: #ef4444;
+  --ok: #22c55e;
+  --border: #2d313a;
+  --meter-off: #2d313a;
+}
+:root[data-theme="light"] {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1d2129;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --danger: #dc2626;
+  --ok: #16a34a;
+  --border: #e5e7eb;
+  --meter-off: #e5e7eb;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+:root[data-theme="light"] body { color-scheme: light; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+
+.card {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+}
+.header { text-align: center; }
+h1 { margin: 0 0 4px; font-size: 20px; }
+.theme-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.theme-btn:hover { border-color: var(--muted); }
+.status { font-size: 14px; color: var(--muted); }
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: var(--danger);
+  vertical-align: middle;
+}
+.dot.online { background: var(--ok); }
+.count {
+  margin: 20px 0;
+  font-size: 88px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+}
+.buttons { display: flex; gap: 12px; }
+.buttons button {
+  flex: 1;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+}
+.buttons button:disabled { opacity: 0.6; }
+#inc { background: var(--accent); }
+#reset { background: var(--danger); }
+
+.hint { margin-top: 16px; font-size: 13px; color: var(--muted); text-align: center; }
+.copy-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 12px;
+  font-family: Consolas, monospace;
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--bg);
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+}
+.copy-link:hover { border-style: solid; }
+.copy-link .copy-label { font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; font-weight: 600; }
+.copy-link.copied { color: var(--ok); border-color: var(--ok); border-style: solid; }
+
+/* --- Разделы настроек --- */
+.section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.section-title { display: block; margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+.row { display: flex; align-items: center; gap: 8px; }
+.status-line { margin-top: 6px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.status-line.error { color: var(--danger); }
+/* «Модель работает» — с зелёной галочкой, чтобы было видно с первого взгляда. */
+.status-line.ok { color: var(--ok); font-weight: 600; }
+.status-line.ok::before { content: "✓ "; }
+.note { margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+
+.select-wrap { position: relative; flex: 1; min-width: 0; }
+/* Своя стрелка вместо системной: у системной нельзя задать отступ от края. */
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 7px;
+  height: 7px;
+  margin-top: -6px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+select {
+  width: 100%;
+  padding: 10px 40px 10px 12px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  appearance: none;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.square-btn {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  font-size: 18px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.square-btn:hover:not(:disabled) { border-color: var(--muted); }
+.secondary-btn {
+  padding: 8px 12px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.secondary-btn:hover:not(:disabled) { border-color: var(--muted); }
+.secondary-btn:disabled { opacity: 0.6; }
+.secondary-btn[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+/* --- Микрофон --- */
+/* Шкала — градиент на всю ширину; правую часть закрывает «маска» цвета фона. */
+.meter {
+  position: relative;
+  height: 10px;
+  margin-top: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: linear-gradient(to right, #22c55e 0%, #22c55e 65%, #eab308 82%, #ef4444 100%);
+}
+.meter-mask {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  background: var(--meter-off);
+}
+.monitor-row { margin-top: 10px; flex-wrap: wrap; }
+#mic-monitor[aria-pressed="true"] { background: var(--danger); border-color: var(--danger); }
+.monitor-row .note { margin: 0; flex: 1; min-width: 160px; }
+
+/* --- Звук оповещения --- */
+.volume-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.volume-value { width: 3.2em; font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; }
+.sound-list {
+  margin-top: 12px;
+  max-height: 222px; /* около пяти строк, дальше — прокрутка */
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.sound-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.sound-item:last-child { border-bottom: 0; }
+.sound-item.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.sound-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+}
+.sound-pick .radio {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+}
+.sound-item.active .radio { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
+.sound-pick .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.icon-btn {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 14px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.icon-btn:hover { border-color: var(--border); color: var(--text); }
+.icon-btn.confirm { width: auto; padding: 0 8px; font-size: 12px; font-weight: 600; color: #fff; background: var(--danger); }
+.sound-actions { margin-top: 10px; }
+
+/* --- Оформление счётчика --- */
+.preset-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.preset-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  text-align: left;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.preset-card:hover:not(.current) { border-color: var(--muted); }
+.preset-card.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; cursor: default; }
+/* Превью — тот же оверлей в режиме preview; клики проходят сквозь него к карточке. */
+.preset-card iframe {
+  width: 100%;
+  height: 92px;
+  border: 0;
+  pointer-events: none;
+  background: #111318;
+}
+.preset-card .text { padding: 8px 10px 10px; }
+.preset-card .title { display: block; font-size: 14px; font-weight: 700; }
+.preset-card .desc { display: block; margin-top: 2px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+
+/* --- Модель распознавания --- */
+.progress {
+  margin-top: 8px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.progress-bar {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  /* Сервер опрашивается раз в секунду; переход сглаживает шаги. */
+  transition: width 1s linear;
+}
+.model-list { margin-top: 10px; display: grid; gap: 8px; }
+.model-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.model-card.current { border-color: var(--accent); }
+.model-card:not(.current):not(.unavailable):hover { border-color: var(--muted); }
+.model-head { display: flex; align-items: stretch; }
+.model-pick {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+}
+.model-card.current .model-pick[aria-disabled="true"],
+.model-card.unavailable .model-pick { cursor: default; }
+.model-pick .title { font-size: 14px; font-weight: 700; }
+.model-pick .model-name { font-weight: 400; color: var(--muted); }
+.model-pick .summary { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+.model-expand {
+  flex: none;
+  width: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0 10px 10px 0;
+}
+.model-expand::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s;
+}
+.model-expand[aria-expanded="true"]::before { transform: translateY(2px) rotate(-135deg); }
+.model-details {
+  padding: 0 12px 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.model-details p { margin: 0 0 6px; }
+.model-details .specs { color: var(--muted); }
+.model-details a { color: var(--accent); }
+.badge {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  vertical-align: 1px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.model-card.current .badge { color: var(--accent); border-color: var(--accent); }
