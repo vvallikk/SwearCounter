@@ -297,9 +297,35 @@ body {
 }
 
 .ferret {
-  bottom: calc(var(--size) * -0.12);
-  width: calc(var(--size) * 1.1);
-  margin-left: calc(var(--size) * -0.55);
+  bottom: calc(var(--size) * -0.14);
+  width: calc(var(--size) * 1.2);
+  margin-left: calc(var(--size) * -0.6);
+}
+
+/* Бег прыжками: передние лапы работают парой, задние — парой, навстречу передним.
+   Один шаг туда-обратно (2 × 163 мс) — один прыжок хорька в overlay.js
+   (FERRET_RUN_MS / 8 скачков × 2). */
+.ferret .leg {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: ferret-stride 163ms ease-in-out infinite alternate;
+}
+
+.ferret .hind {
+  animation-direction: alternate-reverse;
+}
+
+.ferret .far {
+  animation-delay: -40ms;
+}
+
+@keyframes ferret-stride {
+  from {
+    transform: rotate(28deg);
+  }
+  to {
+    transform: rotate(-28deg);
+  }
 }
 
 .paw {

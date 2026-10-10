@@ -271,21 +271,61 @@
 
   // Хорёк: число исполняет «военный танец» (радостные прыжки боком с выгнутой спиной),
   // под ним пробегает хорёк и оставляет следы лапок, рядом выскакивает «гу-гу!».
+  // Соболиный хорёк сбоку в прыжке: выгнутая спина, тёмные «чулки» и хвост, светлая
+  // морда с маской. Лапы — группы .leg, их шаг анимирует style.css.
+  // Лапы: от бедра/плеча вниз, ступня смотрит вперёд (вправо)
+  const LEG_HIND =
+    "M-2 0 C-4 8 0 12 1 16 L1 20 C1 22 3 23 6 23 L10 23 C12 23 12 21 10 20 L7 19 L7 14 C9 10 11 6 10 0Z";
+  const LEG_FRONT = "M0 0 C-1 7 0 13 0 19 C0 22 2 23 5 23 L9 23 C11 23 11 21 9 20 L6 19 C6 13 7 7 7 0Z";
+  const leg = (cls, x, y, d, fill) =>
+    // внешняя группа ставит лапу на место, внутреннюю поворачивает CSS-анимация
+    `<g transform="translate(${x} ${y})"><g class="leg ${cls}"><path d="${d}" fill="${fill}"/></g></g>`;
   const FERRET_SVG =
-    '<svg viewBox="0 0 120 44" xmlns="http://www.w3.org/2000/svg">' +
-    '<path d="M22 26 Q4 22 2 30 Q8 34 22 31Z" style="fill:var(--fur-dark)"/>' + // хвост
-    '<rect x="30" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' + // лапы
-    '<rect x="44" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' +
-    '<rect x="72" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' +
-    '<rect x="84" y="28" width="7" height="13" rx="3.5" style="fill:var(--fur-dark)"/>' +
-    '<ellipse cx="58" cy="25" rx="38" ry="11" style="fill:var(--fur)"/>' + // туловище
-    '<ellipse cx="60" cy="30" rx="26" ry="5" fill="#c99a6b"/>' + // светлое брюшко
-    '<circle cx="92" cy="9" r="5" fill="#f3e2c7"/>' + // ухо
-    '<ellipse cx="100" cy="19" rx="15" ry="11" fill="#f3e2c7"/>' + // голова
-    '<path d="M90 16 Q101 11 112 17 Q103 21 90 21Z" style="fill:var(--fur-dark)"/>' + // «маска»
-    '<circle cx="103" cy="17" r="2.6" fill="#111"/>' + // глаз
-    '<circle cx="104" cy="16" r="0.9" fill="#fff"/>' +
-    '<circle cx="114.5" cy="22" r="2.6" style="fill:var(--nose)"/>' + // нос
+    '<svg viewBox="0 0 160 64" xmlns="http://www.w3.org/2000/svg">' +
+    '<defs><linearGradient id="ferret-fur" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" style="stop-color:var(--fur-dark)"/>' +
+    '<stop offset="0.45" style="stop-color:var(--fur)"/>' +
+    '<stop offset="1" stop-color="#e2c193"/></linearGradient></defs>' +
+    // хвост, пушистый, сужается к кончику
+    '<path d="M33 29 C24 24 14 18 3 19 C0 21 1 25 5 27 C10 30 14 31 18 33 C24 35 29 37 35 38Z" ' +
+    'style="fill:var(--fur-dark)"/>' +
+    '<path d="M8 22 l5 2 M14 23 l5 3 M21 27 l5 2" stroke="#2f1b0d" stroke-width="1" stroke-linecap="round"/>' +
+    // дальние лапы темнее
+    leg("hind far", 44, 36, LEG_HIND, "#2f1b0d") +
+    leg("front far", 102, 34, LEG_FRONT, "#2f1b0d") +
+    // туловище с выгнутой спиной
+    '<path d="M30 38 C24 30 30 20 44 16 C56 9 74 7 88 12 C100 16 108 20 116 24 L118 36 ' +
+    'C108 42 96 44 84 42 C70 40 56 44 44 44 C36 44 32 42 30 38Z" fill="url(#ferret-fur)" ' +
+    'style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    // ость на спине
+    '<path d="M48 17 l4 -2 M58 14 l4 -2 M68 12 l4 -1 M78 12 l4 0 M88 14 l4 1" ' +
+    'style="stroke:var(--fur-dark)" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>' +
+    // объём бедра
+    '<ellipse cx="45" cy="33" rx="12" ry="8" style="fill:var(--fur-dark)" opacity="0.3"/>' +
+    // ближние лапы
+    leg("hind near", 50, 37, LEG_HIND, "#3d2414") +
+    leg("front near", 108, 33, LEG_FRONT, "#3d2414") +
+    // светлая грудка
+    '<path d="M106 22 C114 25 119 31 117 38 C112 40 107 37 105 32Z" fill="#f3e2c7"/>' +
+    // ухо (за головой)
+    '<ellipse cx="117" cy="13" rx="5.5" ry="6.5" fill="#f3e2c7" style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    '<ellipse cx="117.5" cy="13.8" rx="3" ry="4" fill="#e9a0a8"/>' +
+    // голова: клин мордочкой вперёд
+    '<path d="M108 24 C108 14 120 9 132 11 C142 13 150 20 155 26 C156 29 153 32 148 33 ' +
+    'C140 35 126 35 116 33 C110 32 108 28 108 24Z" fill="#f3e2c7" style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    // тёмная шерсть на лбу и «маска» вокруг глаз
+    '<path d="M110 21 C113 13 125 9 134 11 C129 14 121 17 115 23Z" style="fill:var(--fur)" opacity="0.7"/>' +
+    '<path d="M118 19 C126 15 138 16 147 23 C142 27 132 27 124 26 C120 25 117 23 118 19Z" ' +
+    'style="fill:var(--fur-dark)" opacity="0.9"/>' +
+    // глаз с бликом
+    '<circle cx="136" cy="21" r="3.2" fill="#111"/>' +
+    '<circle cx="137.2" cy="19.8" r="1.1" fill="#fff"/>' +
+    // белая мордочка, нос, рот и усы
+    '<path d="M140 28 C146 27 151 28 155 27 C155 31 150 34 144 33 C140 33 138 31 140 28Z" fill="#fffaf0"/>' +
+    '<ellipse cx="155" cy="25.5" rx="3" ry="2.4" style="fill:var(--nose)"/>' +
+    '<path d="M152 30 Q149 32 146 31" fill="none" style="stroke:var(--fur-dark)" stroke-width="0.8"/>' +
+    '<path d="M148 28 L159 24.5 M148 29 L159.5 29 M148 30 L158 33.5" stroke="#fff" ' +
+    'stroke-width="0.5" opacity="0.85"/>' +
     "</svg>";
   const PAW_SVG =
     '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style="fill:var(--fur-dark)">' +
