@@ -18,7 +18,13 @@
       init.headers = { "Content-Type": "application/json" };
       init.body = JSON.stringify(body);
     }
-    const resp = await fetch(url, init);
+    let resp;
+    try {
+      resp = await fetch(url, init);
+    } catch (e) {
+      // Браузер пишет только «Failed to fetch»: приложение закрыто или перезапускается.
+      throw new Error("Нет связи с приложением. Проверьте, что оно запущено, и повторите");
+    }
     const data = await resp.json().catch(() => null);
     if (resp.ok) return data;
     const detail = data && data.detail;
@@ -283,7 +289,10 @@
     const play = el("button", "icon-btn", "▶");
     play.type = "button";
     play.title = "Прослушать";
-    play.addEventListener("click", () => player.preview(id));
+    play.addEventListener("click", () => {
+      setStatus(soundStatusEl, "");
+      player.preview(id);
+    });
     item.append(pick, play);
     if (id !== null) {
       const del = el("button", "icon-btn", "🗑");
