@@ -8,3 +8,4 @@ build/
 dist/
 settings.json
 settings.json.tmp
+.claude/
