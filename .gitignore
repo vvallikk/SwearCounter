@@ -11,3 +11,5 @@ settings.json.tmp
 /sounds/
 .claude/
 .pytest_cache/
+swearcounter.log*
+/webview/
