@@ -151,11 +151,18 @@ Python-код требует перезапуска. Второй экземпл
    __version__ = "0.3.0"
    ```
 
+   и напишите заметки к релизу в `docs/releases/v0.3.0.md` (без них сборка упадёт).
+   Формат — как в [v0.2.0](releases/v0.2.0.md): раздел «Что нового» на русском, затем
+   «What's new» с тем же списком на английском. Только перечень изменений, понятный
+   пользователю, без имён разработчиков и номеров PR. Этот текст увидят пользователи
+   на странице релиза и в блоке «Что нового» в программе.
+
 3. Проверьте тесты и закоммитьте:
 
    ```powershell
    .venv\Scripts\python.exe -m pytest -q
-   git commit -am "Release v0.3.0"
+   git add app/__init__.py docs/releases/v0.3.0.md
+   git commit -m "Release v0.3.0"
    git push -u origin release/v0.3.0
    ```
 
@@ -181,15 +188,14 @@ Python-код требует перезапуска. Второй экземпл
    gh run watch
    ```
 
-   Workflow проверит, что тег равен `v` + `__version__` (иначе упадёт), прогонит тесты,
-   соберёт exe и создаст релиз `v0.3.0` с архивом `SwearCounter-v0.3.0-windows.zip`
-   и автоматическими заметками из списка PR.
+   Workflow проверит, что тег равен `v` + `__version__` и что есть заметки
+   `docs/releases/v0.3.0.md` (иначе упадёт), прогонит тесты, соберёт exe и создаст релиз
+   `v0.3.0` с архивом `SwearCounter-v0.3.0-windows.zip` и текстом из заметок.
 
-7. При желании дополните описание релиза — оно показывается пользователям в блоке
-   «Что нового» в приложении:
+7. Поправить описание уже опубликованного релиза:
 
    ```powershell
-   gh release edit v0.3.0 --notes-file notes.md
+   gh release edit v0.3.0 --notes-file docs/releases/v0.3.0.md
    ```
 
 **Если сборка упала:** исправьте причину в `main`, затем удалите тег и поставьте заново:
@@ -245,7 +251,8 @@ git push origin v0.3.0
 кладётся рядом с exe; у пользователей их правленая копия не перезаписывается обновлением).
 
 **Переснять скриншоты для README** — `docs/screenshots/`. Запустите приложение с `--console`
-и снимите страницу и оверлей headless-браузером, например:
+и снимите страницу и оверлей headless-браузером (каждый снимок — со своим `--user-data-dir`,
+файл появляется через несколько секунд после выхода команды), например:
 
 ```powershell
 & "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe" --headless=new --user-data-dir="$env:TEMP\edge-shot" --hide-scrollbars --virtual-time-budget=5000 --window-size=960,1500 --screenshot="$PWD\docs\screenshots\control.png" http://localhost:8765/control/
@@ -272,6 +279,6 @@ assets/               иконка (scripts/make_icon.py)
 scripts/build.py      сборка exe и zip
 SwearCounter.spec     настройки PyInstaller
 tests/                тесты pytest
-docs/                 документация и скриншоты
+docs/                 документация, скриншоты, заметки к релизам (releases/)
 .github/workflows/    tests.yml — тесты, release.yml — релиз по тегу
 ```
