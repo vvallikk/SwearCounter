@@ -8,4 +8,6 @@ build/
 dist/
 settings.json
 settings.json.tmp
+/sounds/
 .claude/
+.pytest_cache/

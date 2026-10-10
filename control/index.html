@@ -449,8 +449,11 @@
           refreshSpeech();
         };
         ws.onmessage = (event) => {
+          // Сервер шлёт и другие сообщения (звук, оформление, уровень микрофона):
+          // счёт берём только из тех, где он есть.
           try {
-            countEl.textContent = JSON.parse(event.data).count;
+            const msg = JSON.parse(event.data);
+            if (msg.count !== undefined) countEl.textContent = msg.count;
           } catch (e) {}
         };
         ws.onclose = () => {

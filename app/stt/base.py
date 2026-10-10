@@ -23,7 +23,7 @@ class Recognizer(ABC):
     def __init__(self, on_text: OnText):
         self.on_text = on_text
         self._task: asyncio.Task | None = None
-        # Для страницы управления: stopped, loading, listening или error.
+        # Для страницы управления: stopped, loading, listening, mic_error или error.
         self.status = "stopped"
 
     async def start(self) -> None:
