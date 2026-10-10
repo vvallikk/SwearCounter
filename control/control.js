@@ -389,8 +389,17 @@
   const presetPreviewEl = $("preset-preview");
   const presetDescEl = $("preset-desc");
   let shownPreset = null;
+  let presetRequests = 0; // сколько выборов ещё не подтвердил сервер
 
   presetEl.replaceChildren(...presets.map((p) => new Option(p.title, p.id)));
+
+  // Превью загружается один раз, а стиль в нём меняется сообщением. Если бы iframe
+  // перезагружался на каждую смену, при быстром переключении превью могло пропасть.
+  function sendPreviewPreset() {
+    const win = presetPreviewEl.contentWindow;
+    if (win && shownPreset) win.postMessage({ type: "style", preset: shownPreset }, location.origin);
+  }
+  presetPreviewEl.addEventListener("load", sendPreviewPreset);
 
   function showPreset(id) {
     const preset = presets.find((p) => p.id === id) || presets[0];
@@ -398,22 +407,31 @@
     $("preset-section").hidden = false;
     presetEl.value = preset.id;
     presetDescEl.textContent = preset.description;
-    // Превью перезагружаем только при смене стиля: иначе анимация начиналась бы заново.
-    if (shownPreset !== preset.id) {
-      shownPreset = preset.id;
-      presetPreviewEl.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}&size=34`;
-    }
+    if (shownPreset === preset.id) return;
+    const first = shownPreset === null;
+    shownPreset = preset.id;
+    if (first) presetPreviewEl.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}&size=30`;
+    else sendPreviewPreset();
   }
 
   presetEl.addEventListener("change", async () => {
     const id = presetEl.value;
     showPreset(id); // сразу, не дожидаясь сервера
+    presetRequests += 1;
     try {
-      showPreset((await api("POST", "/api/overlay/preset", { preset: id })).preset);
+      await api("POST", "/api/overlay/preset", { preset: id });
     } catch (e) {
       setOnline(false);
+    } finally {
+      presetRequests -= 1;
     }
   });
+
+  // Стиль от сервера (WebSocket). Пока свои выборы не подтверждены, приходят ответы
+  // на прежние — они вернули бы список назад, поэтому их пропускаем.
+  function showServerPreset(id) {
+    if (presetRequests === 0) showPreset(id);
+  }
 
   // --- Модель распознавания: карточки, выбор кликом, описание раскрывается ---
 
@@ -610,7 +628,7 @@
       }
       if (msg.type === "mic_level") targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
       else if (msg.type === "sound") showSound(msg);
-      else if (msg.type === "style") showPreset(msg.preset);
+      else if (msg.type === "style") showServerPreset(msg.preset);
       else if (msg.count !== undefined) countEl.textContent = msg.count;
     };
     ws.onclose = () => {

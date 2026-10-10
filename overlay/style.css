@@ -71,13 +71,6 @@ body {
    "classic" — стили выше без изменений. Цвет цифр (--color) выставляет
    overlay.js: из ?color= или из пресета (presets.js). */
 
-/* --- Режим предпросмотра (?preview=1): число чуть ниже центра,
-   чтобы «+1» не обрезалось в маленьком iframe --- */
-:root[data-preview] body {
-  box-sizing: border-box;
-  padding-top: calc(var(--size) * 0.45);
-}
-
 /* --- Мем: Impact, толстая чёрная обводка --- */
 :root[data-preset="impact"] body {
   font-family: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif;
