@@ -21,6 +21,7 @@ from .server import Hub, create_app
 from .settings import Settings
 from .sound import Sound
 from .stt import CATALOG, VoskRecognizer, find_model, installed_models
+from .updater import Updater
 
 HOST = "127.0.0.1"
 PORT = 8765  # основной порт: его адрес прописывают в OBS
@@ -94,6 +95,7 @@ class Prepared:
     sock: socket.socket
     count: int
     model_missing: bool
+    updater: Updater | None = None
 
     @property
     def port(self) -> int:
@@ -146,11 +148,14 @@ def prepare(args: argparse.Namespace) -> Prepared:
         on_text, (model or CATALOG[0]).path, settings, device=device, on_level=on_level
     )
 
-    app = create_app(hub, recognizer, settings, Sound(settings, SOUNDS_DIR))
+    updater = Updater(settings)
+    app = create_app(
+        hub, recognizer, settings, Sound(settings, SOUNDS_DIR), updater=updater, check_updates=True
+    )
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.
     sock = bind_socket(HOST, PORT, PORT_ATTEMPTS)
-    return Prepared(app, sock, hub.counter.value, model_missing=model is None)
+    return Prepared(app, sock, hub.counter.value, model_missing=model is None, updater=updater)
 
 
 def run_console(prepared: Prepared) -> None:
@@ -190,7 +195,7 @@ def main(argv: list[str] | None = None) -> None:
             return
         prepared = prepare(args)
         log.info("Счётчик матов %s, порт %d", __version__, prepared.port)
-        desktop.run(prepared.app, prepared.sock, notice=prepared.port_notice)
+        desktop.run(prepared.app, prepared.sock, notice=prepared.port_notice, updater=prepared.updater)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ from fastapi import FastAPI
 
 from . import __version__
 from .paths import ICON_FILE, WEBVIEW_DIR
+from .updater import Updater
 
 TITLE = "Счётчик матов"
 MUTEX_NAME = "Local\\SwearCounter"
@@ -104,7 +105,7 @@ def copy_to_clipboard(text: str) -> None:
     subprocess.run(["clip"], input=text.encode("ascii"), check=False, creationflags=CREATE_NO_WINDOW)
 
 
-def run(app: FastAPI, sock: socket, notice: str | None = None) -> None:
+def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater | None = None) -> None:
     import pystray
     import webview
     from PIL import Image
@@ -139,6 +140,21 @@ def run(app: FastAPI, sock: socket, notice: str | None = None) -> None:
         icon.stop()
         window.destroy()
 
+    def check_updates() -> None:
+        status = updater.check_threadsafe()
+        if status == "none":
+            icon.notify(f"У вас последняя версия: v{__version__}", TITLE)
+        elif status == "error":
+            icon.notify(updater.error or "Не удалось проверить обновления", TITLE)
+        # О найденном обновлении сообщает on_update_found.
+
+    def on_update_found(version: str) -> None:
+        icon.notify(f"Доступна версия v{version}. Установить — на странице управления.", TITLE)
+
+    if updater is not None:
+        updater.on_found = on_update_found
+        updater.quit = quit_app
+
     window.events.closing += on_closing
     icon = pystray.Icon(
         "SwearCounter",
@@ -148,6 +164,7 @@ def run(app: FastAPI, sock: socket, notice: str | None = None) -> None:
             pystray.MenuItem("Открыть", show, default=True),
             pystray.MenuItem("Скопировать адрес оверлея", copy_overlay),
             pystray.MenuItem("Открыть в браузере", lambda: webbrowser.open(urls.control)),
+            pystray.MenuItem("Проверить обновления", check_updates, visible=updater is not None),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Выход", quit_app),
         ),

@@ -16,7 +16,8 @@
   <main class="card">
     <button id="theme" class="theme-btn" type="button"></button>
     <div class="header">
-      <h1>Счётчик матов <span id="version" class="version"></span></h1>
+      <h1>Счётчик матов <span id="version" class="version"></span>
+        <a id="update-badge" class="update-badge" href="#update-section" hidden></a></h1>
       <div class="status"><span id="dot" class="dot"></span><span id="status">Нет связи с сервером</span></div>
     </div>
     <div id="count" class="count">—</div>
@@ -101,6 +102,21 @@
       </div>
       <div id="download-note" class="note download-note" hidden></div>
       <div id="model-list" class="model-list"></div>
+    </section>
+
+    <section id="update-section" class="section" hidden>
+      <h2 class="section-title">Обновления</h2>
+      <div class="row update-row">
+        <button id="update-action" class="secondary-btn" type="button"></button>
+        <button id="update-cancel" class="secondary-btn" type="button" hidden>Отменить</button>
+      </div>
+      <div id="update-progress" class="progress" hidden><div id="update-progress-bar" class="progress-bar"></div></div>
+      <div id="update-status" class="status-line"></div>
+      <details id="update-notes" class="update-notes" hidden>
+        <summary>Что нового</summary>
+        <div id="update-notes-text"></div>
+      </details>
+      <label class="note update-auto"><input id="update-auto" type="checkbox"> Проверять обновления при запуске</label>
     </section>
   </main>
 

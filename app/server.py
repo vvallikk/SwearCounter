@@ -19,6 +19,7 @@ from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
 from .stt import CATALOG, ModelDownloader, ModelInfo, VoskRecognizer, audio_devices, find_model
+from .updater import Updater
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +92,10 @@ class MonitorChoice(BaseModel):
     enabled: bool
 
 
+class AutoUpdateChoice(BaseModel):
+    enabled: bool
+
+
 class PresetChoice(BaseModel):
     preset: str
 
@@ -110,7 +115,12 @@ LABEL_MAX_LENGTH = 40
 
 
 def create_app(
-    hub: Hub, recognizer: VoskRecognizer, settings: Settings, sound: Sound
+    hub: Hub,
+    recognizer: VoskRecognizer,
+    settings: Settings,
+    sound: Sound,
+    updater: Updater | None = None,
+    check_updates: bool = False,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -130,6 +140,14 @@ def create_app(
 
     downloader = ModelDownloader(on_downloaded)
 
+    # Без updater (тесты, разработка) установка недоступна, а сеть не трогаем.
+    updater = updater or Updater(settings, frozen=False)
+
+    async def on_update_change(state: dict) -> None:
+        await hub.broadcast({"type": "update", **state})
+
+    updater.on_change = on_update_change
+
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
 
@@ -146,9 +164,14 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await recognizer.start()
+        updater.loop = asyncio.get_running_loop()
+        check_task = asyncio.create_task(updater.auto_check()) if check_updates else None
         try:
             yield
         finally:
+            if check_task is not None:
+                check_task.cancel()
+            await updater.stop()
             await downloader.stop()
             await recognizer.stop()
 
@@ -165,6 +188,44 @@ def create_app(
     @app.get("/api/version")
     async def get_version():
         return {"version": __version__}
+
+    @app.get("/api/update")
+    async def get_update():
+        return updater.state()
+
+    @app.post("/api/update/check")
+    async def post_update_check():
+        await updater.check()
+        return updater.state()
+
+    @app.post("/api/update/auto")
+    async def post_update_auto(choice: AutoUpdateChoice):
+        updater.set_auto(choice.enabled)
+        return updater.state()
+
+    @app.post("/api/update/download")
+    async def post_update_download():
+        try:
+            updater.start_download()
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
+        return updater.state()
+
+    @app.delete("/api/update/download")
+    async def delete_update_download():
+        if not updater.cancel():
+            raise HTTPException(404, "Обновление не скачивается")
+        return updater.state()
+
+    @app.post("/api/update/apply")
+    async def post_update_apply():
+        try:
+            updater.apply()
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
+        # Выходим чуть позже, чтобы ответ успел уйти странице.
+        asyncio.get_running_loop().call_later(0.5, updater.exit)
+        return updater.state()
 
     @app.post("/api/increment")
     async def post_increment():

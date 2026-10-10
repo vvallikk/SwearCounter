@@ -52,6 +52,15 @@ button:disabled { cursor: default; }
 .header { text-align: center; }
 h1 { margin: 0 0 4px; font-size: 20px; }
 .version { font-size: 12px; font-weight: 400; color: var(--muted); }
+.update-badge {
+  margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  color: #fff; background: var(--accent); text-decoration: none; vertical-align: middle;
+}
+.update-row { flex-wrap: wrap; }
+.update-notes { margin-top: 8px; font-size: 13px; }
+.update-notes summary { cursor: pointer; color: var(--accent); }
+.update-notes div { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
+.update-auto { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
 .theme-btn {
   position: absolute;
   top: 14px;
