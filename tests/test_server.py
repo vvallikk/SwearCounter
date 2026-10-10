@@ -341,3 +341,9 @@ def test_default_preset_is_classic(client):
 @pytest.mark.parametrize("preset", ["", "Neon", "../etc", "a" * 33])
 def test_invalid_preset_rejected(client, preset):
     assert client.post("/api/overlay/preset", json={"preset": preset}).status_code == 400
+
+
+def test_version(client):
+    from app import __version__
+
+    assert client.get("/api/version").json() == {"version": __version__}

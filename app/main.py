@@ -9,6 +9,7 @@ import sys
 import sounddevice as sd
 import uvicorn
 
+from . import __version__
 from .counter import Counter
 from .paths import COUNTER_FILE, MODELS_DIR, SETTINGS_FILE, SOUNDS_DIR, words_file
 from .profanity import count_profanity, load_words
@@ -117,6 +118,7 @@ def main() -> None:
     sock = bind_socket(HOST, PORT, PORT_ATTEMPTS)
     port = sock.getsockname()[1]
 
+    print(f"Счётчик матов {__version__}")
     print(f"Счётчик: {hub.counter.value}")
     print(f"Оверлей для OBS:     http://localhost:{port}/overlay/")
     print(f"Страница управления: http://localhost:{port}/control/")

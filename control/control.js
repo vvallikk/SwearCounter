@@ -535,6 +535,7 @@
       setOnline(true);
       refreshSpeech();
       loadDevices();
+      api("GET", "/api/version").then(({ version }) => ($("version").textContent = `v${version}`), () => {});
     };
     ws.onmessage = (event) => {
       let msg;

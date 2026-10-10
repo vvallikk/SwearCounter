@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from . import __version__
 from .counter import Counter
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
@@ -118,7 +119,7 @@ def create_app(
         finally:
             await recognizer.stop()
 
-    app = FastAPI(title="Счётчик матов", lifespan=lifespan)
+    app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
 
     @app.get("/")
     async def root():
@@ -127,6 +128,10 @@ def create_app(
     @app.get("/api/state")
     async def get_state():
         return {"count": hub.counter.value}
+
+    @app.get("/api/version")
+    async def get_version():
+        return {"version": __version__}
 
     @app.post("/api/increment")
     async def post_increment():
