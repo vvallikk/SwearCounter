@@ -294,7 +294,9 @@ git push origin v0.3.0
 **Сделать личное оформление на заказ.** Это zip-набор, который не попадает в репозиторий
 и ставится пользователем из окна программы. Формат, API анимации и лицензия набора описаны
 в [PRESETS.md](PRESETS.md). Для проверки положите папку набора в `presets/<id>/` в корне
-репозитория (она в `.gitignore`).
+репозитория (она в `.gitignore`). Готовую папку упакуйте командой
+`.venv\Scripts\python.exe scripts/pack_preset.py <папка>`: архив проверяется так же,
+как при установке.
 
 **Кнопка "Поддержать".** Ссылки задаются списком `SUPPORT_LINKS` в `app/__init__.py`:
 название, адрес и QR-код (картинка в `control/support/`). Если список пустой, кнопки нет
@@ -337,7 +339,8 @@ app/desktop.py        окно (pywebview), трей (pystray), сервер в 
 app/server.py         FastAPI: /ws, /api/state, /api/increment, /api/reset, /api/speech,
                       /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
                       /api/presets/custom, статика
-app/custom_presets.py личные оформления: установка zip-наборов в presets/ (docs/PRESETS.md)
+app/custom_presets.py личные оформления: установка zip-наборов в presets/, упаковка и экспорт
+app/preset_links.py   установка оформления по ссылке: Яндекс Диск, Google Диск, Dropbox
 app/updater.py        проверка, скачивание и установка обновлений из GitHub Releases
 app/settings.py       настройки (settings.json)
 app/sound.py          громкость и библиотека звуков оповещения (sounds/)
@@ -354,6 +357,7 @@ control/              страница управления (index.html, style.c
 wordlists/            встроенные списки слов
 assets/               иконка (scripts/make_icon.py)
 scripts/build.py      сборка exe и zip
+scripts/pack_preset.py упаковка папки личного оформления в zip
 scripts/licenses.py   THIRD_PARTY_LICENSES.txt для сборки; third_party/ с текстами лицензий
 SwearCounter.spec     настройки PyInstaller
 tests/                тесты pytest

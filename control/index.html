@@ -108,9 +108,16 @@
       </div>
       <div class="row preset-actions">
         <button id="preset-install" class="secondary-btn" type="button">Установить оформление…</button>
+        <button id="preset-link-toggle" class="secondary-btn" type="button">Установить по ссылке…</button>
+        <button id="preset-export" class="secondary-btn" type="button" hidden>📦 Сохранить архивом</button>
         <button id="preset-remove" class="secondary-btn" type="button" hidden>🗑 Удалить оформление</button>
         <input id="preset-input" type="file" accept=".zip,application/zip" hidden>
       </div>
+      <form id="preset-link-form" class="row preset-link" hidden>
+        <input id="preset-link" class="text-input" type="url" required
+          placeholder="Ссылка на архив: Яндекс Диск, Google Диск, Dropbox">
+        <button id="preset-link-install" class="secondary-btn" type="submit">Установить</button>
+      </form>
       <p class="note">Личное оформление — zip-архив, который автор делает на заказ: свой шрифт,
         картинки, анимация и звук. Оно есть только у того, кому его прислали. Ставьте архивы
         только от автора программы: в них может быть код анимации.</p>

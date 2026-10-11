@@ -81,30 +81,19 @@ class CustomPresets:
 
     def install(self, data: bytes) -> dict:
         """Ставит набор из zip (с заменой прежней версии). ValueError — если архив не подходит."""
-        if len(data) > MAX_PACK_BYTES:
-            raise ValueError(f"Архив больше {MAX_PACK_BYTES // (1024 * 1024)} МБ")
-        try:
-            archive = zipfile.ZipFile(io.BytesIO(data))
-        except zipfile.BadZipFile:
-            raise ValueError("Это не zip-архив с оформлением") from None
-        with archive:
-            files = _pack_files(archive)
-            try:
-                manifest = json.loads(files[MANIFEST][1].decode("utf-8-sig"))
-            except KeyError:
-                raise ValueError("В архиве нет preset.json") from None
-            except (UnicodeDecodeError, json.JSONDecodeError):
-                raise ValueError("preset.json не читается: проверьте, что это JSON в UTF-8") from None
-            info = validate_manifest(manifest, self.builtin_ids)
-            sound = info.get("sound")
-            if sound is not None and sound not in files:
-                raise ValueError(f"Звука {sound} нет в архиве")
-            preset_id = info["id"]
-            if preset_id not in self.ids() and len(self.list()) >= MAX_PRESETS:
-                raise ValueError(f"Уже установлено {MAX_PRESETS} оформлений: удалите ненужные")
-            self._write(preset_id, files)
+        info, files = read_pack(data, self.builtin_ids)
+        preset_id = info["id"]
+        if preset_id not in self.ids() and len(self.list()) >= MAX_PRESETS:
+            raise ValueError(f"Уже установлено {MAX_PRESETS} оформлений: удалите ненужные")
+        self._write(preset_id, files)
         log.info("Установлено оформление %s", preset_id)
         return next(p for p in self.list() if p["id"] == preset_id)
+
+    def export(self, preset_id: str) -> bytes:
+        """Zip установленного набора, чтобы передать его дальше; KeyError, если такого нет."""
+        if preset_id not in self.ids():
+            raise KeyError(preset_id)
+        return pack_folder(self.directory / preset_id, self.builtin_ids)[1]
 
     def remove(self, preset_id: str) -> None:
         """Удаляет набор; KeyError, если такого нет."""
@@ -140,6 +129,53 @@ class CustomPresets:
             "style": f"{base}/{STYLE}" if (folder / STYLE).is_file() else None,
             "script": f"{base}/{SCRIPT}" if (folder / SCRIPT).is_file() else None,
         }
+
+
+def read_pack(data: bytes, builtin_ids: set[str]) -> tuple[dict, dict[str, tuple[PurePosixPath, bytes]]]:
+    """Проверенный preset.json и файлы набора из zip; ValueError с понятной причиной."""
+    if len(data) > MAX_PACK_BYTES:
+        raise ValueError(f"Архив больше {MAX_PACK_BYTES // (1024 * 1024)} МБ")
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        raise ValueError("Это не zip-архив с оформлением") from None
+    with archive:
+        files = _pack_files(archive)
+    try:
+        manifest = json.loads(files[MANIFEST][1].decode("utf-8-sig"))
+    except KeyError:
+        raise ValueError("В архиве нет preset.json") from None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ValueError("preset.json не читается: проверьте, что это JSON в UTF-8") from None
+    info = validate_manifest(manifest, builtin_ids)
+    sound = info.get("sound")
+    if sound is not None and sound not in files:
+        raise ValueError(f"Звука {sound} нет в архиве")
+    return info, files
+
+
+def pack_folder(folder: Path, builtin_ids: set[str] = frozenset()) -> tuple[dict, bytes]:
+    """Собирает zip из папки набора и проверяет его так же, как при установке.
+
+    Файлы лежат в архиве в папке <id>/: так архив выглядит понятно и после распаковки.
+    """
+    folder = Path(folder)
+    if not (folder / MANIFEST).is_file():
+        raise ValueError(f"В папке {folder} нет preset.json")
+    try:
+        manifest = json.loads((folder / MANIFEST).read_text(encoding="utf-8-sig"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        raise ValueError("preset.json не читается: проверьте, что это JSON в UTF-8") from None
+    preset_id = validate_manifest(manifest, builtin_ids)["id"]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(folder.rglob("*")):
+            relative = path.relative_to(folder).as_posix()
+            if path.is_file() and not _ignored(relative) and not relative.startswith("."):
+                archive.write(path, f"{preset_id}/{relative}")
+    data = buffer.getvalue()
+    info, _ = read_pack(data, builtin_ids)
+    return info, data
 
 
 def validate_manifest(manifest, builtin_ids: set[str]) -> dict:

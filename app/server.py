@@ -5,9 +5,11 @@ import json
 import logging
 import os
 import re
+import subprocess
 import threading
 from collections.abc import Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from urllib.parse import unquote, urlsplit
 
@@ -16,7 +18,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import SUPPORT_LINKS, __version__
+from . import SUPPORT_LINKS, __version__, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -131,6 +133,10 @@ class WordListChoice(BaseModel):
     id: str
 
 
+class PresetLink(BaseModel):
+    url: str
+
+
 class WordListOpen(BaseModel):
     id: str | None = None  # файл списка; None — папка со списками
 
@@ -172,6 +178,18 @@ def locked_out(request: Request) -> bool:
     if request.method in SAFE_METHODS or not path.startswith("/api/"):
         return False
     return not (path == "/api/update" or path.startswith("/api/update/"))
+
+
+def downloads_dir() -> Path:
+    """Папка «Загрузки», куда экспортируются оформления; без неё — домашняя папка."""
+    folder = Path.home() / "Downloads"
+    return folder if folder.is_dir() else Path.home()
+
+
+def reveal(path: Path) -> None:
+    """Показывает файл в Проводнике (выделенным), чтобы его сразу можно было отправить."""
+    if os.name == "nt":
+        subprocess.Popen(["explorer", f"/select,{path}"])
 
 
 def create_app(
@@ -487,6 +505,38 @@ def create_app(
                 raise HTTPException(400, str(e)) from None
             await presets_changed()
             return preset
+
+        @app.post("/api/presets/custom/url")
+        async def post_custom_preset_url(link: PresetLink):
+            """Скачивает архив по ссылке (Яндекс Диск, Google Диск, Dropbox, прямая) и ставит его."""
+            try:
+                data = await asyncio.to_thread(preset_links.download, link.url)
+                preset = await asyncio.to_thread(custom_presets.install, data)
+            except ValueError as e:
+                raise HTTPException(400, str(e)) from None
+            await presets_changed()
+            return preset
+
+        @app.post("/api/presets/custom/{preset_id}/export")
+        async def export_custom_preset(preset_id: str):
+            """Сохраняет набор zip-архивом в «Загрузки» и показывает его в Проводнике."""
+            try:
+                data = await asyncio.to_thread(custom_presets.export, preset_id)
+            except KeyError:
+                raise HTTPException(404, "Такого оформления нет") from None
+            except ValueError as e:
+                raise HTTPException(400, str(e)) from None
+            path = downloads_dir() / f"{preset_id}.zip"
+            try:
+                await asyncio.to_thread(path.write_bytes, data)
+            except OSError as e:
+                raise HTTPException(500, f"Не удалось сохранить архив: {e}") from None
+            log.info("Оформление %s сохранено в %s", preset_id, path)
+            try:
+                reveal(path)
+            except OSError:
+                pass  # архив сохранён, путь есть в ответе
+            return {"path": str(path)}
 
         @app.delete("/api/presets/custom/{preset_id}")
         async def delete_custom_preset(preset_id: str):
