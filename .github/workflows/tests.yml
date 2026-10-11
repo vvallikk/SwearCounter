@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+# Python 3.14 на Windows пишет в консоль в cp1252: без UTF-8 падают print с кириллицей.
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   pytest:
     # Приложение работает только на Windows (MME, sounddevice с встроенным PortAudio).
