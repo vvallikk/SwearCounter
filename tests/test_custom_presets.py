@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import custom_presets as module
-from app.custom_presets import CustomPresets, builtin_preset_ids
+from app.custom_presets import CustomPresets, builtin_preset_ids, pack_folder
 from app.server import Hub, create_app
 from app.settings import Settings
 from app.sound import Sound
@@ -184,6 +184,76 @@ def test_list_without_directory(tmp_path):
     assert CustomPresets(tmp_path / "missing").list() == []
 
 
+# --- Упаковка папки и экспорт ---
+
+
+def test_pack_folder_installs_back(presets, tmp_path):
+    folder = tmp_path / "src" / "my-folder"
+    (folder / "img").mkdir(parents=True)
+    (folder / "preset.json").write_text(json.dumps(MANIFEST, ensure_ascii=False), encoding="utf-8")
+    (folder / "coin.wav").write_bytes(b"RIFF....WAVE")
+    (folder / "img" / "coin.png").write_bytes(b"png-data")
+    (folder / "Thumbs.db").write_bytes(b"junk")
+    (folder / ".git").mkdir()
+    (folder / ".git" / "config").write_text("x")
+    info, data = pack_folder(folder, BUILTIN)
+    assert info["id"] == "vasya-gold"
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert sorted(archive.namelist()) == ["vasya-gold/coin.wav", "vasya-gold/img/coin.png", "vasya-gold/preset.json"]
+    presets.install(data)
+    assert (presets.directory / "vasya-gold" / "img" / "coin.png").read_bytes() == b"png-data"
+
+
+@pytest.mark.parametrize(
+    "files, message",
+    [
+        ({}, "нет preset.json"),
+        ({"preset.json": "{"}, "не читается"),
+        ({"preset.json": json.dumps({**MANIFEST, "id": "classic"})}, "встроенным"),
+        ({"preset.json": json.dumps(MANIFEST)}, "Звука coin.wav нет"),
+        ({"preset.json": json.dumps({**MANIFEST, "sound": None}), "run.exe": "x"}, "не подходит"),
+    ],
+)
+def test_pack_folder_rejects_what_install_would(tmp_path, files, message):
+    folder = tmp_path / "pack"
+    folder.mkdir()
+    for name, content in files.items():
+        (folder / name).write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError, match=message):
+        pack_folder(folder, BUILTIN)
+
+
+def test_export_roundtrip(presets, tmp_path):
+    presets.install(pack())
+    data = presets.export("vasya-gold")
+    other = CustomPresets(tmp_path / "other", BUILTIN)
+    other.install(data)
+    assert other.list() == presets.list()
+
+
+def test_export_unknown(presets):
+    with pytest.raises(KeyError):
+        presets.export("nope")
+
+
+def test_pack_preset_script(tmp_path, capsys):
+    import sys
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import pack_preset
+    finally:
+        sys.path.pop(0)
+    folder = tmp_path / "pack"
+    folder.mkdir()
+    (folder / "preset.json").write_text(json.dumps({"id": "mini", "title": "Мини"}), encoding="utf-8")
+    assert pack_preset.main([str(folder)]) == 0
+    assert (tmp_path / "mini.zip").is_file()
+    (folder / "preset.json").write_text("{}", encoding="utf-8")
+    assert pack_preset.main([str(folder)]) == 1
+    assert "Ошибка" in capsys.readouterr().err
+
+
 # --- API сервера ---
 
 
@@ -276,3 +346,45 @@ def test_script_without_custom_presets(fake_sd, counter, recognizer_stub, settin
     with TestClient(app) as client:
         assert client.get("/overlay/custom-presets.js").text == "window.registerCustomPresets([]);\n"
         assert client.get("/api/presets/custom").status_code == 404
+
+
+def test_api_install_from_link(presets_client, monkeypatch):
+    from app import preset_links
+
+    seen = []
+    monkeypatch.setattr(preset_links, "download", lambda url: seen.append(url) or pack())
+    r = presets_client.post("/api/presets/custom/url", json={"url": "https://disk.yandex.ru/d/AbCd"})
+    assert r.status_code == 200 and r.json()["id"] == "vasya-gold"
+    assert seen == ["https://disk.yandex.ru/d/AbCd"]
+    assert [p["id"] for p in presets_client.get("/api/presets/custom").json()] == ["vasya-gold"]
+
+
+def test_api_install_from_link_errors(presets_client, monkeypatch):
+    from app import preset_links
+
+    def fail(url):
+        raise ValueError("Google Диск не отдал файл")
+
+    monkeypatch.setattr(preset_links, "download", fail)
+    r = presets_client.post("/api/presets/custom/url", json={"url": "https://drive.google.com/file/d/1/view"})
+    assert r.status_code == 400 and "Google" in r.json()["detail"]
+    monkeypatch.setattr(preset_links, "download", lambda url: b"not a zip")
+    r = presets_client.post("/api/presets/custom/url", json={"url": "https://example.com/a.zip"})
+    assert r.status_code == 400 and "zip" in r.json()["detail"]
+    r = presets_client.post("/api/presets/custom/url", json={"url": "https://example.com/a.zip"}, headers={"Origin": "https://evil.example"})
+    assert r.status_code == 403
+
+
+def test_api_export_saves_to_downloads(presets_client, monkeypatch, tmp_path):
+    from app import server
+
+    revealed = []
+    monkeypatch.setattr(server, "downloads_dir", lambda: tmp_path)
+    monkeypatch.setattr(server, "reveal", revealed.append)
+    install(presets_client, pack())
+    r = presets_client.post("/api/presets/custom/vasya-gold/export")
+    assert r.status_code == 200
+    path = tmp_path / "vasya-gold.zip"
+    assert r.json() == {"path": str(path)} and revealed == [path]
+    assert CustomPresets(tmp_path / "check", BUILTIN).install(path.read_bytes())["id"] == "vasya-gold"
+    assert presets_client.post("/api/presets/custom/nope/export").status_code == 404

@@ -409,6 +409,11 @@
   const presetInput = $("preset-input");
   const presetInstallBtn = $("preset-install");
   const presetRemoveBtn = $("preset-remove");
+  const presetExportBtn = $("preset-export");
+  const presetLinkToggle = $("preset-link-toggle");
+  const presetLinkForm = $("preset-link-form");
+  const presetLinkEl = $("preset-link");
+  const presetLinkBtn = $("preset-link-install");
   const MAX_PACK_MB = 20;
   let shownPreset = null;
   let wantedPreset = null; // id, который просили показать: личное оформление могло ещё не загрузиться
@@ -464,6 +469,7 @@
     presetOwnerEl.textContent = preset.owner ? `Личное оформление для: ${preset.owner}` : "";
     presetOwnerEl.hidden = !preset.owner;
     presetRemoveBtn.hidden = !preset.custom;
+    presetExportBtn.hidden = !preset.custom;
     if (preset.custom && preset.sound) {
       standardSound = preset.sound; // адрес звука из набора
       standardSoundName = `Звук оформления «${preset.title}»`;
@@ -479,6 +485,25 @@
     // Без ?size число в превью подгоняется под рамку, как в OBS.
     if (first) presetPreviewEl.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}`;
     else sendPreviewStyle();
+  }
+
+  // Ответ сервера на установку: показываем и сразу включаем оформление, ради него и ставили.
+  async function finishInstall(resp) {
+    const body = await resp.json().catch(() => null);
+    if (!resp.ok) {
+      setStatus(presetStatusEl, (body && body.detail) || `Ошибка сервера (${resp.status})`, true);
+      return false;
+    }
+    await loadCustomPresets();
+    showPreset(body.id);
+    presetRequests += 1;
+    try {
+      await api("POST", "/api/overlay/preset", { preset: body.id });
+    } finally {
+      presetRequests -= 1;
+    }
+    setStatus(presetStatusEl, `Оформление «${body.title}» установлено и включено`, false, true);
+    return true;
   }
 
   presetInstallBtn.addEventListener("click", () => presetInput.click());
@@ -500,24 +525,52 @@
         headers: { "Content-Type": "application/zip" },
         body: file,
       });
-      const body = await resp.json().catch(() => null);
-      if (!resp.ok) {
-        return setStatus(presetStatusEl, (body && body.detail) || `Ошибка сервера (${resp.status})`, true);
-      }
-      await loadCustomPresets();
-      // Сразу включаем установленное: ради него архив и ставили.
-      showPreset(body.id);
-      presetRequests += 1;
-      try {
-        await api("POST", "/api/overlay/preset", { preset: body.id });
-      } finally {
-        presetRequests -= 1;
-      }
-      setStatus(presetStatusEl, `Оформление «${body.title}» установлено и включено`, false, true);
+      await finishInstall(resp);
     } catch (e) {
       setStatus(presetStatusEl, "Не удалось установить оформление", true);
     } finally {
       presetInstallBtn.disabled = false;
+    }
+  });
+
+  presetLinkToggle.addEventListener("click", () => {
+    presetLinkForm.hidden = !presetLinkForm.hidden;
+    if (!presetLinkForm.hidden) presetLinkEl.focus();
+  });
+
+  presetLinkForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const url = presetLinkEl.value.trim();
+    if (!url) return;
+    presetLinkBtn.disabled = true;
+    setStatus(presetStatusEl, "Скачивание и установка…");
+    try {
+      const resp = await fetch("/api/presets/custom/url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (await finishInstall(resp)) {
+        presetLinkEl.value = "";
+        presetLinkForm.hidden = true;
+      }
+    } catch (e) {
+      setStatus(presetStatusEl, "Не удалось установить оформление", true);
+    } finally {
+      presetLinkBtn.disabled = false;
+    }
+  });
+
+  presetExportBtn.addEventListener("click", async () => {
+    const id = presetEl.value;
+    presetExportBtn.disabled = true;
+    try {
+      const { path } = await api("POST", `/api/presets/custom/${encodeURIComponent(id)}/export`);
+      setStatus(presetStatusEl, `Архив сохранён: ${path}`, false, true);
+    } catch (e) {
+      setStatus(presetStatusEl, e.message, true);
+    } finally {
+      presetExportBtn.disabled = false;
     }
   });
 

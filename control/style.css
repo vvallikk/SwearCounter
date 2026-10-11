@@ -317,6 +317,7 @@ select {
 .preset-side .note { margin: 6px 0 0; }
 .preset-side .preset-owner { color: var(--accent); font-weight: 600; }
 .preset-actions { margin-top: 10px; flex-wrap: wrap; }
+.preset-link { margin-top: 8px; }
 
 /* --- О программе: кнопка «Поддержать», по нажатию — ссылки и QR-коды --- */
 .support-heart { right: auto; left: 14px; color: #e5487a; }
