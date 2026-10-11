@@ -23,7 +23,7 @@ COUNTER_FILE = DATA_DIR / "counter.json"
 # и добавлять свои (см. app/wordlists.py). Из исходников это одна и та же папка.
 BUNDLED_WORDLISTS_DIR = RESOURCE_DIR / "wordlists"
 WORDLISTS_DIR = DATA_DIR / "wordlists"
-OLD_WORDS_FILE = DATA_DIR / "words.txt"  # единственный список версий до 0.3.0
+OLD_WORDS_FILE = DATA_DIR / "words.txt"  # единственный список версий до 1.0.0
 
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
