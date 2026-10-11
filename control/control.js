@@ -194,11 +194,10 @@
 
   // --- Адрес оверлея копируется по клику ---
 
-  const overlayBtn = $("overlay-url");
-  const overlayLabel = overlayBtn.querySelector(".copy-label");
   const overlayUrl = `${location.origin}/overlay/`;
+  const timerOverlayUrl = `${overlayUrl}?show=timer`;
   $("overlay-url-text").textContent = overlayUrl;
-  let copiedTimer = null;
+  $("timer-url-text").textContent = timerOverlayUrl;
 
   async function copyText(text) {
     try {
@@ -216,16 +215,46 @@
     }
   }
 
-  overlayBtn.addEventListener("click", async () => {
-    const ok = await copyText(overlayUrl);
-    overlayBtn.classList.toggle("copied", ok);
-    overlayLabel.textContent = ok ? "Скопировано ✓" : "Не удалось скопировать";
-    clearTimeout(copiedTimer);
-    copiedTimer = setTimeout(() => {
-      overlayBtn.classList.remove("copied");
-      overlayLabel.textContent = "Копировать";
-    }, 2000);
-  });
+  function bindCopyLink(button, url) {
+    const label = button.querySelector(".copy-label");
+    let copiedTimer = null;
+    button.addEventListener("click", async () => {
+      const ok = await copyText(url);
+      button.classList.toggle("copied", ok);
+      label.textContent = ok ? "Скопировано ✓" : "Не удалось скопировать";
+      clearTimeout(copiedTimer);
+      copiedTimer = setTimeout(() => {
+        button.classList.remove("copied");
+        label.textContent = "Копировать";
+      }, 2000);
+    });
+  }
+  bindCopyLink($("overlay-url"), overlayUrl);
+  bindCopyLink($("timer-url"), timerOverlayUrl);
+
+  // --- Таймер «без мата»: сервер присылает состояние, секунды отсчитываем здесь ---
+
+  let timerState = { elapsed: 0, record: 0, running: false, at: performance.now() };
+
+  function formatDuration(seconds) {
+    const total = Math.floor(seconds);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = String(total % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  }
+
+  function renderTimer() {
+    const now = timerState.elapsed + (timerState.running ? (performance.now() - timerState.at) / 1000 : 0);
+    $("timer-now").textContent = formatDuration(now);
+    $("timer-record").textContent = formatDuration(Math.max(timerState.record, now));
+  }
+
+  function showTimer(msg) {
+    timerState = { elapsed: msg.elapsed, record: msg.record, running: msg.running, at: performance.now() };
+    renderTimer();
+  }
+  setInterval(renderTimer, 1000);
 
   // Предпросмотр оверлея: окно программы не открывает вкладки, поэтому браузер запускает сервер.
   $("overlay-open").addEventListener("click", () => {
@@ -1423,6 +1452,7 @@
       else if (msg.type === "update") showUpdate(msg);
       else if (msg.type === "presets") loadCustomPresets();
       else if (msg.type === "pause") showPause(msg.paused);
+      else if (msg.type === "timer") showTimer(msg);
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

@@ -368,9 +368,11 @@ def test_pause_is_broadcast(client):
         assert greeting[1] == {"type": "pause", "paused": False}
         client.post("/api/pause", json={"paused": True})
         assert ws.receive_json() == {"type": "pause", "paused": True}
+        assert ws.receive_json()["running"] is False  # таймер «без мата» встал
         client.post("/api/pause", json={"paused": True})  # уже на паузе: рассылать нечего
         client.post("/api/pause", json={"paused": False})
         assert ws.receive_json() == {"type": "pause", "paused": False}
+        assert ws.receive_json()["running"] is True
 
 
 # --- WebSocket ---
@@ -490,7 +492,7 @@ def test_sound_changes_reach_overlays(client):
 def test_ws_greeting_includes_sound_and_style(client):
     with client.websocket_connect("ws://localhost/ws") as ws:
         types_ = [ws.receive_json()["type"] for _ in GREETING]
-    assert types_ == ["state", "pause", "sound", "style"]
+    assert types_ == ["state", "pause", "timer", "sound", "style"]
 
 
 def test_preset_is_saved_and_broadcast(client, settings_path):
@@ -984,3 +986,24 @@ def test_obs_check_error(client, monkeypatch):
     resp = client.post("/api/autostart/obs-check", json={"obs_port": 4455})
     assert resp.status_code == 400
     assert resp.json()["detail"] == "OBS не отвечает"
+
+
+# --- таймер «без мата» ---
+
+def test_api_timer(client):
+    state = client.get("/api/timer").json()
+    assert set(state) == {"elapsed", "record", "running"}
+    assert state["running"] is True
+
+
+def test_timer_broadcast_after_increment_and_reset(client):
+    with client.websocket_connect("ws://localhost/ws") as ws:
+        greeting = skip_greeting(ws)
+        assert greeting[2]["type"] == "timer"
+        client.post("/api/increment")
+        assert ws.receive_json()["type"] == "increment"
+        message = ws.receive_json()
+        assert (message["type"], message["elapsed"], message["running"]) == ("timer", 0.0, True)
+        client.post("/api/reset")
+        assert ws.receive_json()["type"] == "state"
+        assert ws.receive_json() == {"type": "timer", "elapsed": 0.0, "record": 0.0, "running": True}
