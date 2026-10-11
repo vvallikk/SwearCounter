@@ -31,5 +31,6 @@ SOUNDS_DIR = DATA_DIR / "sounds"  # свой звук оповещения, за
 PRESETS_DIR = DATA_DIR / "presets"  # личные оформления из zip-наборов (app/custom_presets.py)
 MODELS_DIR = DATA_DIR / "models"
 LOG_FILE = DATA_DIR / "swearcounter.log"
+WATCH_LOG_FILE = DATA_DIR / "swearcounter-watch.log"  # процесс ожидания OBS (app/watcher.py)
 WEBVIEW_DIR = DATA_DIR / "webview"  # данные окна приложения (localStorage страницы управления)
 ICON_FILE = RESOURCE_DIR / "assets" / "icon.png"

@@ -226,6 +226,7 @@ class Updater:
         self.done_bytes = 0
         self.total_bytes = 0
         self.cancelled = threading.Event()
+        self.applied = False  # apply.cmd запущен: после выхода не запускать ничего из этой папки
         self.loop: asyncio.AbstractEventLoop | None = None
         self._task: asyncio.Task | None = None
         # Подключаются снаружи: рассылка состояния, уведомление трея, выход из программы.
@@ -411,6 +412,7 @@ class Updater:
             encoding="utf-8",
         )
         log.info("Установка обновления %s, перезапуск", self.info["latest"])
+        self.applied = True
         subprocess.Popen(
             ["cmd", "/c", str(script)],
             cwd=self.install_dir,

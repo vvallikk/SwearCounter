@@ -329,21 +329,40 @@
   // --- Предпросмотр: пример числа и анимация по таймеру ---
   if (preview) {
     let count = PREVIEW_COUNT;
+    let shown = true; // видно ли превью на странице управления (поле visible в сообщении)
+    let timer = null;
     setCount(count);
-    setInterval(() => {
-      count += 1;
-      setCount(count);
-      playIncrementAnimation(1);
-    }, PREVIEW_INTERVAL_MS);
+    // Анимация идёт, только пока превью видно: на скрытой вкладке и в свёрнутом окне она ни к чему.
+    function updateTimer() {
+      const run = shown && !document.hidden;
+      if (run && timer === null) {
+        timer = setInterval(() => {
+          count += 1;
+          setCount(count);
+          playIncrementAnimation(1);
+        }, PREVIEW_INTERVAL_MS);
+      } else if (!run && timer !== null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+    updateTimer();
+    document.addEventListener("visibilitychange", updateTimer);
     setTimeout(() => playIncrementAnimation(1), 400);
     // Страница управления меняет стиль без перезагрузки iframe тем же сообщением, что и сервер:
-    // iframe.contentWindow.postMessage({ type: "style", preset: "neon", label: "Маты:" }, location.origin)
+    // iframe.contentWindow.postMessage({ type: "style", preset: "neon", label: "Маты:", visible: true }, location.origin)
     window.addEventListener("message", (event) => {
       if (event.origin !== location.origin) return;
       const msg = event.data;
       if (!msg || msg.type !== "style") return;
       if (typeof msg.preset === "string") applyPreset(msg.preset); // в превью ?preset — только начальный
       if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
+      if (typeof msg.visible === "boolean") {
+        // Пока iframe был скрыт, мерить было нечего: подгоняем размер, когда его показали.
+        if (msg.visible && !shown) fitToWindow();
+        shown = msg.visible;
+        updateTimer();
+      }
     });
     return;
   }

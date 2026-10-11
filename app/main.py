@@ -14,6 +14,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from . import __version__
+from .autostart import AUTOSTART_ARG, WATCH_ARG
 from .counter import Counter
 from .custom_presets import CustomPresets, builtin_preset_ids
 from .paths import (
@@ -25,6 +26,7 @@ from .paths import (
     PRESETS_DIR,
     SETTINGS_FILE,
     SOUNDS_DIR,
+    WATCH_LOG_FILE,
     WORDLISTS_DIR,
 )
 from .profanity import SwearTracker
@@ -50,6 +52,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", help="номер или часть названия микрофона (по умолчанию системный)")
     parser.add_argument("--list-devices", action="store_true", help="показать устройства и выйти")
     parser.add_argument("--console", action="store_true", help="без окна: адреса и лог в консоли (для разработки)")
+    parser.add_argument(AUTOSTART_ARG, action="store_true", help="запуск с Windows: сразу свернуться в трей")
+    parser.add_argument(WATCH_ARG, action="store_true", help="ждать запуска OBS или трансляции (см. app/watcher.py)")
     return parser.parse_args(argv)
 
 
@@ -114,6 +118,7 @@ class Prepared:
     count: int
     model_missing: bool
     updater: Updater | None = None
+    settings: Settings | None = None
 
     @property
     def port(self) -> int:
@@ -178,7 +183,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.
     sock = bind_socket(HOST, PORT, PORT_ATTEMPTS)
-    return Prepared(app, sock, hub.counter.value, model_missing=model is None, updater=updater)
+    return Prepared(app, sock, hub.counter.value, model_missing=model is None, updater=updater, settings=settings)
 
 
 def run_console(prepared: Prepared) -> None:
@@ -209,16 +214,39 @@ def main(argv: list[str] | None = None) -> None:
         run_console(prepare(args))
         return
 
-    from . import desktop
+    if args.watch:
+        from . import watcher
+
+        setup_logging(WATCH_LOG_FILE)
+        watcher.run()
+        return
+
+    from . import autostart, desktop
 
     setup_logging(LOG_FILE)
     with desktop.single_instance() as first:
         if not first:
-            desktop.message_box("Счётчик матов уже запущен: его значок — в области уведомлений.")
+            # С Windows программа стартует молча; повторный запуск вручную — сообщение.
+            if not args.autostart:
+                desktop.message_box("Счётчик матов уже запущен: его значок — в области уведомлений.")
             return
         prepared = prepare(args)
         log.info("Счётчик матов %s, порт %d", __version__, prepared.port)
-        desktop.run(prepared.app, prepared.sock, notice=prepared.port_notice, updater=prepared.updater)
+        try:
+            autostart.sync(prepared.settings)  # путь к exe мог измениться
+        except OSError as e:
+            log.error("Не удалось обновить автозапуск: %s", e)
+        desktop.run(
+            prepared.app,
+            prepared.sock,
+            notice=prepared.port_notice,
+            updater=prepared.updater,
+            hidden=args.autostart,
+        )
+    # Mutex уже отпущен: процесс ожидания не выйдет сразу, решив, что программа ещё работает.
+    # После установки обновления apply.cmd сам запустит новую версию, а ожидание держало бы файлы exe.
+    if not prepared.updater.applied:
+        autostart.spawn_watcher(prepared.settings)
 
 
 if __name__ == "__main__":

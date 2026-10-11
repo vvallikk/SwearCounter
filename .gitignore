@@ -16,3 +16,4 @@ settings.json.tmp
 swearcounter.log*
 /webview/
 .vscode/
+swearcounter-watch.log*

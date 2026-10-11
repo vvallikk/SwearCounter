@@ -7,6 +7,7 @@ import sys
 
 import pytest
 
+from app import autostart
 from app.counter import Counter
 from app.settings import Settings
 from app.stt import audio_devices
@@ -171,3 +172,30 @@ def models_dir(tmp_path, monkeypatch):
     path.mkdir()
     monkeypatch.setattr(catalog, "MODELS_DIR", path)
     return path
+
+
+class FakeRunKey:
+    """Значение автозапуска в «реестре» без настоящего реестра."""
+
+    def __init__(self):
+        self.value: str | None = None
+        self.fail: OSError | None = None
+
+    def read(self):
+        return self.value
+
+    def write(self, command):
+        if self.fail is not None:
+            raise self.fail
+        self.value = command
+
+    def delete(self):
+        self.value = None
+
+
+@pytest.fixture(autouse=True)
+def run_key(monkeypatch):
+    """Ни один тест не пишет в настоящий автозапуск Windows."""
+    key = FakeRunKey()
+    monkeypatch.setattr(autostart, "default_run_key", lambda: key)
+    return key

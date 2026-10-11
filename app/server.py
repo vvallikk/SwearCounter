@@ -19,13 +19,13 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, mail, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
-from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model
+from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model, remove_model
 from .updater import Updater
 from .wordlists import WordLists
 
@@ -106,6 +106,19 @@ class MonitorChoice(BaseModel):
 
 class AutoUpdateChoice(BaseModel):
     enabled: bool
+
+
+class AutostartChoice(BaseModel):
+    windows: bool
+    obs: str
+    stream: str
+    obs_port: int
+    obs_password: str | None = None  # None — оставить сохранённый
+
+
+class ObsCheck(BaseModel):
+    obs_port: int
+    obs_password: str | None = None  # None — сохранённый
 
 
 class PresetChoice(BaseModel):
@@ -197,6 +210,8 @@ def foreign_origin(request: Request) -> bool:
     parts = urlsplit(origin)
     return parts.hostname not in LOCAL_HOSTS or parts.netloc != request.headers.get("host")
 
+AUTOSTART_KEYS = ("autostart_windows", "autostart_obs", "autostart_stream", "obs_ws_port", "obs_ws_password")
+
 LOCKED_MESSAGE = "Установите обязательное обновление, чтобы продолжить"
 
 
@@ -246,7 +261,8 @@ def create_app(
                 settings.set("model", model.id)
 
     async def on_downloaded(model: ModelInfo) -> None:
-        if wanted["model"] == model.id:
+        # Без единой модели (первый запуск) включаем первую скачанную, даже если её не выбирали.
+        if wanted["model"] == model.id or recognizer.status == "no_model":
             await switch_model(model)
 
     downloader = ModelDownloader(on_downloaded)
@@ -375,6 +391,40 @@ def create_app(
         asyncio.get_running_loop().call_later(0.5, updater.exit)
         return updater.state()
 
+    @app.get("/api/autostart")
+    async def get_autostart():
+        return autostart.state(settings)
+
+    @app.post("/api/autostart")
+    async def post_autostart(choice: AutostartChoice):
+        if choice.obs not in autostart.TRIGGER_MODES or choice.stream not in autostart.TRIGGER_MODES:
+            raise HTTPException(400, "Неверный режим автозапуска")
+        if not 0 < choice.obs_port < 65536:
+            raise HTTPException(400, "Порт — число от 1 до 65535")
+        old = {key: settings.get(key) for key in AUTOSTART_KEYS}
+        settings.set("autostart_windows", choice.windows)
+        settings.set("autostart_obs", choice.obs)
+        settings.set("autostart_stream", choice.stream)
+        settings.set("obs_ws_port", choice.obs_port)
+        if choice.obs_password is not None:
+            settings.set("obs_ws_password", choice.obs_password)
+        try:
+            await asyncio.to_thread(autostart.sync, settings)
+        except OSError as e:
+            for key, value in old.items():
+                settings.set(key, value)
+            raise HTTPException(500, f"Не удалось записать автозапуск в реестр: {e}") from None
+        return autostart.state(settings)
+
+    @app.post("/api/autostart/obs-check")
+    async def post_obs_check(check: ObsCheck):
+        password = autostart.obs_password(settings) if check.obs_password is None else check.obs_password
+        try:
+            streaming = await asyncio.to_thread(obs.check, check.obs_port, password)
+        except obs.ObsError as e:
+            raise HTTPException(400, str(e)) from None
+        return {"streaming": streaming}
+
     @app.post("/api/overlay/open")
     async def open_overlay(request: Request):
         """Открывает оверлей в браузере по умолчанию: окно программы само вкладки не открывает."""
@@ -418,12 +468,44 @@ def create_app(
             downloader.start(model)  # включится в on_downloaded
         return await get_speech()
 
+    def catalog_model(model_id: str) -> ModelInfo:
+        model = find_model(model_id)
+        if model is None:
+            raise HTTPException(404, f"Неизвестная модель {model_id}")
+        return model
+
+    @app.post("/api/speech/download/{model_id}")
+    async def post_speech_download(model_id: str):
+        """Только скачивает модель: включают её отдельно, кликом по ней."""
+        model = catalog_model(model_id)
+        if not model.installed:
+            downloader.start(model)
+        return await get_speech()
+
     @app.delete("/api/speech/download/{model_id}")
     async def delete_speech_download(model_id: str):
         if not downloader.cancel(model_id):
             raise HTTPException(404, "Эта модель не скачивается")
         if wanted["model"] == model_id:
             wanted["model"] = None
+        return await get_speech()
+
+    @app.delete("/api/speech/model/{model_id}")
+    async def delete_speech_model(model_id: str):
+        """Удаляет скачанную модель с диска; выбранную удалить нельзя."""
+        model = catalog_model(model_id)
+        async with switch_lock:  # чтобы модель не включили, пока она удаляется
+            if model.path == recognizer.model_path:
+                raise HTTPException(409, "Выбранную модель удалить нельзя: сначала выберите другую")
+            if downloader.state(model.id):
+                raise HTTPException(409, "Модель скачивается: сначала отмените скачивание")
+            if not model.installed:
+                raise HTTPException(404, "Модель не скачана")
+            try:
+                await asyncio.to_thread(remove_model, model)
+            except OSError as e:
+                raise HTTPException(500, f"Не удалось удалить модель: {e}") from None
+            log.info("Модель %s удалена", model.id)
         return await get_speech()
 
     devices_lock = threading.Lock()  # PortAudio нельзя перезапускать из двух потоков сразу
