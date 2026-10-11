@@ -341,7 +341,9 @@ LGPL и т. п.).
 & "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe" --headless=new --user-data-dir="$env:TEMP\edge-shot" --hide-scrollbars --virtual-time-budget=5000 --window-size=560,2400 --screenshot="$PWD\docs\screenshots\control.png" http://localhost:8765/control/
 ```
 
-Высота взята с запасом, пустой фон снизу потом обрежьте.
+Окно снимается по вкладкам: `control.png` (`/control/#counter`), `control-look.png`
+(`/control/#look`) и `control-settings.png` (`/control/#settings`). Высота взята с запасом,
+пустой фон снизу потом обрежьте.
 
 ## Структура проекта
 

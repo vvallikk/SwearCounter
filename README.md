@@ -94,8 +94,11 @@
 
 <table>
 <tr>
-<td width="40%" valign="top"><img src="docs/screenshots/control.png" alt="Окно программы"></td>
-<td valign="top">
+<td width="33%" valign="top"><img src="docs/screenshots/control.png" alt="Окно программы, вкладка Счётчик"></td>
+<td width="33%" valign="top"><img src="docs/screenshots/control-look.png" alt="Окно программы, вкладка Оформление"></td>
+<td width="33%" valign="top"><img src="docs/screenshots/control-settings.png" alt="Окно программы, вкладка Настройки"></td>
+</tr>
+</table>
 
 **Окно программы.** Здесь всё настраивается, по трём вкладкам. "Счётчик": счёт и микрофон
 (с индикатором громкости и прослушиванием себя). "Оформление": подпись, звук и оформление
@@ -104,12 +107,8 @@
 
 **Оформления в OBS:**
 
-<img src="docs/screenshots/overlay-classic.png" alt="Оформление Классика"><br>
-<img src="docs/screenshots/overlay-retro.png" alt="Оформление Ретро">
-
-</td>
-</tr>
-</table>
+<img src="docs/screenshots/overlay-classic.png" alt="Оформление Классика" width="400">
+<img src="docs/screenshots/overlay-retro.png" alt="Оформление Ретро" width="400">
 
 ## Быстрый старт
 
