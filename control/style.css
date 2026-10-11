@@ -380,9 +380,18 @@ select {
   border-radius: 10px;
 }
 .model-pick[aria-disabled="true"] { cursor: default; }
-.model-pick .title { font-size: 14px; font-weight: 700; }
+.model-pick .title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
 .model-pick .model-name { font-weight: 400; color: var(--muted); }
-.model-pick .summary { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
+.model-pick .summary { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+/* Значок переносится целиком, а не посередине «не скачана · 24 МБ». */
+.model-pick .badge { margin-left: 0; white-space: nowrap; }
 .model-expand {
   flex: none;
   width: 44px;
