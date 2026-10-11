@@ -14,3 +14,4 @@ settings.json.tmp
 .pytest_cache/
 swearcounter.log*
 /webview/
+.vscode/

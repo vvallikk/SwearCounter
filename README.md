@@ -10,6 +10,9 @@
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge)
 ![Офлайн](https://img.shields.io/badge/%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%B0%D0%B5%D1%82-%D0%BE%D1%84%D0%BB%D0%B0%D0%B9%D0%BD-2ea44f?style=for-the-badge)
 
+[![Поддержать на Boosty](https://img.shields.io/badge/Boosty-%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-F15F2C?style=for-the-badge&logo=boosty&logoColor=white)](https://boosty.to/walikk/single-payment/donation/834276/target?share=target_link)
+[![Донат на DonationAlerts](https://img.shields.io/badge/DonationAlerts-%D0%B4%D0%BE%D0%BD%D0%B0%D1%82-F57D07?style=for-the-badge)](https://www.donationalerts.com/r/vvalikk)
+
 <img src="docs/screenshots/overlay-neon.png" alt="Счётчик на стриме, оформление «Неон»" width="800">
 
 </div>
@@ -37,6 +40,27 @@
   свой список — обычный текстовый файл, правки подхватываются на ходу.
 - 🔄 **Обновляется сама** — сообщит о новой версии и установит её в один клик.
 - ✨ **Личные оформления** — уникальный стиль, анимация и звук, сделанные на заказ только для вас.
+
+## 🛠 В планах
+
+- 🌍 **Другие языки** — интерфейс на английском и распознавание английской, украинской,
+  казахской и другой речи со своими списками слов.
+- 🧠 **Выбор движка распознавания** — лёгкий для слабых компьютеров и более точные
+  (Whisper, GigaAM) для мощных, чтобы программа подходила под любой компьютер и микрофон.
+- 🔢 **Несколько счётчиков сразу** — например, маты и слова-паразиты отдельно, каждый
+  со своим оверлеем и оформлением.
+- 📊 **Статистика и история сессий** — сколько слов за каждую сессию, самые частые слова,
+  график, выгрузка в CSV.
+- ⌨️ **Горячие клавиши** — «+1», «Сбросить» и пауза, даже когда окно свёрнуто и вы в игре.
+- ⏸ **Пауза распознавания** — в окне и в трее: на перерыв, катсцену или чужой голос.
+- 🎯 **Цели и пороги** — особая анимация и звук на 10-м, 50-м, 100-м слове или отсчёт
+  «осталось N до наказания» для челленджей.
+- 📡 **Связь с OBS и стрим-сервисами** — автосброс при старте записи или трансляции, смена сцены по порогу,
+  команда `!маты` в чате Twitch, события для Streamer.bot.
+- ⏱ **Таймер «без мата»** — сколько удалось продержаться и рекорд за сессию.
+- 🍎 **macOS и Linux** — не только Windows.
+
+Порядок не окончательный. Хотите что-то ещё — напишите в [Issues](https://github.com/vvallikk/SwearCounter/issues).
 
 ## Как это выглядит
 
@@ -228,7 +252,7 @@
 
 | [Boosty](https://boosty.to/walikk/single-payment/donation/834276/target?share=target_link) | [DonationAlerts](https://www.donationalerts.com/r/vvalikk) |
 |:---:|:---:|
-| <img src="control/support/boosty.png" width="140" alt="QR-код Boosty"> | <img src="control/support/donationalerts.png" width="140" alt="QR-код DonationAlerts"> |
+| <a href="https://boosty.to/walikk/single-payment/donation/834276/target?share=target_link"><img src="control/support/boosty.png" width="140" alt="QR-код Boosty"></a> | <a href="https://www.donationalerts.com/r/vvalikk"><img src="control/support/donationalerts.png" width="140" alt="QR-код DonationAlerts"></a> |
 
 ## Сообщить о проблеме
 
