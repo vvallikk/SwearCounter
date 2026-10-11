@@ -10,6 +10,7 @@ settings.json
 settings.json.tmp
 /sounds/
 /presets/
+/private/
 .claude/
 .pytest_cache/
 swearcounter.log*

@@ -57,7 +57,8 @@ def presets(tmp_path):
 
 
 def test_builtin_ids_read_from_presets_js():
-    assert {"classic", "neon", "ferret"} <= BUILTIN
+    assert {"classic", "neon", "explosion"} <= BUILTIN
+    assert "ferret" not in BUILTIN  # личный набор, не встроенный
 
 
 def test_install_and_list(presets):
