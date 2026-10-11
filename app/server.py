@@ -25,6 +25,7 @@ from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
+from .timer import NoSwearTimer
 from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model, remove_model
 from .updater import Updater
 from .wordlists import WordLists
@@ -46,12 +47,14 @@ class Hub:
         # Пауза распознавания: сказанное не считается, кнопки и горячие клавиши работают.
         # Не сохраняется: после перезапуска программа снова слушает.
         self.paused = False
+        self.timer = NoSwearTimer()
 
     async def connect(self, ws: WebSocket, greeting: list[dict] = ()) -> None:
         """Подключает клиента и отправляет ему счёт и сообщения greeting."""
         async with self._lock:
             await ws.send_json({"type": "state", "count": self.counter.value})
             await ws.send_json(self.pause_message())
+            await ws.send_json(self.timer.message())
             for message in greeting:
                 await ws.send_json(message)
             self.clients.add(ws)
@@ -66,12 +69,16 @@ class Hub:
                 return self.counter.value
             count = await self.counter.add(delta)
             await self._broadcast({"type": "increment", "count": count, "delta": delta})
+            self.timer.hit()
+            await self._broadcast(self.timer.message())
             return count
 
     async def reset(self) -> int:
         async with self._lock:
             count = await self.counter.reset()
             await self._broadcast({"type": "state", "count": count})
+            self.timer.reset()
+            await self._broadcast(self.timer.message())
             return count
 
     def pause_message(self) -> dict:
@@ -82,7 +89,12 @@ class Hub:
             if self.paused != paused:
                 self.paused = paused
                 log.info("Распознавание %s", "на паузе" if paused else "снова считает")
+                if paused:
+                    self.timer.pause()
+                else:
+                    self.timer.resume()
                 await self._broadcast(self.pause_message())
+                await self._broadcast(self.timer.message())
             return self.paused
 
     async def broadcast(self, message: dict) -> None:
@@ -385,6 +397,12 @@ def create_app(
     @app.post("/api/pause")
     async def post_pause(choice: PauseChoice):
         return {"paused": await hub.set_paused(choice.paused)}
+
+    @app.get("/api/timer")
+    async def get_timer():
+        state = hub.timer.message()
+        del state["type"]
+        return state
 
     @app.get("/api/hotkeys")
     async def get_hotkeys():

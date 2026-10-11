@@ -25,6 +25,9 @@
   const preview = params.get("preview") === "1";
   // ?preset=<id> закрепляет пресет; без него пресет приходит по WebSocket.
   const fixedPreset = params.get("preset") || null;
+  // ?show=timer — вместо счёта таймер «без мата»; подпись тогда своя: ?label=Без мата:
+  const showTimer = params.get("show") === "timer";
+  const timerLabel = params.get("label") || "";
 
   const root = document.documentElement;
   function setSize(px) {
@@ -321,7 +324,25 @@
   // Сообщение "style": пресет (если он не закреплён в адресе) и подпись
   function handleStyle(msg) {
     if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
-    if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
+    // Подпись со страницы управления относится к счёту, у таймера она из адреса.
+    if (showTimer) applyLabel(timerLabel, msg.label_position);
+    else if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
+  }
+
+  // --- Таймер «без мата» (?show=timer): сервер присылает состояние, секунды отсчитываем здесь ---
+  let timerState = { elapsed: 0, running: false, at: performance.now() };
+
+  function formatDuration(seconds) {
+    const total = Math.floor(seconds);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = String(total % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  }
+
+  function renderTimer() {
+    const now = timerState.elapsed + (timerState.running ? (performance.now() - timerState.at) / 1000 : 0);
+    setCount(formatDuration(now));
   }
 
   applyPreset(fixedPreset || "classic");
@@ -369,7 +390,11 @@
 
   // --- Звук (overlay/sound.js) ---
   // Громкость и свой звук задаются на странице управления и приходят по WebSocket.
-  if (!muted) {
+  if (showTimer) {
+    renderTimer();
+    setInterval(renderTimer, 1000);
+  }
+  if (!muted && !showTimer) {
     player = window.createDingPlayer();
     player.setStandard(findPreset(currentPreset).sound);
   }
@@ -384,6 +409,17 @@
       try {
         msg = JSON.parse(event.data);
       } catch (e) {
+        return;
+      }
+      if (showTimer) {
+        if (msg.type === "timer") {
+          timerState = { elapsed: msg.elapsed, running: msg.running, at: performance.now() };
+          renderTimer();
+        } else if (msg.type === "style") {
+          handleStyle(msg);
+        } else if (msg.type === "presets") {
+          location.reload();
+        }
         return;
       }
       if (msg.type === "state") {

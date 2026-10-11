@@ -123,6 +123,8 @@ body.update-locked .update-auto { display: none; }
 #pause { background: var(--muted); }
 #pause[aria-pressed="true"] { background: var(--ok); }
 .count.paused { opacity: 0.45; }
+.timer-line { margin: -10px 0 16px; font-size: 13px; color: var(--muted); text-align: center; }
+.timer-line b { color: var(--text); font-variant-numeric: tabular-nums; }
 .pause-note { margin: 8px 0 0; text-align: center; }
 
 .hint { margin-top: 16px; font-size: 13px; color: var(--muted); text-align: center; }
