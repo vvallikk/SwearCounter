@@ -22,7 +22,7 @@ COUNTER_FILE = DATA_DIR / "counter.json"
 
 
 def words_file() -> Path:
-    """words.txt рядом с exe (чтобы стример мог его править), иначе встроенный."""
+    """words.txt рядом с exe (чтобы пользователь мог его править), иначе встроенный."""
     path = DATA_DIR / "words.txt"
     return path if path.exists() else RESOURCE_DIR / "words.txt"
 

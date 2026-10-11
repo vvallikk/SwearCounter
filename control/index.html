@@ -26,7 +26,7 @@
       <button id="reset" type="button">Сбросить</button>
     </div>
     <div class="hint">
-      Оверлей для OBS (адрес для источника «Браузер»):<br>
+      Оверлей для OBS (источник «Браузер») или любого браузера:<br>
       <button id="overlay-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
         <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
       </button>
@@ -50,7 +50,7 @@
       <label class="section-title" for="label-text">Подпись к счётчику</label>
       <div class="row">
         <input id="label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
-               placeholder="Например: Маты за стрим:">
+               placeholder="Например: Маты за стрим: или Слова-паразиты:">
         <div class="select-wrap label-position">
           <select id="label-position" aria-label="Где подпись">
             <option value="left">Слева</option>
@@ -97,7 +97,7 @@
       <div id="speech-status" class="status-line"></div>
       <div id="speech-note" class="note" hidden>
         Модель уже скачана, сейчас она читается с диска в оперативную память.
-        Пока загрузка не закончится, маты не считаются. Можно выбрать другую модель —
+        Пока загрузка не закончится, слова не считаются. Можно выбрать другую модель —
         эта загрузка прервётся.
       </div>
       <div id="download-note" class="note download-note" hidden></div>
@@ -117,6 +117,16 @@
         <div id="update-notes-text"></div>
       </details>
       <label class="note update-auto"><input id="update-auto" type="checkbox"> Проверять обновления при запуске</label>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">О программе</h2>
+      <p class="note">Изначально задумывалась как счётчик матов для стримов в OBS, но используйте её
+        как угодно: OBS не обязателен, а считать можно любые слова — слова-паразиты, имя друга,
+        что угодно. Список слов — в файле <code>words.txt</code> рядом с программой: по одному корню
+        на строку, слово засчитывается, если начинается с корня. Изменения подхватываются сами.</p>
+      <p class="note">Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть»,
+        без каких-либо гарантий.</p>
     </section>
   </main>
 

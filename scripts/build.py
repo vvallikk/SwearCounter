@@ -42,7 +42,7 @@ def main() -> None:
         cwd=ROOT,
         check=True,
     )
-    # Файлы, которые стример меняет сам, кладём рядом с exe (см. app/paths.py).
+    # Файлы, которые пользователь меняет сам, кладём рядом с exe (см. app/paths.py).
     shutil.copy2(ROOT / "words.txt", APP_DIR / "words.txt")
     shutil.copy2(ROOT / "README.md", APP_DIR / "README.md")
     # Лицензия программы и лицензии всего стороннего, что вошло в сборку.
