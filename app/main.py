@@ -90,7 +90,11 @@ def bind_socket(host: str, first_port: int, attempts: int) -> socket.socket:
 
 
 def setup_logging(log_file: Path | None) -> None:
-    """Лог в консоль (если она есть) и, для оконного режима, в файл рядом с exe."""
+    """Лог в консоль (если она есть) и, для оконного режима, в файл рядом с exe.
+
+    Распознанный текст пишется на уровне DEBUG и виден только в консоли (--console):
+    в файл журнала сказанное не попадает.
+    """
     handlers: list[logging.Handler] = []
     if sys.stderr is not None:
         handlers.append(logging.StreamHandler())
@@ -99,6 +103,8 @@ def setup_logging(log_file: Path | None) -> None:
             RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUPS, encoding="utf-8")
         )
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, datefmt="%H:%M:%S", handlers=handlers, force=True)
+    if log_file is None:
+        logging.getLogger("app").setLevel(logging.DEBUG)
 
 
 @dataclass

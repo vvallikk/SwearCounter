@@ -1,11 +1,12 @@
 """Выбор порта: если основной занят, сервер запускается на следующем свободном."""
 
+import logging
 import socket
 from contextlib import ExitStack
 
 import pytest
 
-from app.main import PORT, PORT_ATTEMPTS, bind_socket
+from app.main import PORT, PORT_ATTEMPTS, bind_socket, setup_logging
 
 HOST = "127.0.0.1"
 
@@ -82,3 +83,32 @@ def test_port_taken_on_all_interfaces_counts_as_busy():
             assert sock.getsockname()[1] == first + 1
         finally:
             sock.close()
+
+
+@pytest.fixture
+def restore_logging():
+    root, app_log = logging.getLogger(), logging.getLogger("app")
+    handlers, level, app_level = root.handlers[:], root.level, app_log.level
+    yield
+    for handler in root.handlers:
+        if handler not in handlers:
+            handler.close()
+    root.handlers[:], root.level = handlers, level
+    app_log.setLevel(app_level)
+
+
+def test_spoken_text_stays_out_of_log_file(tmp_path, restore_logging):
+    """Окно программы пишет журнал в файл: распознанный текст (DEBUG) туда не попадает."""
+    log_file = tmp_path / "swearcounter.log"
+    setup_logging(log_file)
+    logging.getLogger("app.profanity").debug("Распознано: %r", "секрет")
+    logging.getLogger("app.profanity").info("Фраза: найдено 1")
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    text = log_file.read_text(encoding="utf-8")
+    assert "Фраза: найдено 1" in text and "секрет" not in text
+
+
+def test_console_mode_shows_spoken_text(restore_logging):
+    setup_logging(None)
+    assert logging.getLogger("app.profanity").isEnabledFor(logging.DEBUG)

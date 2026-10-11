@@ -1,6 +1,7 @@
 """Счёт матов по ходу фразы: промежуточный текст с задержкой, окончательный — без повторов."""
 
 import asyncio
+import logging
 from functools import partial
 
 from app.profanity import SwearTracker, count_profanity
@@ -67,3 +68,11 @@ def test_counter_resets_between_phrases():
 
 def test_growing_partial_counted_after_delay():
     assert run([("p", "бля"), ("p", "бля хрен"), WAIT]) == [2]
+
+
+def test_spoken_text_not_logged_at_info(caplog):
+    """В файл журнала (INFO) попадают только числа, а не сказанное."""
+    with caplog.at_level(logging.INFO, logger="app"):
+        assert run([("p", "секретная бля"), WAIT, ("f", "секретная бля фраза")]) == [1]
+    assert caplog.records
+    assert not any("секретная" in record.getMessage() for record in caplog.records)
