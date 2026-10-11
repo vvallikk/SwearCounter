@@ -1,10 +1,13 @@
 # Политика подписи кода · Code signing policy
 
-Бесплатная подпись кода предоставлена [SignPath.io](https://about.signpath.io/),
-сертификат выдан [SignPath Foundation](https://signpath.org/).
+Сейчас exe не подписан. Подпись планируется через бесплатную программу
+[SignPath Foundation](https://signpath.org/) для open source: заявку подадим, когда у
+проекта появится аудитория. После одобрения exe будет подписываться по правилам ниже.
 
-Free code signing provided by [SignPath.io](https://about.signpath.io/),
-certificate by [SignPath Foundation](https://signpath.org/).
+The exe is not signed yet. We plan to sign it through the free
+[SignPath Foundation](https://signpath.org/) program for open source projects and will
+apply once the project has an audience. After approval the exe will be signed under the
+rules below.
 
 ## Что подписывается · What is signed
 
