@@ -1,0 +1,42 @@
+# Name: English swear words (18+)
+#
+# Profanity roots, one per line. A word counts if it starts with one of the roots
+# (case does not matter): "fuck" counts "fuck", "fucking", "fucker".
+# Empty lines and lines starting with # are ignored.
+#
+# Compound words ("motherfucker", "bullshit") do not start with the root,
+# so common compounds are listed separately.
+# A root must not be the start of an ordinary word: "ass" would count "assume",
+# "hell" would count "hello", "cock" would count "cocktail" — so they are not here.
+#
+# You can edit this file without closing the program: changes are picked up automatically.
+
+fuck
+motherfuck
+clusterfuck
+shit
+bullshit
+horseshit
+dipshit
+chickenshit
+bitch
+bastard
+asshole
+arsehole
+dumbass
+jackass
+smartass
+cunt
+dickhead
+cocksucker
+piss
+damn
+goddamn
+goddam
+crap
+twat
+wank
+bollocks
+bugger
+slut
+whore

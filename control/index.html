@@ -189,6 +189,14 @@
 
       <section id="model-section" class="section" hidden>
         <h2 class="section-title">Модель распознавания</h2>
+        <label class="row speech-language">Язык речи
+          <div class="select-wrap"><select id="speech-language">
+            <option value="ru">Русский</option>
+            <option value="en">Английский</option>
+          </select></div>
+        </label>
+        <p id="speech-language-note" class="note" hidden>Для английской речи выберите и английский
+          список слов (раздел «Список слов» выше).</p>
         <div id="progress" class="progress" hidden><div id="progress-bar" class="progress-bar"></div></div>
         <div id="speech-status" class="status-line"></div>
         <div id="speech-note" class="note" hidden>

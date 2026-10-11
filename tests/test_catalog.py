@@ -4,6 +4,8 @@ import json
 
 from app.stt.catalog import (
     CATALOG,
+    EN,
+    RU,
     SHERPA_NEMO_CTC,
     SHERPA_T_ONE,
     SHERPA_TRANSDUCER,
@@ -75,4 +77,12 @@ def test_every_model_has_known_engine_and_files():
 def test_default_model_is_still_small_vosk():
     """Первая модель — модель по умолчанию; у тех, кто обновился, она не должна смениться."""
     assert CATALOG[0].id == SMALL
-    assert CATALOG[-1].id == LARGE
+    assert [m for m in CATALOG if m.language == RU][-1].id == LARGE
+
+
+def test_models_grouped_by_language():
+    """Сначала все русские модели, потом английские: страница показывает модели одного языка."""
+    languages = [m.language for m in CATALOG]
+    assert set(languages) == {RU, EN}
+    assert languages == sorted(languages, key=[RU, EN].index)
+    assert find_model("vosk-model-small-en-us-0.15").to_dict()["language"] == EN

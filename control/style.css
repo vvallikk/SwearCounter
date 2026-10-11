@@ -551,6 +551,7 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 .counter-count { min-width: 2ch; font-size: 18px; font-variant-numeric: tabular-nums; text-align: right; }
 .counter-body { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 4px 10px 10px; }
 .counter-setting { width: 100%; font-size: 14px; }
+.speech-language { margin-bottom: 8px; font-size: 14px; }
 .counter-body .copy-link { width: 100%; margin-top: 0; text-align: left; }
 .counter-body .copy-link > :first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .counter-body .copy-link .copy-label { white-space: nowrap; }

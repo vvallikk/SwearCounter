@@ -2,8 +2,8 @@
 
 Модель доступна, если её папка `id` распакована в models/. Нескачанную
 модель приложение скачивает само (см. downloader.py): архив url и/или отдельные
-файлы files. Порядок списка — порядок на странице, от лёгких моделей к тяжёлым;
-первая установленная модель — модель по умолчанию.
+файлы files. Порядок списка — порядок на странице, от лёгких моделей к тяжёлым
+(сначала русские, потом английские); первая установленная модель — модель по умолчанию.
 """
 
 from dataclasses import asdict, dataclass, field
@@ -16,6 +16,9 @@ VOSK = "vosk"
 SHERPA_TRANSDUCER = "sherpa-transducer"  # потоковая Zipformer: encoder, decoder, joiner
 SHERPA_T_ONE = "sherpa-t-one"  # потоковая CTC-модель T-one
 SHERPA_NEMO_CTC = "sherpa-nemo-ctc"  # распознаёт фразу целиком; фразы выделяет VAD
+
+RU = "ru"
+EN = "en"
 
 SHERPA_RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
 # Ссылки на Hugging Face закреплены за коммитом: файлы модели не поменяются без нашего ведома.
@@ -42,6 +45,7 @@ class ModelInfo:
     files: tuple[str, ...] = ()
     # Файлы модели для sherpa-onnx: роль (encoder, model, tokens, vad...) → путь в папке модели.
     model_files: dict[str, str] = field(default_factory=dict, hash=False)
+    language: str = "ru"  # язык речи: RU или EN
 
     @property
     def path(self) -> Path:
@@ -179,6 +183,64 @@ CATALOG = [
         memory="~5,5 ГБ",
         load_time="1,5–2 мин",
         url="https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip",
+    ),
+    # --- Английская речь ---
+    ModelInfo(
+        id="vosk-model-small-en-us-0.15",
+        engine=VOSK,
+        language=EN,
+        title="Базовая",
+        name="Vosk small-en-us 0.15",
+        summary="классическая Vosk, работает везде",
+        description=(
+            "Загружается за секунду и почти не нагружает компьютер во время игры или стрима. "
+            "Распознаёт хуже остальных: с быстрой речью и шумом часть слов может не засчитаться."
+        ),
+        disk="70 МБ",
+        download_size="40 МБ",
+        memory="~0,3 ГБ",
+        load_time="~1 с",
+        url="https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
+    ),
+    ModelInfo(
+        id="sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06",
+        engine=SHERPA_TRANSDUCER,
+        language=EN,
+        title="Современная",
+        name="Kroko Streaming, Zipformer",
+        summary="точнее базовой при малой памяти",
+        description=(
+            "Новая потоковая модель на современной архитектуре: слова распознаёт точнее базовой, "
+            "особенно в разговорной речи, а памяти занимает немного."
+        ),
+        disk="70 МБ",
+        download_size="55 МБ",
+        memory="~0,3 ГБ",
+        load_time="~2 с",
+        url=f"{SHERPA_RELEASES}/sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06.tar.bz2",
+        model_files={
+            "encoder": "encoder.onnx",
+            "decoder": "decoder.onnx",
+            "joiner": "joiner.onnx",
+            "tokens": "tokens.txt",
+        },
+    ),
+    ModelInfo(
+        id="vosk-model-en-us-0.22-lgraph",
+        engine=VOSK,
+        language=EN,
+        title="Точная",
+        name="Vosk en-us 0.22 lgraph",
+        summary="крупнее базовой, с большим словарём",
+        description=(
+            "Старшая модель Vosk с большим словарём: реже путает похожие слова и лучше "
+            "узнаёт редкие. Памяти и процессора нужно чуть больше, чем базовой."
+        ),
+        disk="205 МБ",
+        download_size="125 МБ",
+        memory="~0,5 ГБ",
+        load_time="~1 с",
+        url="https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip",
     ),
 ]
 

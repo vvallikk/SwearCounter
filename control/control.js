@@ -1031,6 +1031,15 @@
     stopped: "Распознавание остановлено",
   };
   let renderedModelsKey = "";
+  // Язык речи: показываем модели только этого языка. Сначала — язык выбранной модели.
+  const speechLanguageEl = $("speech-language");
+  let speechLanguage = null;
+  let shownSpeech = null; // последнее состояние, чтобы перерисовать при смене языка
+
+  speechLanguageEl.addEventListener("change", () => {
+    speechLanguage = speechLanguageEl.value;
+    if (shownSpeech) showModels(...shownSpeech);
+  });
 
   function formatMB(bytes) {
     const mb = bytes / 1024 / 1024;
@@ -1163,6 +1172,14 @@
 
   function showModels(state, loading) {
     $("model-section").hidden = false;
+    shownSpeech = [state, loading];
+    if (speechLanguage === null) {
+      const current = state.models.find((m) => m.id === state.model);
+      speechLanguage = (current && current.language) || "ru";
+      speechLanguageEl.value = speechLanguage;
+    }
+    $("speech-language-note").hidden = speechLanguage === "ru";
+    const models = state.models.filter((m) => m.language === speechLanguage);
     // Перерисовываем только при изменениях: опрос идёт раз в секунду.
     const failed = state.status === "error";
     // Байты скачивания в ключ не входят: полосы обновляются на месте, без перерисовки карточек.
@@ -1170,11 +1187,12 @@
       state.models.map((m) => [m.id, m.installed, m.download && m.download.status, m.download && m.download.error]),
       state.model,
       failed,
+      speechLanguage,
     ]);
     if (key !== renderedModelsKey) {
       renderedModelsKey = key;
       downloadBars.clear();
-      modelListEl.replaceChildren(...state.models.map((m) => modelCard(m, state.model, failed)));
+      modelListEl.replaceChildren(...models.map((m) => modelCard(m, state.model, failed)));
     }
     for (const m of state.models) {
       const shown = downloadBars.get(m.id);
