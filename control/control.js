@@ -693,7 +693,7 @@
     const pick = el("button", "model-pick");
     pick.type = "button";
     const title = el("span", "title", m.title);
-    title.append(el("span", "model-name", ` (${m.name})`));
+    title.append(el("span", "model-name", `(${m.name})`));
     if (selected) title.append(el("span", "badge", "выбрана"));
     else if (active) title.append(el("span", "badge", "скачивается"));
     else if (!m.installed) title.append(el("span", "badge", `не скачана · ${m.download_size}`));
