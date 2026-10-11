@@ -34,7 +34,7 @@ log = logging.getLogger("app")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Счётчик матов для OBS")
+    parser = argparse.ArgumentParser(description="Счётчик матов (и любых других слов) по голосу")
     parser.add_argument("--device", help="номер или часть названия микрофона (по умолчанию системный)")
     parser.add_argument("--list-devices", action="store_true", help="показать устройства и выйти")
     parser.add_argument("--console", action="store_true", help="без окна: адреса и лог в консоли (для разработки)")
