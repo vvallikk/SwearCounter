@@ -12,14 +12,14 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import SUPPORT_LINKS, __version__, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -79,7 +79,7 @@ class Hub:
             *(ws.send_json(message) for ws in clients), return_exceptions=True
         )
         # Клиенты, которым не удалось отправить, считаются отключёнными.
-        for ws, result in zip(clients, results):
+        for ws, result in zip(clients, results, strict=True):
             if isinstance(result, Exception):
                 self.clients.discard(ws)
 
@@ -138,6 +138,16 @@ class PresetLink(BaseModel):
     url: str
 
 
+class PresetOrder(BaseModel):
+    email: str
+    description: str
+
+
+ORDER_EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+# Длинное письмо в mailto: обрезают почтовые программы и сама Windows.
+ORDER_DESCRIPTION_MAX = 1500
+
+
 class WordListOpen(BaseModel):
     id: str | None = None  # файл списка; None — папка со списками
 
@@ -153,6 +163,27 @@ LABEL_MAX_LENGTH = 40
 # простым POST на localhost сбросит счёт или запустит обновление (CSRF).
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def foreign_host(host: str | None) -> bool:
+    """Адрес в заголовке Host не наш: так выглядит DNS rebinding, когда чужой домен
+    указывает на 127.0.0.1 и его страница читает ответы программы как свои."""
+    return urlsplit(f"//{host or ''}").hostname not in LOCAL_HOSTS
+
+
+def foreign_ws_origin(origin: str | None) -> bool:
+    """WebSocket браузер открывает с любого сайта: пускаем только свои страницы и OBS."""
+    return origin is not None and urlsplit(origin).hostname not in LOCAL_HOSTS
+
+
+def order_mailto(email: str, description: str) -> str:
+    """Письмо автору с заказом оформления: почтовая программа откроет его готовым."""
+    body = (
+        f"Почта для связи: {email}\n\n"
+        f"Каким должно быть оформление:\n{description}\n\n"
+        f"Версия программы: {__version__}"
+    )
+    return f"mailto:{ORDER_EMAIL}?subject={quote(ORDER_SUBJECT)}&body={quote(body)}"
 
 
 def foreign_origin(request: Request) -> bool:
@@ -261,6 +292,9 @@ def create_app(
 
     @app.middleware("http")
     async def reject_foreign_origin(request: Request, call_next):
+        if foreign_host(request.headers.get("host")):
+            log.warning("Отклонён запрос %s: чужой адрес %s", request.url.path, request.headers.get("host"))
+            return JSONResponse({"detail": "Откройте программу по адресу localhost"}, status_code=400)
         if foreign_origin(request):
             log.warning("Отклонён запрос %s %s: %s", request.method, request.url.path, request.headers.get("origin", "чужого сайта"))
             return JSONResponse({"detail": "Запрос с чужого сайта отклонён"}, status_code=403)
@@ -278,7 +312,23 @@ def create_app(
 
     @app.get("/api/version")
     async def get_version():
-        return {"version": __version__, "support": SUPPORT_LINKS}
+        return {"version": __version__, "support": SUPPORT_LINKS, "order_email": ORDER_EMAIL}
+
+    @app.post("/api/order")
+    async def post_order(order: PresetOrder):
+        """Открывает письмо автору в почтовой программе: сама программа ничего не отправляет."""
+        if not ORDER_EMAIL:
+            raise HTTPException(404, "Заказ оформления недоступен")
+        email, description = order.email.strip(), order.description.strip()
+        if len(email) > 254 or not ORDER_EMAIL_PATTERN.fullmatch(email):
+            raise HTTPException(400, "Проверьте почту для связи")
+        if not description:
+            raise HTTPException(400, "Опишите, каким должно быть оформление")
+        if len(description) > ORDER_DESCRIPTION_MAX:
+            raise HTTPException(400, f"Описание длиннее {ORDER_DESCRIPTION_MAX} символов: сократите его")
+        url = order_mailto(email, description)
+        opened = await asyncio.to_thread(webbrowser.open, url)
+        return {"opened": bool(opened), "email": ORDER_EMAIL, "subject": ORDER_SUBJECT}
 
     @app.get("/api/update")
     async def get_update():
@@ -586,6 +636,10 @@ def create_app(
 
     @app.websocket("/ws")
     async def websocket_endpoint(ws: WebSocket):
+        if foreign_host(ws.headers.get("host")) or foreign_ws_origin(ws.headers.get("origin")):
+            log.warning("Отклонено подключение WebSocket: %s", ws.headers.get("origin") or ws.headers.get("host"))
+            await ws.close(code=1008)
+            return
         await ws.accept()
         try:
             await hub.connect(ws, [sound_message(), style_message()])

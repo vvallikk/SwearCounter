@@ -247,7 +247,7 @@ def _pack_files(archive: zipfile.ZipFile) -> dict[str, tuple[PurePosixPath, byte
     if len(tops) == 1 and all(len(path.parts) > 1 for path in paths):
         paths = [PurePosixPath(*path.parts[1:]) for path in paths]
     files = {}
-    for info, path in zip(entries, paths):
+    for info, path in zip(entries, paths, strict=True):
         if path.suffix.lower() not in ALLOWED_SUFFIXES:
             raise ValueError(f"Файл {path} не подходит для оформления")
         content = archive.read(info)

@@ -1,0 +1,34 @@
+name: Ошибка
+description: Программа работает не так, как ожидалось
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Что случилось
+      description: Что вы делали, что ожидали и что получилось на самом деле.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия программы
+      description: Видна в разделе "О программе", например v1.1.1.
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Версия Windows
+      placeholder: Windows 11 24H2
+  - type: input
+    id: model
+    attributes:
+      label: Модель распознавания и микрофон
+      placeholder: Сбалансированная, HyperX QuadCast
+  - type: textarea
+    id: log
+    attributes:
+      label: Журнал
+      description: Файл swearcounter.log рядом с программой. Перед отправкой проверьте, что в нём нет личного.
+      render: text

@@ -64,7 +64,7 @@ def _busy_on_any_interface(port: int) -> bool:
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         try:
-            probe.bind(("0.0.0.0", port))
+            probe.bind(("0.0.0.0", port))  # noqa: S104 только проверка, что порт свободен везде
         except OSError:
             return True
     return False

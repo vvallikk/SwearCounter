@@ -75,7 +75,7 @@ def test_port_taken_on_all_interfaces_counts_as_busy():
     first = free_ports(2)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as other:
         # Другая программа слушает порт на всех адресах, а не только на 127.0.0.1.
-        other.bind(("0.0.0.0", first))
+        other.bind(("0.0.0.0", first))  # noqa: S104
         other.listen()
         sock = bind_socket(HOST, first, 2)
         try:

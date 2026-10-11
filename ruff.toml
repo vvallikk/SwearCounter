@@ -1,0 +1,17 @@
+# Проверка кода в CI: синтаксис, частые ошибки (bugbear) и безопасность (bandit).
+target-version = "py314"
+line-length = 120
+extend-exclude = ["build", "dist", "models", "private", "webview"]
+
+[lint]
+select = ["E", "F", "W", "B", "S"]
+ignore = [
+    "E501",  # длинные строки с русским текстом не переносим
+    "S310",  # urlopen: адреса собираются в коде и проверяются на https
+    "S603",  # subprocess без shell: аргументы из кода, а не от пользователя
+    "S607",  # explorer и powershell ищутся в PATH Windows, это нормально
+]
+
+[lint.per-file-ignores]
+# В тестах assert — основной инструмент, а временные пути и пароли тестовые.
+"tests/**" = ["S101", "S105", "S106", "S108"]

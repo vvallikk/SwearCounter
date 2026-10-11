@@ -121,8 +121,11 @@
           placeholder="Вставьте ссылку на архив">
         <button id="preset-link-install" class="secondary-btn" type="submit">Установить</button>
       </form>
-      <p class="note">Личное оформление делается на заказ: свой шрифт, картинки, анимация и звук.
-        Его можно установить из zip-архива или по ссылке на Яндекс Диск, Google Диск или Dropbox.
+      <p class="note">Личное оформление: свой шрифт, картинки, анимация и звук. Его можно сделать
+        самому <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/PRESETS.md" target="_blank"
+        rel="noopener noreferrer">по инструкции</a><span id="order-offer" hidden> или
+        <button id="order-open" class="link-btn" type="button">заказать у автора</button></span>.
+        Готовое оформление ставится из zip-архива или по ссылке на Яндекс Диск, Google Диск или Dropbox.
         Устанавливайте только оформления из надёжных источников: анимация в них работает как
         небольшая программа внутри оверлея.</p>
       <div id="preset-status" class="status-line"></div>
@@ -180,6 +183,30 @@
       </details>
     </section>
   </main>
+
+  <dialog id="order-dialog" class="dialog" aria-labelledby="order-title">
+    <form id="order-form" novalidate>
+      <h2 id="order-title" class="section-title">Заказать оформление</h2>
+      <p class="note">Опишите, каким вы видите счётчик: цвета, шрифт, картинки, анимацию, звук.
+        Можно приложить ссылки на примеры. Автор ответит на почту для связи и обсудит сроки и цену.</p>
+      <label class="field">Почта для связи
+        <input id="order-email" class="text-input" type="email" required maxlength="254"
+          autocomplete="email" placeholder="you@example.com">
+      </label>
+      <label class="field">Каким должно быть оформление
+        <textarea id="order-description" class="text-input" required maxlength="1500" rows="6"
+          placeholder="Например: огненные цифры, взрыв при прибавлении, звук как в аркадах"></textarea>
+      </label>
+      <div id="order-status" class="status-line"></div>
+      <div id="order-fallback" class="order-fallback" hidden>
+        <button id="order-copy" class="copy-link" type="button"></button>
+      </div>
+      <div class="row dialog-actions">
+        <button id="order-cancel" class="secondary-btn" type="button">Отмена</button>
+        <button id="order-send" class="secondary-btn primary-btn" type="submit">Отправить</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>

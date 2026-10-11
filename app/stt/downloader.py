@@ -162,7 +162,7 @@ def _extract(archive: Path, folder: Path) -> None:
     """Распаковывает .zip или .tar.bz2 (тип узнаём по содержимому, а не по имени)."""
     if zipfile.is_zipfile(archive):
         with zipfile.ZipFile(archive) as zf:
-            zf.extractall(folder)
+            zf.extractall(folder)  # noqa: S202 zipfile сам отбрасывает ".." и абсолютные пути
     else:
         with tarfile.open(archive) as tf:
             tf.extractall(folder, filter="data")  # filter не даст выйти за пределы папки

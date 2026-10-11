@@ -1,0 +1,12 @@
+# Раз в неделю проверяет зависимости и версии actions, присылает PR с обновлениями.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

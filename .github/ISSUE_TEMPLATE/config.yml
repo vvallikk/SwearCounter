@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Уязвимость
+    url: https://github.com/vvallikk/SwearCounter/security/advisories/new
+    about: Об уязвимостях сообщайте закрыто, а не в открытом issue.

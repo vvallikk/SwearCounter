@@ -195,7 +195,7 @@ def _close_stream(stream) -> None:
     try:
         stream.abort()  # не ждём, пока доиграют буферы: звук старого микрофона не нужен
         stream.close()
-    except Exception:
+    except Exception:  # noqa: S110
         pass  # у отключённого устройства закрытие может не получиться — это уже неважно
 
 

@@ -260,7 +260,7 @@ def test_pack_preset_script(tmp_path, capsys):
 @pytest.fixture
 def presets_client(counter, recognizer_stub, settings, tmp_path, fake_sd, presets):
     app = create_app(Hub(counter), recognizer_stub, settings, Sound(settings, tmp_path / "sounds"), custom_presets=presets)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         yield client
 
 
@@ -282,7 +282,7 @@ def skip_greeting(ws):
 
 
 def test_api_install_serves_files_and_script(presets_client):
-    with presets_client.websocket_connect("/ws") as ws:
+    with presets_client.websocket_connect("ws://localhost/ws") as ws:
         skip_greeting(ws)
         r = install(presets_client, pack())
         assert r.status_code == 200 and r.json()["id"] == "vasya-gold"
@@ -315,7 +315,7 @@ def test_api_rejects_oversized_pack(presets_client, monkeypatch):
 def test_api_remove_resets_active_preset(presets_client, settings_path):
     install(presets_client, pack())
     presets_client.post("/api/overlay/preset", json={"preset": "vasya-gold"})
-    with presets_client.websocket_connect("/ws") as ws:
+    with presets_client.websocket_connect("ws://localhost/ws") as ws:
         skip_greeting(ws)
         assert presets_client.delete("/api/presets/custom/vasya-gold").json() == []
         assert ws.receive_json() == {"type": "presets"}
@@ -343,7 +343,7 @@ def test_api_foreign_origin_cannot_install(presets_client):
 
 def test_script_without_custom_presets(fake_sd, counter, recognizer_stub, settings, tmp_path):
     app = create_app(Hub(counter), recognizer_stub, settings, Sound(settings, tmp_path / "sounds"))
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         assert client.get("/overlay/custom-presets.js").text == "window.registerCustomPresets([]);\n"
         assert client.get("/api/presets/custom").status_code == 404
 
