@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import threading
+import webbrowser
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -316,6 +317,13 @@ def create_app(
         # Выходим чуть позже, чтобы ответ успел уйти странице.
         asyncio.get_running_loop().call_later(0.5, updater.exit)
         return updater.state()
+
+    @app.post("/api/overlay/open")
+    async def open_overlay(request: Request):
+        """Открывает оверлей в браузере по умолчанию: окно программы само вкладки не открывает."""
+        url = f"{request.base_url}overlay/"
+        await asyncio.to_thread(webbrowser.open, url)
+        return {"url": url}
 
     @app.post("/api/increment")
     async def post_increment():

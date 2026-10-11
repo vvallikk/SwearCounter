@@ -28,16 +28,16 @@ MODELS_README = """Здесь хранятся модели распознава
 Модели из одного архива можно поставить и вручную: распакуйте архив так,
 чтобы получилось, например, models/vosk-model-small-ru-0.22/am, conf, graph, ...
 
-Маленькая, Vosk (45 МБ, ~0.3 ГБ памяти):
+Базовая, Vosk (45 МБ, ~0.3 ГБ памяти):
   https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
-Компактная, Vosk Streaming small (24 МБ, ~0.15 ГБ памяти):
+Экономная, Vosk Streaming small (24 МБ, ~0.15 ГБ памяти):
   https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16.tar.bz2
 Разговорная, T-one (128 МБ, ~0.5 ГБ памяти):
   https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-t-one-russian-2025-09-08.tar.bz2
-Большая, Vosk (1.8 ГБ, ~5.5 ГБ памяти):
+Для мощных ПК, Vosk (1.8 ГБ, ~5.5 ГБ памяти):
   https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip
 
-Средняя (Vosk Streaming) и Точная (GigaAM) состоят из нескольких файлов:
+Сбалансированная (Vosk Streaming) и Самая точная (GigaAM) состоят из нескольких файлов:
 их проще скачать кнопкой на странице управления.
 """
 
