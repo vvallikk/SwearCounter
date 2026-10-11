@@ -27,10 +27,13 @@
       <button id="reset" type="button">Сбросить</button>
     </div>
     <div class="hint">
-      Оверлей для OBS (источник «Браузер») или любого браузера:<br>
-      <button id="overlay-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
-        <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
-      </button>
+      Оверлей для OBS (источник «Браузер») или любого браузера:
+      <div class="overlay-links">
+        <button id="overlay-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
+          <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
+        </button>
+        <button id="overlay-open" class="secondary-btn" type="button" title="Открыть оверлей в браузере по умолчанию">Открыть в браузере</button>
+      </div>
     </div>
 
     <section id="mic-section" class="section" hidden>

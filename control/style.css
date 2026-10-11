@@ -137,6 +137,9 @@ body.update-locked .update-auto { display: none; }
 }
 .copy-link:hover { border-style: solid; }
 .copy-link .copy-label { font-family: "Segoe UI", system-ui, sans-serif; font-size: 12px; font-weight: 600; }
+.overlay-links { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 6px; margin-top: 6px; }
+.overlay-links .secondary-btn { font-size: 13px; }
+.overlay-links .copy-link { margin-top: 0; }
 .copy-link.copied { color: var(--ok); border-color: var(--ok); border-style: solid; }
 
 /* --- Разделы настроек --- */
