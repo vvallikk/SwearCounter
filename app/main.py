@@ -30,6 +30,7 @@ from .paths import (
     WORDLISTS_DIR,
 )
 from .profanity import SwearTracker
+from .hotkeys import Hotkeys
 from .server import Hub, create_app
 from .settings import Settings
 from .sound import Sound
@@ -181,6 +182,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
         check_updates=True,
         word_lists=word_lists,
         custom_presets=CustomPresets(PRESETS_DIR, builtin_preset_ids(OVERLAY_DIR)),
+        hotkey_listener=Hotkeys(lambda action: None),  # обработчик ставит сервер при запуске
     )
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.

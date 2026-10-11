@@ -1102,6 +1102,106 @@
     }
   });
 
+  // --- Горячие клавиши: «+1», пауза и сброс, даже когда окно свёрнуто ---
+
+  const hotkeysStatusEl = $("hotkeys-status");
+  const hotkeyButtons = document.querySelectorAll(".hotkey");
+  const HOTKEY_LABELS = {
+    NumAdd: "Num +", NumSubtract: "Num −", NumMultiply: "Num *", NumDivide: "Num /", NumDecimal: "Num .",
+    Minus: "-", Equal: "=", Backquote: "`", Up: "↑", Down: "↓", Left: "←", Right: "→",
+  };
+  const HOTKEY_ACTIONS = { increment: "+1", pause: "Пауза", reset: "Сбросить" };
+  let recordingHotkey = null; // кнопка, которая ждёт сочетание
+
+  function hotkeyLabel(combo) {
+    return combo.split("+").map((part) => HOTKEY_LABELS[part] || part).join(" + ");
+  }
+
+  function showHotkeys(state) {
+    if (!state.available) return; // RegisterHotKey есть только в Windows
+    $("hotkeys-section").hidden = false;
+    for (const button of hotkeyButtons) {
+      const combo = state.hotkeys[button.dataset.action] || "";
+      const failed = state.failed.includes(button.dataset.action);
+      button.dataset.combo = combo;
+      button.textContent = combo ? hotkeyLabel(combo) : "не задано";
+      button.classList.toggle("empty", !combo);
+      button.classList.toggle("failed", failed);
+      button.classList.remove("recording");
+      button.title = failed ? "Сочетание занято другой программой" : "";
+    }
+    const failed = state.failed.map((action) => HOTKEY_ACTIONS[action]);
+    if (failed.length) {
+      setStatus(hotkeysStatusEl, `Занято другой программой, выберите другое: ${failed.join(", ")}`, true);
+    }
+  }
+
+  // KeyboardEvent.code → имя клавиши, как его понимает сервер (app/hotkeys.py).
+  function hotkeyKeyName(code) {
+    let m;
+    if ((m = code.match(/^Key([A-Z])$/)) || (m = code.match(/^Digit(\d)$/))) return m[1];
+    if (/^F\d{1,2}$/.test(code)) return code;
+    if ((m = code.match(/^Numpad(\d|Add|Subtract|Multiply|Divide|Decimal)$/))) return "Num" + m[1];
+    if ((m = code.match(/^Arrow(Up|Down|Left|Right)$/))) return m[1];
+    if (["Space", "PageUp", "PageDown", "End", "Home", "Insert", "Delete", "Pause", "Minus", "Equal", "Backquote"]
+      .includes(code)) return code;
+    return null;
+  }
+
+  function stopRecording() {
+    if (!recordingHotkey) return;
+    const button = recordingHotkey;
+    recordingHotkey = null;
+    button.classList.remove("recording");
+    button.textContent = button.dataset.combo ? hotkeyLabel(button.dataset.combo) : "не задано";
+  }
+
+  async function saveHotkey(action, combo) {
+    setStatus(hotkeysStatusEl, "");
+    try {
+      showHotkeys(await api("POST", "/api/hotkeys", { action, combo }));
+      if (!hotkeysStatusEl.classList.contains("error")) setStatus(hotkeysStatusEl, "Сохранено", false, true);
+    } catch (e) {
+      setStatus(hotkeysStatusEl, e.message, true);
+      api("GET", "/api/hotkeys").then(showHotkeys, () => {});
+    }
+  }
+
+  for (const button of hotkeyButtons) {
+    button.addEventListener("click", () => {
+      const again = recordingHotkey === button;
+      stopRecording();
+      if (again) return;
+      recordingHotkey = button;
+      button.classList.add("recording");
+      button.textContent = "Нажмите сочетание…";
+    });
+    button.addEventListener("blur", stopRecording);
+    button.addEventListener("keydown", (e) => {
+      if (recordingHotkey !== button) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const mods = [];
+      if (e.ctrlKey) mods.push("Ctrl");
+      if (e.altKey) mods.push("Alt");
+      if (e.shiftKey) mods.push("Shift");
+      if (e.metaKey) mods.push("Win");
+      if (e.key === "Escape" && !mods.length) return stopRecording();
+      if (e.key === "Backspace" && !mods.length) {
+        stopRecording();
+        return saveHotkey(button.dataset.action, "");
+      }
+      const key = hotkeyKeyName(e.code);
+      if (!key) {
+        // Пока зажаты только модификаторы, показываем их и ждём основную клавишу.
+        button.textContent = mods.length ? mods.join(" + ") + " + …" : "Нажмите сочетание…";
+        return;
+      }
+      stopRecording();
+      saveHotkey(button.dataset.action, [...mods, key].join("+"));
+    });
+  }
+
   // --- Что считать: списки слов из папки wordlists ---
 
   const wordListEl = $("word-list");
@@ -1309,6 +1409,7 @@
       api("GET", "/api/version").then(showVersion, () => {});
       api("GET", "/api/update").then(showUpdate, () => {});
       api("GET", "/api/autostart").then(showAutostart, () => {});
+      api("GET", "/api/hotkeys").then(showHotkeys, () => {});
     };
     ws.onmessage = (event) => {
       let msg;

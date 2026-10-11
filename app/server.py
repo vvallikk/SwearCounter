@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, mail, obs, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, hotkeys, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -122,6 +122,11 @@ class MonitorChoice(BaseModel):
 
 class PauseChoice(BaseModel):
     paused: bool
+
+
+class HotkeyChoice(BaseModel):
+    action: str
+    combo: str
 
 
 class AutoUpdateChoice(BaseModel):
@@ -267,6 +272,7 @@ def create_app(
     check_updates: bool = False,
     word_lists: WordLists | None = None,
     custom_presets: CustomPresets | None = None,
+    hotkey_listener: hotkeys.Hotkeys | None = None,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -309,14 +315,40 @@ def create_app(
     def style_message() -> dict:
         return {"type": "style", **overlay_state()}
 
+    def hotkey_combos() -> dict[str, str]:
+        saved = settings.get("hotkeys")
+        return hotkeys.normalize(saved if isinstance(saved, dict) else {})
+
+    def hotkeys_state() -> dict:
+        return {
+            "available": hotkey_listener is not None and hotkey_listener.available,
+            "hotkeys": hotkey_combos(),
+            "failed": hotkey_listener.failed if hotkey_listener is not None else [],
+        }
+
+    async def on_hotkey(action: str) -> None:
+        log.info("Горячая клавиша: %s", action)
+        if action == "increment":
+            await hub.increment(1)
+        elif action == "reset":
+            await hub.reset()
+        elif action == "pause":
+            await hub.set_paused(not hub.paused)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         await recognizer.start()
         updater.loop = asyncio.get_running_loop()
         check_task = asyncio.create_task(updater.auto_check()) if check_updates else None
+        if hotkey_listener is not None:
+            loop = asyncio.get_running_loop()
+            hotkey_listener.on_press = lambda action: asyncio.run_coroutine_threadsafe(on_hotkey(action), loop)
+            await asyncio.to_thread(hotkey_listener.start, hotkey_combos())
         try:
             yield
         finally:
+            if hotkey_listener is not None:
+                await asyncio.to_thread(hotkey_listener.stop)
             if check_task is not None:
                 check_task.cancel()
             await updater.stop()
@@ -353,6 +385,27 @@ def create_app(
     @app.post("/api/pause")
     async def post_pause(choice: PauseChoice):
         return {"paused": await hub.set_paused(choice.paused)}
+
+    @app.get("/api/hotkeys")
+    async def get_hotkeys():
+        return hotkeys_state()
+
+    @app.post("/api/hotkeys")
+    async def post_hotkey(choice: HotkeyChoice):
+        if choice.action not in hotkeys.ACTIONS:
+            raise HTTPException(400, "Неизвестное действие")
+        try:
+            hotkeys.parse(choice.combo)
+        except hotkeys.HotkeyError as e:
+            raise HTTPException(400, str(e)) from None
+        combos = hotkey_combos()
+        if choice.combo and any(combo == choice.combo for action, combo in combos.items() if action != choice.action):
+            raise HTTPException(400, "Это сочетание уже назначено другому действию")
+        combos[choice.action] = choice.combo
+        settings.set("hotkeys", combos)
+        if hotkey_listener is not None:
+            await asyncio.to_thread(hotkey_listener.apply, combos)
+        return hotkeys_state()
 
     @app.get("/api/version")
     async def get_version():

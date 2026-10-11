@@ -525,6 +525,12 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
   .autostart-grid .select-wrap { margin-bottom: 6px; }
 }
 .obs-ws { margin-top: 10px; }
+
+/* Горячие клавиши: кнопка показывает сочетание, по нажатию ждёт новое. */
+.hotkey { justify-self: start; min-width: 180px; text-align: left; font-variant-numeric: tabular-nums; }
+.hotkey.empty { color: var(--muted); }
+.hotkey.recording { border-color: var(--accent); border-style: dashed; }
+.hotkey.failed { border-color: var(--danger); color: var(--danger); }
 .obs-ws-row { flex-wrap: wrap; margin-top: 8px; }
 .obs-ws-row .text-input { min-width: 160px; }
 .obs-ws-row .obs-port { flex: 0 0 100px; min-width: 0; }
