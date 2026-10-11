@@ -117,7 +117,9 @@ class SwearTracker:
             self._timer = None
         found = self.count(text)
         new = found - self.counted
-        log.info("Распознано: %r, найдено: %d, уже засчитано по ходу фразы: %d", text, found, self.counted)
+        # Сказанное не пишем в журнал на диске: текст виден только в консоли разработчика (DEBUG).
+        log.debug("Распознано: %r", text)
+        log.info("Фраза: найдено %d, уже засчитано по ходу фразы: %d", found, self.counted)
         self.counted, self.partial = 0, ""
         if new > 0:
             await self.add(new)
@@ -128,7 +130,8 @@ class SwearTracker:
         new = self.count(self.partial) - self.counted
         if new > 0:
             self.counted += new
-            log.info("Засчитано по ходу фразы: %d (%r)", new, self.partial)
+            log.debug("Промежуточный текст: %r", self.partial)
+            log.info("Засчитано по ходу фразы: %d", new)
             await self.add(new)
 
     def stop(self) -> None:
