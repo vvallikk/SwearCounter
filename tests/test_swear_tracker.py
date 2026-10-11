@@ -4,7 +4,7 @@ import asyncio
 import logging
 from functools import partial
 
-from app.profanity import SwearTracker, count_profanity
+from app.profanity import SwearTracker, find_profanity
 
 ROOTS = ("бля", "хрен")
 DELAY = 0.05
@@ -17,11 +17,11 @@ def run(steps) -> list[int]:
     added: list[int] = []
     paused = [False]
 
-    async def add(n: int) -> None:
-        added.append(n)
+    async def add(words: list[str]) -> None:
+        added.append(len(words))
 
     async def scenario() -> None:
-        tracker = SwearTracker(add, partial(count_profanity, roots=ROOTS), delay=DELAY, paused=lambda: paused[0])
+        tracker = SwearTracker(add, partial(find_profanity, roots=ROOTS), delay=DELAY, paused=lambda: paused[0])
         for step in steps:
             if step in ("pause", "resume"):
                 paused[0] = step == "pause"
@@ -94,3 +94,37 @@ def test_phrase_started_before_pause_is_forgotten():
 
 def test_counting_resumes_after_pause():
     assert run(["pause", ("f", "бля"), "resume", ("f", "хрен")]) == [1]
+
+
+def run_words(steps) -> list[list[str]]:
+    """Как run, но возвращает корни засчитанных слов."""
+    added: list[list[str]] = []
+
+    async def add(words: list[str]) -> None:
+        added.append(words)
+
+    async def scenario() -> None:
+        tracker = SwearTracker(add, partial(find_profanity, roots=ROOTS), delay=DELAY)
+        for step in steps:
+            if isinstance(step, float):
+                await asyncio.sleep(step)
+            else:
+                kind, text = step
+                await tracker.feed(text, kind == "f")
+        tracker.stop()
+
+    asyncio.run(scenario())
+    return added
+
+
+def test_words_reported_as_roots():
+    assert run_words([("f", "бляха хреново бля")]) == [["бля", "хрен", "бля"]]
+
+
+def test_final_reports_only_new_root():
+    assert run_words([("p", "ну бля"), WAIT, ("f", "ну бля и хрен")]) == [["бля"], ["хрен"]]
+
+
+def test_rewritten_phrase_reports_unseen_root():
+    # Засчитали «бля», в окончательном тексте вместо него два «хрен»: новое слово одно — «хрен».
+    assert run_words([("p", "бля"), WAIT, ("f", "хрен хрен")]) == [["бля"], ["хрен"]]
