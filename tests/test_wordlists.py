@@ -41,6 +41,12 @@ def test_prepare_copies_bundled_and_loads_default(lists):
     assert count_profanity("бля") == 1
 
 
+def test_english_name_line(lists):
+    lists.directory.mkdir()
+    (lists.directory / "en.txt").write_text("# Name: English swear words\nfuck\n", encoding="utf-8")
+    assert lists.lists() == [{"id": "en.txt", "name": "English swear words", "words": 1}]
+
+
 def test_prepare_keeps_user_edits(lists):
     lists.directory.mkdir()
     (lists.directory / "swears.txt").write_text("свое\n", encoding="utf-8")

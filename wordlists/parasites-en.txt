@@ -1,0 +1,23 @@
+# Name: English filler words
+#
+# Roots, one per line. A word counts if it starts with one of the roots
+# (case does not matter): "literally" counts "literally". Empty lines and lines
+# starting with # are ignored. Multi-word phrases ("you know", "I mean")
+# are not supported: each word is searched separately.
+#
+# A root must not be the start of an ordinary word: "um" would count "umbrella",
+# and "like" would count "likely" — add "like" yourself if that is fine for you.
+#
+# You can edit this file without closing the program: changes are picked up automatically.
+
+basically
+literally
+actually
+honestly
+seriously
+totally
+obviously
+whatever
+anyway
+kinda
+sorta

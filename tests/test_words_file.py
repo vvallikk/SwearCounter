@@ -67,17 +67,50 @@ def test_ordinary_words_not_counted_as_parasites(use_list, word):
     assert count_profanity(word) == 0
 
 
+@pytest.mark.parametrize(
+    "word", ["fuck", "fucking", "motherfucker", "shit", "bullshit", "bitches", "asshole", "goddamn", "wanker"]
+)
+def test_english_swears_counted(use_list, word):
+    use_list("swears-en.txt")
+    assert count_profanity(word) == 1
+
+
+@pytest.mark.parametrize(
+    "word", ["hello", "assume", "class", "passion", "cocktail", "dickens", "shirt", "pistol", "prickly", "scrap"]
+)
+def test_ordinary_words_not_counted_as_english_swears(use_list, word):
+    use_list("swears-en.txt")
+    assert count_profanity(word) == 0
+
+
+@pytest.mark.parametrize("word", ["basically", "literally", "actually", "honestly", "whatever", "kinda"])
+def test_english_parasites_counted(use_list, word):
+    use_list("parasites-en.txt")
+    assert count_profanity(word) == 1
+
+
+@pytest.mark.parametrize("word", ["umbrella", "likely", "actual", "total", "base", "literal"])
+def test_ordinary_words_not_counted_as_english_parasites(use_list, word):
+    use_list("parasites-en.txt")
+    assert count_profanity(word) == 0
+
+
+def english(path: Path) -> bool:
+    return path.stem.endswith("-en")
+
+
 @pytest.mark.parametrize("path", LISTS, ids=lambda p: p.name)
-def test_roots_are_cyrillic_lowercase(path):
+def test_roots_are_lowercase_letters(path):
     roots = read_roots(path)
     assert roots, "список корней пуст"
+    letters = r"[a-z]+" if english(path) else r"[а-яъь]+"
     for root in roots:
-        assert re.fullmatch(r"[а-яъь]+", root), root
+        assert re.fullmatch(letters, root), root
 
 
 @pytest.mark.parametrize("path", LISTS, ids=lambda p: p.name)
 def test_list_has_name(path):
-    assert path.read_text(encoding="utf-8").startswith("# Название: ")
+    assert path.read_text(encoding="utf-8").startswith("# Name: " if english(path) else "# Название: ")
 
 
 def test_default_list_is_bundled():
