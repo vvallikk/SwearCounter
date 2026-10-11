@@ -1,5 +1,7 @@
 """Поиск матов: корни из файла, совпадение по началу слова, регистр и ё/е."""
 
+import os
+
 import pytest
 
 from app import profanity
@@ -13,6 +15,8 @@ ROOTS = ("бля", "хрен", "ежик")
 def _restore_roots(monkeypatch):
     # load_words меняет глобальный список корней; после теста возвращаем прежний.
     monkeypatch.setattr(profanity, "_roots", ())
+    monkeypatch.setattr(profanity, "_source", None)
+    monkeypatch.setattr(profanity, "_stamp", None)
 
 
 @pytest.mark.parametrize(
@@ -57,3 +61,37 @@ def test_load_words_sets_default_roots(tmp_path):
 def test_load_words_missing_file(tmp_path):
     assert load_words(tmp_path / "нет.txt") == ()
     assert count_profanity("бля") == 0
+
+
+def _rewrite(path, text):
+    # Меняем и содержимое, и время изменения: на быстрых ФС mtime может не успеть сдвинуться.
+    path.write_text(text, encoding="utf-8")
+    st = path.stat()
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+
+
+def test_words_reloaded_after_file_change(tmp_path, monkeypatch):
+    monkeypatch.setattr(profanity, "RELOAD_CHECK_SECONDS", 0)
+    path = tmp_path / "words.txt"
+    path.write_text("бля\n", encoding="utf-8")
+    load_words(path)
+    assert count_profanity("хрен") == 0
+    _rewrite(path, "бля\nхрен\n")
+    assert count_profanity("хрен") == 1
+
+
+def test_words_not_rechecked_too_often(tmp_path):
+    path = tmp_path / "words.txt"
+    path.write_text("бля\n", encoding="utf-8")
+    load_words(path)
+    _rewrite(path, "хрен\n")
+    assert count_profanity("хрен") == 0  # секунда ещё не прошла
+
+
+def test_deleted_words_file_keeps_old_list(tmp_path, monkeypatch):
+    monkeypatch.setattr(profanity, "RELOAD_CHECK_SECONDS", 0)
+    path = tmp_path / "words.txt"
+    path.write_text("бля\n", encoding="utf-8")
+    load_words(path)
+    path.unlink()
+    assert count_profanity("бля") == 1
