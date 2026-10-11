@@ -105,7 +105,14 @@ def copy_to_clipboard(text: str) -> None:
     subprocess.run(["clip"], input=text.encode("ascii"), check=False, creationflags=CREATE_NO_WINDOW)
 
 
-def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater | None = None) -> None:
+def run(
+    app: FastAPI,
+    sock: socket,
+    notice: str | None = None,
+    updater: Updater | None = None,
+    hidden: bool = False,
+) -> None:
+    """hidden: окно не показывать (запуск с Windows), программа ждёт в трее."""
     import pystray
     import webview
     from PIL import Image
@@ -117,7 +124,9 @@ def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater 
         raise SystemExit("Сервер не запустился, подробности — в swearcounter.log.")
 
     title = f"{TITLE} v{__version__}"
-    window = webview.create_window(title, urls.control, width=960, height=860, min_size=(480, 480))
+    window = webview.create_window(
+        title, urls.control, width=960, height=860, min_size=(480, 480), hidden=hidden
+    )
     quitting = threading.Event()
 
     def on_closing() -> bool:
@@ -184,6 +193,8 @@ def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater 
     def on_started() -> None:
         if notice:
             icon.notify(notice, TITLE)
+        elif hidden:
+            icon.notify("Счётчик матов запущен и работает в трее. Нажмите на значок, чтобы открыть окно.", TITLE)
 
     try:
         # private_mode=False и свой storage_path: тема и выборы страницы управления сохраняются.

@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, mail, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -106,6 +106,19 @@ class MonitorChoice(BaseModel):
 
 class AutoUpdateChoice(BaseModel):
     enabled: bool
+
+
+class AutostartChoice(BaseModel):
+    windows: bool
+    obs: str
+    stream: str
+    obs_port: int
+    obs_password: str | None = None  # None — оставить сохранённый
+
+
+class ObsCheck(BaseModel):
+    obs_port: int
+    obs_password: str | None = None  # None — сохранённый
 
 
 class PresetChoice(BaseModel):
@@ -196,6 +209,8 @@ def foreign_origin(request: Request) -> bool:
     # Тот же адрес до порта: другой локальный сервер (localhost:3000) — тоже чужой.
     parts = urlsplit(origin)
     return parts.hostname not in LOCAL_HOSTS or parts.netloc != request.headers.get("host")
+
+AUTOSTART_KEYS = ("autostart_windows", "autostart_obs", "autostart_stream", "obs_ws_port", "obs_ws_password")
 
 LOCKED_MESSAGE = "Установите обязательное обновление, чтобы продолжить"
 
@@ -374,6 +389,40 @@ def create_app(
         # Выходим чуть позже, чтобы ответ успел уйти странице.
         asyncio.get_running_loop().call_later(0.5, updater.exit)
         return updater.state()
+
+    @app.get("/api/autostart")
+    async def get_autostart():
+        return autostart.state(settings)
+
+    @app.post("/api/autostart")
+    async def post_autostart(choice: AutostartChoice):
+        if choice.obs not in autostart.TRIGGER_MODES or choice.stream not in autostart.TRIGGER_MODES:
+            raise HTTPException(400, "Неверный режим автозапуска")
+        if not 0 < choice.obs_port < 65536:
+            raise HTTPException(400, "Порт — число от 1 до 65535")
+        old = {key: settings.get(key) for key in AUTOSTART_KEYS}
+        settings.set("autostart_windows", choice.windows)
+        settings.set("autostart_obs", choice.obs)
+        settings.set("autostart_stream", choice.stream)
+        settings.set("obs_ws_port", choice.obs_port)
+        if choice.obs_password is not None:
+            settings.set("obs_ws_password", choice.obs_password)
+        try:
+            await asyncio.to_thread(autostart.sync, settings)
+        except OSError as e:
+            for key, value in old.items():
+                settings.set(key, value)
+            raise HTTPException(500, f"Не удалось записать автозапуск в реестр: {e}") from None
+        return autostart.state(settings)
+
+    @app.post("/api/autostart/obs-check")
+    async def post_obs_check(check: ObsCheck):
+        password = autostart.obs_password(settings) if check.obs_password is None else check.obs_password
+        try:
+            streaming = await asyncio.to_thread(obs.check, check.obs_port, password)
+        except obs.ObsError as e:
+            raise HTTPException(400, str(e)) from None
+        return {"streaming": streaming}
 
     @app.post("/api/overlay/open")
     async def open_overlay(request: Request):

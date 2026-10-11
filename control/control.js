@@ -917,6 +917,69 @@
   $("update-auto").addEventListener("change", (e) =>
     updateCall("POST", "/api/update/auto", { enabled: e.target.checked }));
 
+  // --- Автозапуск: с Windows, при запуске OBS и при начале трансляции ---
+
+  const autostartStatusEl = $("autostart-status");
+  const obsPasswordEl = $("obs-password");
+
+  function showAutostart(state) {
+    if (!state.available) return; // реестр и процессы OBS есть только в Windows
+    $("autostart-section").hidden = false;
+    $("autostart-windows").checked = state.windows;
+    $("autostart-obs").value = state.obs;
+    $("autostart-stream").value = state.stream;
+    $("obs-ws").hidden = state.stream === "off";
+    // Поле порта не трогаем, пока его редактируют.
+    if (document.activeElement !== $("obs-port")) $("obs-port").value = state.obs_port;
+    obsPasswordEl.placeholder = state.has_password
+      ? "Пароль сохранён (пусто — не менять)"
+      : "Пароль (если задан в OBS)";
+  }
+
+  function autostartChoice() {
+    return {
+      windows: $("autostart-windows").checked,
+      obs: $("autostart-obs").value,
+      stream: $("autostart-stream").value,
+      obs_port: Number($("obs-port").value) || 4455,
+      obs_password: obsPasswordEl.value || null, // пусто — оставить сохранённый
+    };
+  }
+
+  async function saveAutostart() {
+    try {
+      showAutostart(await api("POST", "/api/autostart", autostartChoice()));
+      obsPasswordEl.value = "";
+      setStatus(autostartStatusEl, "Сохранено", false, true);
+    } catch (e) {
+      setStatus(autostartStatusEl, e.message, true);
+      api("GET", "/api/autostart").then(showAutostart, () => {});
+    }
+  }
+
+  for (const id of ["autostart-windows", "autostart-obs", "autostart-stream"]) {
+    $(id).addEventListener("change", saveAutostart);
+  }
+  $("obs-ws-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveAutostart();
+  });
+  $("obs-check").addEventListener("click", async () => {
+    const button = $("obs-check");
+    const { obs_port, obs_password } = autostartChoice();
+    button.disabled = true;
+    setStatus(autostartStatusEl, "Подключаюсь к OBS…");
+    try {
+      const result = await api("POST", "/api/autostart/obs-check", { obs_port, obs_password });
+      setStatus(autostartStatusEl, result.streaming
+        ? "OBS на связи, трансляция идёт" : "OBS на связи. Не забудьте сохранить порт и пароль", false, true);
+    } catch (e) {
+      setStatus(autostartStatusEl, e.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   // --- Что считать: списки слов из папки wordlists ---
 
   const wordListEl = $("word-list");
@@ -1123,6 +1186,7 @@
       loadCustomPresets();
       api("GET", "/api/version").then(showVersion, () => {});
       api("GET", "/api/update").then(showUpdate, () => {});
+      api("GET", "/api/autostart").then(showAutostart, () => {});
     };
     ws.onmessage = (event) => {
       let msg;

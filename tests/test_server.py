@@ -840,3 +840,74 @@ def test_order_validates_fields(client, order, payload):
 
 def test_order_needs_fields(client, order):
     assert client.post("/api/order", json={"email": "me@example.com"}).status_code == 422
+
+
+# --- автозапуск ---
+
+
+def test_autostart_defaults(client):
+    data = client.get("/api/autostart").json()
+    assert (data["windows"], data["obs"], data["stream"], data["obs_port"]) == (False, "off", "off", 4455)
+
+
+def test_autostart_saves_settings_and_registry(client, settings_path, run_key):
+    resp = client.post(
+        "/api/autostart",
+        json={"windows": False, "obs": "launch", "stream": "notify", "obs_port": 4456, "obs_password": "secret"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["obs"] == "launch" and data["stream"] == "notify" and data["obs_port"] == 4456
+    assert data["has_password"] and "secret" not in resp.text
+    assert run_key.value.endswith("--watch")
+    saved = Settings(settings_path)
+    assert saved.get("obs_ws_password") == "secret"
+
+    # Без пароля в запросе сохранённый остаётся.
+    client.post("/api/autostart", json={"windows": True, "obs": "off", "stream": "off", "obs_port": 4456})
+    assert Settings(settings_path).get("obs_ws_password") == "secret"
+    assert run_key.value.endswith("--autostart")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"windows": False, "obs": "maybe", "stream": "off", "obs_port": 4455},
+        {"windows": False, "obs": "off", "stream": "off", "obs_port": 70000},
+    ],
+)
+def test_autostart_rejects_bad_values(client, body, run_key):
+    assert client.post("/api/autostart", json=body).status_code == 400
+    assert run_key.value is None
+
+
+def test_autostart_registry_error_restores_settings(client, settings, run_key):
+    run_key.fail = PermissionError("Отказано в доступе")
+    resp = client.post("/api/autostart", json={"windows": True, "obs": "off", "stream": "off", "obs_port": 4455})
+    assert resp.status_code == 500
+    assert "реестр" in resp.json()["detail"]
+    assert client.get("/api/autostart").json()["windows"] is False
+
+
+def test_obs_check_uses_saved_password(client, settings, monkeypatch):
+    calls = []
+
+    def fake_check(port, password):
+        calls.append((port, password))
+        return True
+
+    monkeypatch.setattr(server.obs, "check", fake_check)
+    settings.set("obs_ws_password", "saved")
+    assert client.post("/api/autostart/obs-check", json={"obs_port": 4455}).json() == {"streaming": True}
+    client.post("/api/autostart/obs-check", json={"obs_port": 4460, "obs_password": "typed"})
+    assert calls == [(4455, "saved"), (4460, "typed")]
+
+
+def test_obs_check_error(client, monkeypatch):
+    def fake_check(port, password):
+        raise server.obs.ObsError("OBS не отвечает")
+
+    monkeypatch.setattr(server.obs, "check", fake_check)
+    resp = client.post("/api/autostart/obs-check", json={"obs_port": 4455})
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "OBS не отвечает"

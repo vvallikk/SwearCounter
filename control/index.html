@@ -144,6 +144,42 @@
       <div id="model-list" class="model-list"></div>
     </section>
 
+    <section id="autostart-section" class="section" hidden>
+      <h2 class="section-title">Автозапуск</h2>
+      <label class="check-row"><input id="autostart-windows" type="checkbox">
+        Запускать вместе с Windows <span class="note">(свёрнутой в трей)</span></label>
+      <div class="autostart-grid">
+        <label for="autostart-obs">Когда запускается OBS</label>
+        <div class="select-wrap"><select id="autostart-obs">
+          <option value="off">Ничего не делать</option>
+          <option value="notify">Напомнить уведомлением</option>
+          <option value="launch">Запустить счётчик</option>
+        </select></div>
+        <label for="autostart-stream">Когда начинается трансляция</label>
+        <div class="select-wrap"><select id="autostart-stream">
+          <option value="off">Ничего не делать</option>
+          <option value="notify">Напомнить уведомлением</option>
+          <option value="launch">Запустить счётчик</option>
+        </select></div>
+      </div>
+      <div id="obs-ws" class="obs-ws" hidden>
+        <p class="note">Начало трансляции программа узнаёт от OBS по WebSocket. В OBS откройте
+          «Инструменты → Настройки сервера WebSocket», включите сервер и перенесите сюда порт и пароль.</p>
+        <form id="obs-ws-form" class="row obs-ws-row">
+          <input id="obs-port" class="text-input obs-port" type="number" min="1" max="65535" required
+            aria-label="Порт сервера WebSocket" title="Порт сервера WebSocket">
+          <input id="obs-password" class="text-input" type="password" autocomplete="off"
+            aria-label="Пароль сервера WebSocket" placeholder="Пароль (если задан в OBS)">
+          <button id="obs-save" class="secondary-btn" type="submit">Сохранить</button>
+          <button id="obs-check" class="secondary-btn" type="button">Проверить</button>
+        </form>
+      </div>
+      <p class="note">Реакция на OBS работает, когда счётчик закрыт: вместо него в фоне ждёт
+        маленький процесс без окна и без микрофона. Он выходит, как только счётчик запущен,
+        а после выхода из счётчика снова ждёт OBS.</p>
+      <div id="autostart-status" class="status-line"></div>
+    </section>
+
     <section id="update-section" class="section" hidden>
       <h2 class="section-title">Обновления</h2>
       <div id="update-lock-note" class="update-lock-note" hidden>
