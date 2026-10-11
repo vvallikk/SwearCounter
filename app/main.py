@@ -5,6 +5,7 @@ import logging
 import multiprocessing
 import socket
 import sys
+import webbrowser
 from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -210,7 +211,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
     return Prepared(app, sock, hub.counter.value, model_missing=model is None, updater=updater, settings=settings)
 
 
-def run_console(prepared: Prepared) -> None:
+def run_console(prepared: Prepared, open_browser: bool = False) -> None:
     port = prepared.port
     print(f"Счётчик матов {__version__}")
     print(f"Счётчик: {prepared.count}")
@@ -223,6 +224,8 @@ def run_console(prepared: Prepared) -> None:
     print("Для остановки нажмите Ctrl+C")
 
     server = uvicorn.Server(uvicorn.Config(prepared.app, log_level="warning"))
+    if open_browser:
+        webbrowser.open(f"http://localhost:{port}/control/")
     server.run(sockets=[prepared.sock])
 
 
@@ -236,6 +239,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.console and sys.stdout is not None:
         setup_logging(None)
         run_console(prepare(args))
+        return
+
+    if sys.platform != "win32":
+        # В macOS и Linux нет окна и трея: сервер в терминале, страница управления — в браузере.
+        setup_logging(LOG_FILE)
+        run_console(prepare(args), open_browser=True)
         return
 
     if args.watch:

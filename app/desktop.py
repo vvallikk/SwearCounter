@@ -7,7 +7,10 @@
 import ctypes
 import json
 import logging
+import re
 import subprocess
+import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -16,6 +19,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from ctypes import wintypes
 from dataclasses import dataclass
+from pathlib import Path
 from socket import socket
 
 import uvicorn
@@ -41,6 +45,10 @@ log = logging.getLogger(__name__)
 @contextmanager
 def single_instance(name: str = MUTEX_NAME) -> Iterator[bool]:
     """True, если это первый запущенный экземпляр (именованный mutex Windows)."""
+    if sys.platform != "win32":
+        with _lock_file(name) as first:
+            yield first
+        return
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel32.CreateMutexW.restype = wintypes.HANDLE
     kernel32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
@@ -55,7 +63,32 @@ def single_instance(name: str = MUTEX_NAME) -> Iterator[bool]:
             kernel32.CloseHandle(handle)
 
 
+@contextmanager
+def _lock_file(name: str) -> Iterator[bool]:
+    """Замена mutex в macOS и Linux: блокировка файла снимается сама, даже если процесс упал."""
+    import fcntl
+
+    path = Path(tempfile.gettempdir()) / f"{re.sub(r'\W', '_', name)}.lock"
+    try:
+        file = path.open("a")
+    except OSError:
+        yield True  # файл не открылся — не мешаем запуску
+        return
+    try:
+        try:
+            fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            yield False
+        else:
+            yield True
+    finally:
+        file.close()
+
+
 def message_box(text: str, icon: int = MB_ICONINFORMATION, title: str = TITLE) -> None:
+    if sys.platform != "win32":
+        print(f"{title}: {text}", file=sys.stderr)
+        return
     ctypes.windll.user32.MessageBoxW(None, text, title, icon)
 
 
