@@ -1,9 +1,8 @@
 // Звук оповещения: общий для оверлея и страницы управления (кнопка «Проверить»).
 //
 // Какой звук играет, по порядку: звук, выбранный в библиотеке на странице управления
-// (/api/sound/file/<id>); стандартный звук пресета — синтезированный звон, у хорька файл
-// overlay/sounds/ferret.wav, у личного оформления — файл из набора (/overlay/custom/<id>/<файл>);
-// если файла нет — его синтезированная замена (у личного оформления — звон).
+// (/api/sound/file/<id>); стандартный звук пресета — синтезированный звон, у личного оформления —
+// файл из набора (/overlay/custom/<id>/<файл>); если файла нет — звон.
 window.createDingPlayer = function createDingPlayer() {
   "use strict";
 
@@ -37,7 +36,7 @@ window.createDingPlayer = function createDingPlayer() {
     return ctx.decodeAudioData(await resp.arrayBuffer());
   }
 
-  // Стандартный звук по имени (ding, ferret) или адресу. null в ответе — играть синтезированный.
+  // Стандартный звук по имени (ding) или адресу. null в ответе — играть синтезированный.
   function loadStandard(name) {
     let promise = standards.get(name);
     if (!promise) {
@@ -123,47 +122,10 @@ window.createDingPlayer = function createDingPlayer() {
     bell(ctx, out, 2637.0, t + 0.18, 0.5); // E7
   }
 
-  // «Гуканье» хорька: быстрое мягкое «гу-гу-гу-гу», как радостный смешок во время
-  // «военного танца». Голос — пилообразная волна, а два полосовых фильтра на частотах
-  // гласной «у» (форманты ~320 и ~800 Гц) делают из неё глухое «гу».
-  function synthGoo(ctx, out) {
-    const t = ctx.currentTime + 0.01;
-    const count = 4 + Math.floor(Math.random() * 3);
-    const base = 210 + Math.random() * 40;
-    for (let i = 0; i < count; i++) {
-      const start = t + i * (0.11 + Math.random() * 0.02);
-      const pitch = base * (1 + (Math.random() - 0.5) * 0.12);
-      const osc = ctx.createOscillator();
-      osc.type = "sawtooth";
-      // «г» — короткий подъём тона, «у» — плавный спад
-      osc.frequency.setValueAtTime(pitch * 0.8, start);
-      osc.frequency.linearRampToValueAtTime(pitch * 1.15, start + 0.025);
-      osc.frequency.exponentialRampToValueAtTime(pitch * 0.9, start + 0.09);
-      const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(1, start + 0.015);
-      gain.gain.setValueAtTime(1, start + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.1);
-      osc.connect(gain);
-      for (const [freq, q, level] of [[320, 4, 1], [800, 6, 0.35]]) {
-        const formant = ctx.createBiquadFilter();
-        formant.type = "bandpass";
-        formant.frequency.value = freq;
-        formant.Q.value = q;
-        const amp = ctx.createGain();
-        amp.gain.value = level;
-        gain.connect(formant).connect(amp).connect(out);
-      }
-      osc.start(start);
-      osc.stop(start + 0.12);
-    }
-  }
-
   // Стандартные звуки: файл в overlay/sounds/ (необязательно) и синтезированная замена,
   // которая играет, если файла нет или он не загрузился.
   const STANDARD = {
     ding: { file: null, synth: synthDing, level: 0.3 }, // без ослабления звон слишком громкий
-    ferret: { file: "ferret.wav", synth: synthGoo, level: 1.1 }, // примерно как звон
   };
 
   function play(sound) {

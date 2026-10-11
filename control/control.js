@@ -274,7 +274,7 @@
   let soundState = null; // последний ответ /api/sound: список перерисовывается и при смене пресета
   let standardSound = "ding"; // стандартный звук выбранного пресета (поле sound в presets.js)
   let standardSoundName = "Стандартный звон";
-  const STANDARD_NAMES = { ding: "Стандартный звон", ferret: "Стандартный: гуканье хорька" };
+  const STANDARD_NAMES = { ding: "Стандартный звон" };
 
   function showVolume(volume) {
     volumeEl.value = volume;
