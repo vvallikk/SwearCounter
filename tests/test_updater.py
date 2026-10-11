@@ -35,7 +35,7 @@ def make_zip(with_exe=True) -> bytes:
         if with_exe:
             zf.writestr("SwearCounter/SwearCounter.exe", b"exe")
         zf.writestr("SwearCounter/_internal/lib.dll", b"dll")
-        zf.writestr("SwearCounter/words.txt", "мат")
+        zf.writestr("SwearCounter/wordlists/swears.txt", "мат")
     return buf.getvalue()
 
 
@@ -293,6 +293,6 @@ def test_apply_script_replaces_only_program_files(tmp_path):
     assert f'robocopy "{source / "_internal"}" "{target / "_internal"}" /MIR' in text
     assert f'copy /Y "{source / "SwearCounter.exe"}" "{target / "SwearCounter.exe"}"' in text
     assert f'start "" "{target / "SwearCounter.exe"}"' in text
-    for user_file in ("settings.json", "counter.json", "words.txt", "models", "sounds", "webview"):
+    for user_file in ("settings.json", "counter.json", "wordlists", "models", "sounds", "webview"):
         assert user_file not in text
     assert text.index("PID eq") < text.index("robocopy") < text.index("start ")

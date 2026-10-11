@@ -20,7 +20,7 @@
 ## Как устроено
 
 ```
-микрофон → Vosk (отдельный процесс) → поиск корней из words.txt → счётчик (counter.json)
+микрофон → Vosk (отдельный процесс) → поиск корней из выбранного списка → счётчик (counter.json)
         → FastAPI + WebSocket → оверлей OBS (/overlay/) и страница управления (/control/)
 ```
 
@@ -30,7 +30,7 @@
   плюс значок в трее (pystray). Сервер работает в фоновом потоке (`app/desktop.py`).
 - **Распознавание** — Vosk в отдельном процессе (`app/stt/vosk_worker.py`), чтобы загрузку
   модели можно было прервать мгновенно, просто завершив процесс.
-- **Данные пользователя** (`counter.json`, `settings.json`, `words.txt`, `models/`, `sounds/`,
+- **Данные пользователя** (`counter.json`, `settings.json`, `wordlists/`, `models/`, `sounds/`,
   `webview/`, `swearcounter.log`) лежат рядом с exe, а из исходников — в корне репозитория
   (`app/paths.py`). Встроенные ресурсы (`overlay/`, `control/`, `assets/`) — внутри сборки.
 
@@ -118,7 +118,7 @@ Python-код требует перезапуска. Второй экземпл
    ```
 
 3. Результат:
-   - `dist\SwearCounter\` — готовая папка (`SwearCounter.exe`, `_internal\`, `words.txt`,
+   - `dist\SwearCounter\` — готовая папка (`SwearCounter.exe`, `_internal\`, `wordlists\`,
      `README.md`, `LICENSE.txt`, `THIRD_PARTY_LICENSES.txt`, `models\README.txt`);
    - `dist\SwearCounter-v<версия>-windows.zip` — тот же архив, что публикуется в релизе.
 
@@ -247,11 +247,16 @@ git push origin v0.3.0
 **Добавить оформление оверлея** — новый пресет в `overlay/presets.js`:
 он сам появится в списке на странице управления.
 
-**Поменять список слов по умолчанию** — `words.txt` в корне (попадает в сборку и
-кладётся рядом с exe; у пользователей их правленая копия не перезаписывается обновлением).
-Слово засчитывается, если начинается с корня, поэтому корень не должен быть началом
-обычного слова. Проверки — в `tests/test_words_file.py`: добавляя корень, допишите туда
-пару его форм и похожих обычных слов.
+**Поменять или добавить встроенный список слов** — `.txt` в папке `wordlists/`
+(`swears.txt` — «Маты (18+)», он включён по умолчанию; `parasites.txt` — «Слова-паразиты»).
+Первая строка — `# Название: ...`, его показывает окно программы. Папка попадает в сборку,
+при запуске недостающие списки копируются в `wordlists/` рядом с exe (`app/wordlists.py`);
+файлы, которые там уже есть, не перезаписываются — ни запуском, ни обновлением. Поэтому
+правки встроенного списка дойдут только до новых пользователей. Слово засчитывается, если
+начинается с корня, поэтому корень не должен быть началом обычного слова. Проверки —
+в `tests/test_words_file.py`: добавляя корень, допишите туда пару его форм и похожих
+обычных слов. `words.txt` старых версий при первом запуске переносится в `my.txt`
+(или удаляется, если это была тестовая заглушка).
 
 **Добавить зависимость** — в `requirements.txt`. Её лицензия попадёт в
 `THIRD_PARTY_LICENSES.txt` сама (`scripts/licenses.py` берёт тексты из пакетов). Если
@@ -273,18 +278,21 @@ git push origin v0.3.0
 app/main.py           точка входа, ключи запуска, логирование
 app/desktop.py        окно (pywebview), трей (pystray), сервер в потоке, один экземпляр
 app/server.py         FastAPI: /ws, /api/state, /api/increment, /api/reset, /api/speech,
-                      /api/devices, /api/sound, /api/overlay, /api/update, статика
+                      /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
+                      статика
 app/updater.py        проверка, скачивание и установка обновлений из GitHub Releases
 app/settings.py       настройки (settings.json)
 app/sound.py          громкость и библиотека звуков оповещения (sounds/)
 app/counter.py        счётчик и сохранение в counter.json
-app/profanity.py      поиск корней из words.txt (перечитывается при изменении),
+app/wordlists.py      списки слов (wordlists/): раскладка встроенных, выбор активного
+app/profanity.py      поиск корней из списка (перечитывается при изменении),
                       счёт по ходу фразы (SwearTracker)
 app/paths.py          пути к файлам (из исходников и из exe)
 app/stt/              распознавание: VoskRecognizer, процесс vosk_worker, каталог моделей,
                       скачивание моделей (downloader), список микрофонов (audio_devices)
 overlay/              оверлей для OBS; presets.js — оформления, sound.js — проигрыватель звука
 control/              страница управления (index.html, style.css, control.js)
+wordlists/            встроенные списки слов
 assets/               иконка (scripts/make_icon.py)
 scripts/build.py      сборка exe и zip
 scripts/licenses.py   THIRD_PARTY_LICENSES.txt для сборки; third_party/ — тексты лицензий

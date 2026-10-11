@@ -43,9 +43,9 @@ a = Analysis(
     pathex=[],
     # libvosk.dll и её зависимости лежат в пакете vosk; PyInstaller сам их не находит.
     binaries=collect_dynamic_libs("vosk"),
-    # Ресурсы только для чтения; изменяемые файлы (words.txt, models, sounds, настройки)
+    # Ресурсы только для чтения; изменяемые файлы (wordlists, models, sounds, настройки)
     # лежат рядом с exe — см. app/paths.py.
-    datas=[("overlay", "overlay"), ("control", "control"), ("assets", "assets"), ("words.txt", ".")],
+    datas=[("overlay", "overlay"), ("control", "control"), ("assets", "assets"), ("wordlists", "wordlists")],
     # uvicorn выбирает реализации протоколов по строкам, их импорты не видны статически.
     hiddenimports=collect_submodules("uvicorn") + ["webview.platforms.winforms", "webview.platforms.edgechromium", "pystray._win32"],
     hookspath=[],

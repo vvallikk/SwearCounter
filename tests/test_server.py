@@ -577,3 +577,97 @@ def test_foreign_origin_cannot_change_state(client, headers):
 def test_own_pages_can_change_state(client, headers):
     assert client.post("/api/increment", headers=headers).status_code == 200
     assert client.get("/api/state").json() == {"count": 1}
+
+
+# --- списки слов ---
+
+
+@pytest.fixture
+def word_lists(settings, tmp_path, monkeypatch):
+    from app import profanity
+    from app.wordlists import WordLists
+
+    monkeypatch.setattr(profanity, "_roots", ())
+    monkeypatch.setattr(profanity, "_source", None)
+    bundled = tmp_path / "bundled"
+    bundled.mkdir()
+    (bundled / "swears.txt").write_text("# Название: Маты (18+)\nбля\n", encoding="utf-8")
+    (bundled / "parasites.txt").write_text("# Название: Слова-паразиты\nкороче\nтипа\n", encoding="utf-8")
+    lists = WordLists(settings, tmp_path / "wordlists", bundled)
+    lists.prepare()
+    return lists
+
+
+@pytest.fixture
+def words_client(hub, recognizer, settings, sound, fake_sd, word_lists):
+    app = create_app(hub, recognizer, settings, sound, word_lists=word_lists)
+    with TestClient(app) as client:
+        yield client
+
+
+def test_words_state(words_client):
+    assert words_client.get("/api/words").json() == {
+        "lists": [
+            {"id": "parasites.txt", "name": "Слова-паразиты", "words": 2},
+            {"id": "swears.txt", "name": "Маты (18+)", "words": 1},
+        ],
+        "active": "swears.txt",
+    }
+
+
+def test_select_word_list(words_client, settings_path):
+    from app.profanity import count_profanity
+
+    r = words_client.post("/api/words/active", json={"id": "parasites.txt"})
+    assert r.status_code == 200
+    assert r.json()["active"] == "parasites.txt"
+    assert Settings(settings_path).get("word_list") == "parasites.txt"
+    assert count_profanity("короче бля") == 1
+
+
+@pytest.mark.parametrize("bad", ["нет.txt", "../settings.json"])
+def test_select_unknown_word_list(words_client, bad):
+    assert words_client.post("/api/words/active", json={"id": bad}).status_code == 404
+    assert words_client.get("/api/words").json()["active"] == "swears.txt"
+
+
+def test_open_word_list_and_folder(words_client, word_lists, monkeypatch):
+    opened = []
+    monkeypatch.setattr("os.startfile", opened.append, raising=False)
+    assert words_client.post("/api/words/open", json={"id": "swears.txt"}).status_code == 200
+    assert words_client.post("/api/words/open", json={}).status_code == 200
+    assert opened == [word_lists.directory / "swears.txt", word_lists.directory]
+
+
+def test_open_unknown_word_list(words_client, monkeypatch):
+    opened = []
+    monkeypatch.setattr("os.startfile", opened.append, raising=False)
+    assert words_client.post("/api/words/open", json={"id": "../counter.json"}).status_code == 404
+    assert opened == []
+
+
+def test_open_word_list_error(words_client, monkeypatch):
+    def fail(path):
+        raise OSError("нет редактора")
+
+    monkeypatch.setattr("os.startfile", fail, raising=False)
+    assert words_client.post("/api/words/open", json={}).status_code == 500
+
+
+def test_words_api_absent_without_word_lists(client):
+    assert client.get("/api/words").status_code == 404
+
+
+def test_foreign_origin_cannot_switch_word_list(words_client):
+    r = words_client.post("/api/words/active", json={"id": "parasites.txt"}, headers={"Origin": "https://evil.example"})
+    assert r.status_code == 403
+    assert words_client.get("/api/words").json()["active"] == "swears.txt"
+
+
+@pytest.mark.parametrize("url", ["/control/", "/control/control.js", "/overlay/", "/overlay/presets.js"])
+def test_pages_revalidated_not_cached(client, url):
+    # После обновления программы браузер не должен брать старые скрипты из кеша.
+    r = client.get(url)
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-cache"
+    assert client.get(url, headers={"If-None-Match": r.headers["etag"]}).status_code == 304

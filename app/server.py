@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import re
 import threading
 from contextlib import asynccontextmanager
@@ -20,6 +21,7 @@ from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
 from .stt import CATALOG, ModelDownloader, ModelInfo, VoskRecognizer, audio_devices, find_model
 from .updater import Updater
+from .wordlists import WordLists
 
 log = logging.getLogger(__name__)
 
@@ -105,6 +107,27 @@ class LabelChoice(BaseModel):
     position: str
 
 
+class PageFiles(StaticFiles):
+    """Страницы и скрипты: браузер сверяется с сервером перед каждым использованием.
+
+    Без этого после обновления программы WebView2 и OBS могут взять из кеша старый
+    скрипт к новой странице. Сверка по ETag дешёвая: файлы отдаются с localhost.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+class WordListChoice(BaseModel):
+    id: str
+
+
+class WordListOpen(BaseModel):
+    id: str | None = None  # файл списка; None — папка со списками
+
+
 DEFAULT_PRESET = "classic"
 # Список пресетов знает только оверлей (overlay/presets.js); сервер проверяет форму id.
 PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
@@ -138,6 +161,7 @@ def create_app(
     sound: Sound,
     updater: Updater | None = None,
     check_updates: bool = False,
+    word_lists: WordLists | None = None,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -402,6 +426,35 @@ def create_app(
         await hub.broadcast(style_message())
         return await get_overlay()
 
+    if word_lists is not None:
+
+        @app.get("/api/words")
+        async def get_words():
+            return word_lists.state()
+
+        @app.post("/api/words/active")
+        async def post_words_active(choice: WordListChoice):
+            try:
+                word_lists.select(choice.id)
+            except KeyError:
+                raise HTTPException(404, "Такого списка нет") from None
+            return word_lists.state()
+
+        @app.post("/api/words/open")
+        async def post_words_open(choice: WordListOpen):
+            """Открывает файл списка в редакторе или папку со списками в Проводнике."""
+            try:
+                path = word_lists.directory if choice.id is None else word_lists.path(choice.id)
+            except KeyError:
+                raise HTTPException(404, "Такого списка нет") from None
+            if not hasattr(os, "startfile"):
+                raise HTTPException(501, "Открыть файл можно только в Windows")
+            try:
+                await asyncio.to_thread(os.startfile, path)
+            except OSError as e:
+                raise HTTPException(500, f"Не удалось открыть: {e}") from None
+            return word_lists.state()
+
     @app.websocket("/ws")
     async def websocket_endpoint(ws: WebSocket):
         await ws.accept()
@@ -417,6 +470,6 @@ def create_app(
             hub.disconnect(ws)
             log.info("Клиент отключён, всего: %d", len(hub.clients))
 
-    app.mount("/overlay", StaticFiles(directory=OVERLAY_DIR, html=True), name="overlay")
-    app.mount("/control", StaticFiles(directory=CONTROL_DIR, html=True), name="control")
+    app.mount("/overlay", PageFiles(directory=OVERLAY_DIR, html=True), name="overlay")
+    app.mount("/control", PageFiles(directory=CONTROL_DIR, html=True), name="control")
     return app
