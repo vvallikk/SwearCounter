@@ -729,3 +729,16 @@ def test_unlocked_after_forced_info_cleared(locked_client, hub):
     client, updater = locked_client
     updater.info = None
     assert client.post("/api/increment").status_code == 200
+
+
+# --- предпросмотр оверлея ---
+
+
+def test_open_overlay_in_browser(client, monkeypatch):
+    from app import server
+
+    opened = []
+    monkeypatch.setattr(server.webbrowser, "open", opened.append)
+    r = client.post("/api/overlay/open")
+    assert r.status_code == 200
+    assert opened == ["http://testserver/overlay/"] and r.json() == {"url": opened[0]}
