@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, goals, hotkeys, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
+from .extra_counters import CounterError, ExtraCounters
 from .obs_link import ObsLink
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
@@ -63,6 +64,8 @@ class Hub:
         self.stats = Stats()
         # Вызываются после прибавки с (было, стало): например, смена сцены в OBS по порогу.
         self.count_listeners: list[Callable[[int, int], None]] = []
+        # Дополнительные счётчики (app/extra_counters.py); в тестах — только в памяти.
+        self.extra = ExtraCounters()
 
     async def connect(self, ws: WebSocket, greeting: list[dict] = (), events_only: bool = False) -> None:
         """Подключает клиента и отправляет ему счёт и сообщения greeting.
@@ -103,6 +106,18 @@ class Hub:
             for listener in self.count_listeners:
                 listener(before, count)
             return count
+
+    async def increment_extra(self, counter_id: str, delta: int = 1, speech: bool = False) -> int:
+        """Прибавка дополнительному счётчику; KeyError, если его нет."""
+        async with self._lock:
+            if self.locked() or (speech and self.paused):
+                return self.extra.get(counter_id)["count"]
+            count = self.extra.add_count(counter_id, delta)
+            await self._broadcast({"type": "extra_increment", "id": counter_id, "count": count, "delta": delta})
+            return count
+
+    def counters_message(self) -> dict:
+        return {"type": "counters", "counters": self.extra.items()}
 
     async def reset(self) -> int:
         async with self._lock:
@@ -147,6 +162,18 @@ class Hub:
         for ws, result in zip(clients, results, strict=True):
             if isinstance(result, Exception):
                 self.disconnect(ws)
+
+
+class CounterCreate(BaseModel):
+    name: str
+    list: str
+
+
+class CounterUpdate(BaseModel):
+    name: str | None = None
+    list: str | None = None
+    preset: str | None = None
+    label: str | None = None
 
 
 class GoalsChoice(BaseModel):
@@ -432,6 +459,8 @@ def create_app(
             task.add_done_callback(background.discard)
 
     hub.count_listeners.append(on_count)
+    if word_lists is not None:
+        hub.extra.list_path = word_lists.path
 
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
@@ -716,6 +745,62 @@ def create_app(
     @app.post("/api/reset")
     async def post_reset():
         return {"count": await hub.reset()}
+
+    # --- Дополнительные счётчики: свой список слов, счёт и оформление оверлея ---
+
+    def extra_or_404(counter_id: str) -> dict:
+        try:
+            return hub.extra.get(counter_id)
+        except KeyError:
+            raise HTTPException(404, "Такого счётчика нет") from None
+
+    async def counters_changed() -> dict:
+        message = hub.counters_message()
+        await hub.broadcast(message)
+        return {"counters": message["counters"]}
+
+    @app.get("/api/counters")
+    async def get_counters():
+        return {"counters": hub.extra.items()}
+
+    @app.post("/api/counters")
+    async def post_counter(body: CounterCreate):
+        try:
+            hub.extra.add(body.name, body.list)
+        except CounterError as e:
+            raise HTTPException(400, str(e)) from None
+        return await counters_changed()
+
+    @app.post("/api/counters/{counter_id}")
+    async def update_counter(counter_id: str, body: CounterUpdate):
+        extra_or_404(counter_id)
+        if body.preset is not None and not PRESET_ID.fullmatch(body.preset):
+            raise HTTPException(400, "Неверный id пресета")
+        label = None if body.label is None else " ".join(body.label.split())
+        if label is not None and len(label) > LABEL_MAX_LENGTH:
+            raise HTTPException(400, f"Подпись длиннее {LABEL_MAX_LENGTH} символов")
+        try:
+            hub.extra.update(counter_id, name=body.name, list=body.list, preset=body.preset, label=label)
+        except CounterError as e:
+            raise HTTPException(400, str(e)) from None
+        return await counters_changed()
+
+    @app.delete("/api/counters/{counter_id}")
+    async def delete_counter(counter_id: str):
+        extra_or_404(counter_id)
+        hub.extra.remove(counter_id)
+        return await counters_changed()
+
+    @app.post("/api/counters/{counter_id}/increment")
+    async def increment_counter(counter_id: str):
+        extra_or_404(counter_id)
+        return {"count": await hub.increment_extra(counter_id)}
+
+    @app.post("/api/counters/{counter_id}/reset")
+    async def reset_counter(counter_id: str):
+        extra_or_404(counter_id)
+        hub.extra.reset(counter_id)
+        return await counters_changed()
 
     @app.get("/api/stats")
     async def get_stats():
@@ -1033,7 +1118,7 @@ def create_app(
             return
         await ws.accept()
         try:
-            await hub.connect(ws, [sound_message(), style_message()])
+            await hub.connect(ws, [sound_message(), style_message(), hub.counters_message()])
             log.info("Клиент подключён, всего: %d", len(hub.clients))
             # Клиенты ничего не присылают; читаем только чтобы заметить отключение.
             while True:

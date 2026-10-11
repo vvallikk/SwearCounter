@@ -20,7 +20,7 @@
 Установка (только собранный exe): zip релиза качается и распаковывается в
 update/ рядом с exe, затем apply.cmd ждёт выхода программы, заменяет только
 программные файлы (SwearCounter.exe и _internal) и запускает новую версию.
-Данные пользователя рядом с exe (settings.json, counter.json, stats.json, wordlists,
+Данные пользователя рядом с exe (settings.json, counter.json, counters.json, stats.json, wordlists,
 models, sounds, presets, webview) не трогаются.
 """
 

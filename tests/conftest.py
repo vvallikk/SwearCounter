@@ -202,7 +202,7 @@ def run_key(monkeypatch):
 
 
 # Сообщения, которыми сервер встречает нового клиента WebSocket, по порядку.
-GREETING = ("state", "pause", "timer", "goals", "sound", "style")
+GREETING = ("state", "pause", "timer", "goals", "sound", "style", "counters")
 
 
 def skip_greeting(ws) -> list[dict]:

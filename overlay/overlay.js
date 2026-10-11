@@ -11,7 +11,7 @@
   const PREVIEW_INTERVAL_MS = 2500;
   const PREVIEW_COUNT = 42;
 
-  // --- Параметры из адреса: ?size=120&color=ffffff&mute=1&preset=neon&preview=1 ---
+  // --- Параметры из адреса: ?size=120&color=ffffff&mute=1&preset=neon&preview=1&counter=c1 ---
   const params = new URLSearchParams(location.search);
   // Без ?size число растягивается под размер окна (источника в OBS).
   const sizeParam = parseInt(params.get("size"), 10);
@@ -31,6 +31,8 @@
   const showGoal = params.get("show") === "goal";
   const ownLabel = showTimer || showGoal;
   const timerLabel = params.get("label") || "";
+  // ?counter=<id> — дополнительный счётчик со своим счётом, оформлением и подписью.
+  const counterId = params.get("counter") || null;
 
   const root = document.documentElement;
   function setSize(px) {
@@ -439,6 +441,21 @@
     setInterval(renderTimer, 1000);
   }
   if (showGoal) renderGoal();
+  // Дополнительный счётчик: подпись и пресет свои, положение подписи — как у основного.
+  let labelPosition = "left";
+  let extraLabel = "";
+  function handleCounters(list) {
+    const counter = list.find((c) => c.id === counterId);
+    if (!counter) {
+      setCount("—"); // счётчик удалили
+      return;
+    }
+    setCount(counter.count);
+    if (fixedPreset === null) applyPreset(counter.preset);
+    extraLabel = counter.label;
+    applyLabel(extraLabel, labelPosition);
+  }
+
   if (!muted && !ownLabel) {
     player = window.createDingPlayer();
     player.setStandard(findPreset(currentPreset).sound);
@@ -454,6 +471,23 @@
       try {
         msg = JSON.parse(event.data);
       } catch (e) {
+        return;
+      }
+      if (counterId) {
+        if (msg.type === "counters") {
+          handleCounters(msg.counters);
+        } else if (msg.type === "extra_increment" && msg.id === counterId) {
+          setCount(msg.count);
+          playIncrementAnimation(msg.delta || 1);
+          if (player) player.play();
+        } else if (msg.type === "sound") {
+          if (player) player.apply(msg);
+        } else if (msg.type === "style") {
+          labelPosition = msg.label_position;
+          applyLabel(extraLabel, labelPosition);
+        } else if (msg.type === "presets") {
+          location.reload();
+        }
         return;
       }
       if (showTimer) {
