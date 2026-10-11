@@ -532,7 +532,6 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
   .autostart-grid { grid-template-columns: 1fr; gap: 4px; }
   .autostart-grid .select-wrap { margin-bottom: 6px; }
 }
-.obs-ws { margin-top: 10px; }
 
 /* Горячие клавиши: кнопка показывает сочетание, по нажатию ждёт новое. */
 .goal-input { justify-self: start; width: 140px; flex: none; }
@@ -541,5 +540,7 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 .hotkey.recording { border-color: var(--accent); border-style: dashed; }
 .hotkey.failed { border-color: var(--danger); color: var(--danger); }
 .obs-ws-row { flex-wrap: wrap; margin-top: 8px; }
+.obs-scene-row { flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.obs-scene-row .goal-input { width: 90px; }
 .obs-ws-row .text-input { min-width: 160px; }
 .obs-ws-row .obs-port { flex: 0 0 100px; min-width: 0; }

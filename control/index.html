@@ -229,22 +229,43 @@
             <option value="launch">Запустить счётчик</option>
           </select></div>
         </div>
-        <div id="obs-ws" class="obs-ws" hidden>
-          <p class="note">Начало трансляции программа узнаёт от OBS по WebSocket. В OBS откройте
-            «Инструменты → Настройки сервера WebSocket», включите сервер и перенесите сюда порт и пароль.</p>
-          <form id="obs-ws-form" class="row obs-ws-row">
-            <input id="obs-port" class="text-input obs-port" type="number" min="1" max="65535" required
-              aria-label="Порт сервера WebSocket" title="Порт сервера WebSocket">
-            <input id="obs-password" class="text-input" type="password" autocomplete="off"
-              aria-label="Пароль сервера WebSocket" placeholder="Пароль (если задан в OBS)">
-            <button id="obs-save" class="secondary-btn" type="submit">Сохранить</button>
-            <button id="obs-check" class="secondary-btn" type="button">Проверить</button>
-          </form>
-        </div>
-        <p class="note">Реакция на OBS работает, когда счётчик закрыт: вместо него в фоне ждёт
+        <p class="note">Начало трансляции программа узнаёт от OBS — порт и пароль задаются в разделе «OBS».
+          Реакция на OBS работает, когда счётчик закрыт: вместо него в фоне ждёт
           маленький процесс без окна и без микрофона. Он выходит, как только счётчик запущен,
           а после выхода из счётчика снова ждёт OBS.</p>
         <div id="autostart-status" class="status-line"></div>
+      </section>
+
+      <section id="obs-section" class="section">
+        <h2 class="section-title">OBS</h2>
+        <p class="note">Программа связывается с OBS по WebSocket. В OBS откройте «Инструменты →
+          Настройки сервера WebSocket», включите сервер и перенесите сюда порт и пароль.</p>
+        <form id="obs-ws-form" class="row obs-ws-row">
+          <input id="obs-port" class="text-input obs-port" type="number" min="1" max="65535" required
+            aria-label="Порт сервера WebSocket" title="Порт сервера WebSocket">
+          <input id="obs-password" class="text-input" type="password" autocomplete="off"
+            aria-label="Пароль сервера WebSocket" placeholder="Пароль (если задан в OBS)">
+          <button id="obs-save" class="secondary-btn" type="submit">Сохранить</button>
+          <button id="obs-check" class="secondary-btn" type="button">Проверить</button>
+        </form>
+        <label class="check-row"><input id="obs-reset-stream" type="checkbox">
+          Сбрасывать счёт, когда начинается трансляция</label>
+        <label class="check-row"><input id="obs-reset-record" type="checkbox">
+          Сбрасывать счёт, когда начинается запись</label>
+        <div class="row obs-scene-row">
+          <label for="obs-scene-at">При</label>
+          <input id="obs-scene-at" class="text-input goal-input" type="number" min="0" placeholder="—"
+            aria-label="Сколько слов до смены сцены">
+          <label for="obs-scene">словах включить сцену</label>
+          <div class="select-wrap"><select id="obs-scene">
+            <option value="">не переключать</option>
+          </select></div>
+          <button id="obs-scenes-load" class="secondary-btn" type="button" title="Загрузить сцены из OBS">⟳</button>
+        </div>
+        <p class="note">Команда <code>!маты</code> в чате Twitch и другие связки — через Streamer.bot,
+          см. <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/STREAMERBOT.md"
+          target="_blank" rel="noopener noreferrer">инструкцию</a>.</p>
+        <div id="obs-status" class="status-line"></div>
       </section>
 
       <section id="update-section" class="section" hidden>
