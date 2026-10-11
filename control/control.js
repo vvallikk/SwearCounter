@@ -235,6 +235,132 @@
   bindCopyLink($("timer-url"), timerOverlayUrl);
   bindCopyLink($("goal-url"), goalOverlayUrl);
 
+  // --- Дополнительные счётчики: свой список слов, счёт и оверлей (?counter=<id>) ---
+
+  const MAX_COUNTERS = 5;
+  const countersListEl = $("counters-list");
+  const countersStatusEl = $("counters-status");
+  let extraCounters = [];
+  let wordLists = []; // приходят вместе со списками слов (showWords)
+  const openCounters = new Set(); // у каких счётчиков раскрыты настройки
+
+  async function counterRequest(method, url, body) {
+    try {
+      const result = await api(method, url, body);
+      if (result.counters) showCounters(result.counters);
+      setStatus(countersStatusEl, "");
+      return result;
+    } catch (e) {
+      setStatus(countersStatusEl, e.message, true);
+      return null;
+    }
+  }
+
+  function counterSetting(counter, label, control) {
+    const row = el("label", "row counter-setting", label);
+    row.append(control);
+    return row;
+  }
+
+  function renderCounter(counter) {
+    const details = el("details", "counter-item");
+    details.open = openCounters.has(counter.id);
+    details.addEventListener("toggle", () => {
+      if (details.open) openCounters.add(counter.id);
+      else openCounters.delete(counter.id);
+    });
+    const summary = el("summary", "counter-head");
+    const count = el("b", "counter-count", String(counter.count));
+    count.dataset.counter = counter.id;
+    const inc = el("button", "secondary-btn", "+1");
+    inc.type = "button";
+    inc.addEventListener("click", (e) => {
+      e.preventDefault(); // кнопка внутри summary не раскрывает настройки
+      counterRequest("POST", `/api/counters/${counter.id}/increment`);
+    });
+    const reset = el("button", "secondary-btn", "Сбросить");
+    reset.type = "button";
+    reset.addEventListener("click", (e) => e.preventDefault());
+    confirmByTwoClicks(reset, "Точно?", () => counterRequest("POST", `/api/counters/${counter.id}/reset`));
+    summary.append(el("span", "counter-name", counter.name), count, inc, reset);
+
+    const body = el("div", "counter-body");
+    const list = el("select");
+    list.append(...listOptions(wordLists));
+    if (!wordLists.some((l) => l.id === counter.list)) list.prepend(new Option(`${counter.list} (нет файла)`, counter.list));
+    list.value = counter.list;
+    list.addEventListener("change", () => counterRequest("POST", `/api/counters/${counter.id}`, { list: list.value }));
+    const preset = el("select");
+    preset.append(...presets.map((p) => new Option(p.title, p.id)));
+    if (!presets.some((p) => p.id === counter.preset)) preset.prepend(new Option(counter.preset, counter.preset));
+    preset.value = counter.preset;
+    preset.addEventListener("change", () => counterRequest("POST", `/api/counters/${counter.id}`, { preset: preset.value }));
+    const label = el("input", "text-input");
+    label.maxLength = 40;
+    label.value = counter.label;
+    label.placeholder = "без подписи";
+    label.addEventListener("change", () => counterRequest("POST", `/api/counters/${counter.id}`, { label: label.value }));
+    const wrap = (select) => {
+      const node = el("div", "select-wrap");
+      node.append(select);
+      return node;
+    };
+
+    const url = `${overlayUrl}?counter=${counter.id}`;
+    const link = el("button", "copy-link");
+    link.type = "button";
+    link.title = "Нажмите, чтобы скопировать";
+    link.append(el("span", "", url), el("span", "copy-label", "Копировать"));
+    bindCopyLink(link, url);
+    const remove = el("button", "secondary-btn", "Удалить счётчик");
+    remove.type = "button";
+    confirmByTwoClicks(remove, "Точно удалить?", () => counterRequest("DELETE", `/api/counters/${counter.id}`));
+
+    body.append(
+      counterSetting(counter, "Список слов", wrap(list)),
+      counterSetting(counter, "Оформление", wrap(preset)),
+      counterSetting(counter, "Подпись", label),
+      el("div", "note", "Оверлей этого счётчика:"),
+      link,
+      remove,
+    );
+    details.append(summary, body);
+    return details;
+  }
+
+  function renderCounters() {
+    // Пока что-то редактируют, список не перерисовываем: сбросился бы ввод.
+    if (countersListEl.contains(document.activeElement) && document.activeElement.matches("input, select")) return;
+    countersListEl.replaceChildren(...extraCounters.map(renderCounter));
+    const addList = $("counter-list");
+    const chosen = addList.value;
+    addList.replaceChildren(...listOptions(wordLists));
+    if (chosen) addList.value = chosen;
+    $("counter-add").hidden = extraCounters.length >= MAX_COUNTERS || !wordLists.length;
+    $("counters-section").hidden = !wordLists.length;
+  }
+
+  function showCounters(counters) {
+    extraCounters = counters;
+    renderCounters();
+  }
+
+  function showExtraCount(msg) {
+    const counter = extraCounters.find((c) => c.id === msg.id);
+    if (counter) counter.count = msg.count;
+    const node = countersListEl.querySelector(`[data-counter="${CSS.escape(msg.id)}"]`);
+    if (node) node.textContent = msg.count;
+  }
+
+  $("counter-add").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const result = await counterRequest("POST", "/api/counters", {
+      name: $("counter-name").value,
+      list: $("counter-list").value,
+    });
+    if (result) $("counter-name").value = "";
+  });
+
   // --- Цели: особые числа и отсчёт «осталось N» ---
 
   const milestonesEl = $("milestones");
@@ -670,6 +796,7 @@
     const changed = JSON.stringify(custom) !== JSON.stringify(presets.filter((p) => p.custom));
     presets = builtinPresets.concat(custom);
     renderPresetOptions();
+    renderCounters();
     if (wantedPreset !== null) showPreset(wantedPreset);
     // В превью наборы подключаются при загрузке страницы оверлея: после изменений перезагружаем его,
     // выбранное оформление превью получит заново по событию load (sendPreviewStyle).
@@ -1414,12 +1541,17 @@
     return many;
   }
 
-  function showWords(state) {
-    $("words-section").hidden = false;
-    const options = state.lists.map(
+  function listOptions(lists) {
+    return lists.map(
       (list) => new Option(`${list.name} — ${list.words} ${plural(list.words, "корень", "корня", "корней")}`, list.id)
     );
-    wordListEl.replaceChildren(...options);
+  }
+
+  function showWords(state) {
+    $("words-section").hidden = false;
+    wordLists = state.lists;
+    wordListEl.replaceChildren(...listOptions(state.lists));
+    renderCounters();
     wordListEl.value = state.active;
     const empty = !state.lists.length;
     $("words-edit").disabled = empty;
@@ -1627,6 +1759,8 @@
       else if (msg.type === "timer") showTimer(msg);
       else if (msg.type === "goals") showGoals(msg);
       else if (msg.type === "obs") showObsStatus(msg);
+      else if (msg.type === "counters") showCounters(msg.counters);
+      else if (msg.type === "extra_increment") showExtraCount(msg);
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

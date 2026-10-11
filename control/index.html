@@ -63,6 +63,20 @@
         </div>
       </div>
 
+      <section id="counters-section" class="section" hidden>
+        <h2 class="section-title">Дополнительные счётчики</h2>
+        <p class="note">Свой список слов, счёт и оверлей — например, слова-паразиты отдельно от матов.
+          Цели, таймер, статистика и OBS — только у основного счётчика.</p>
+        <div id="counters-list" class="counters-list"></div>
+        <form id="counter-add" class="row">
+          <input id="counter-name" class="text-input" maxlength="40" required placeholder="Название"
+            aria-label="Название нового счётчика">
+          <div class="select-wrap"><select id="counter-list" aria-label="Список слов нового счётчика"></select></div>
+          <button class="secondary-btn" type="submit">Добавить</button>
+        </form>
+        <div id="counters-status" class="status-line"></div>
+      </section>
+
       <section id="mic-section" class="section" hidden>
         <label class="section-title" for="mic">Микрофон</label>
         <div class="row">

@@ -415,7 +415,7 @@ app/desktop.py        окно (pywebview), трей (pystray), сервер в 
 app/obs.py            клиент obs-websocket v5: проверка подключения, события выходов, запросы
 app/obs_link.py       постоянная связь с OBS в своём потоке: автосброс, смена сцены
 app/server.py         FastAPI: /ws, /ws/events, /api/state, /api/count, /api/increment, /api/reset,
-                      /api/speech, /api/obs, /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
+                      /api/counters, /api/speech, /api/obs, /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
                       /api/presets/custom, статика
 app/custom_presets.py личные оформления: установка zip-наборов в presets/, упаковка и экспорт
 app/preset_links.py   установка оформления по ссылке: Яндекс Диск, Google Диск, Dropbox
@@ -423,6 +423,7 @@ app/updater.py        проверка, скачивание и установк
 app/settings.py       настройки (settings.json)
 app/sound.py          громкость и библиотека звуков оповещения (sounds/)
 app/counter.py        счётчик и сохранение в counter.json
+app/extra_counters.py дополнительные счётчики (counters.json): свой список слов, оверлей ?counter=<id>
 app/wordlists.py      списки слов (wordlists/): раскладка встроенных, выбор активного
 app/profanity.py      поиск корней из списка (перечитывается при изменении),
                       счёт по ходу фразы (SwearTracker)

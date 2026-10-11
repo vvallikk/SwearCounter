@@ -541,6 +541,19 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 .hotkey.failed { border-color: var(--danger); color: var(--danger); }
 .obs-ws-row { flex-wrap: wrap; margin-top: 8px; }
 .obs-scene-row { flex-wrap: wrap; align-items: center; margin-top: 8px; }
+
+/* Дополнительные счётчики: строка со счётом и кнопками, настройки раскрываются по клику */
+.counters-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.counters-list:empty { display: none; }
+.counter-item { border: 1px solid var(--border); border-radius: 10px; }
+.counter-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; }
+.counter-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.counter-count { min-width: 2ch; font-size: 18px; font-variant-numeric: tabular-nums; text-align: right; }
+.counter-body { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 4px 10px 10px; }
+.counter-setting { width: 100%; font-size: 14px; }
+.counter-body .copy-link { width: 100%; margin-top: 0; text-align: left; }
+.counter-body .copy-link > :first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.counter-body .copy-link .copy-label { white-space: nowrap; }
 .obs-scene-row .goal-input { width: 90px; }
 .obs-ws-row .text-input { min-width: 160px; }
 .obs-ws-row .obs-port { flex: 0 0 100px; min-width: 0; }

@@ -16,10 +16,12 @@ from fastapi import FastAPI
 from . import __version__
 from .autostart import AUTOSTART_ARG, WATCH_ARG
 from .counter import Counter
+from .extra_counters import ExtraCounters, ExtraTrackers
 from .custom_presets import CustomPresets, builtin_preset_ids
 from .paths import (
     BUNDLED_WORDLISTS_DIR,
     COUNTER_FILE,
+    COUNTERS_FILE,
     LOG_FILE,
     OLD_WORDS_FILE,
     OVERLAY_DIR,
@@ -146,12 +148,24 @@ def prepare(args: argparse.Namespace) -> Prepared:
     word_lists.prepare(OLD_WORDS_FILE)
 
     hub.stats = Stats(STATS_FILE)
+    hub.extra = ExtraCounters(COUNTERS_FILE, word_lists.path)
 
     async def add_swears(words: list[str]) -> None:
         count = await hub.increment(len(words), speech=True, words=words)
         log.info("Счётчик: %d", count)
 
-    on_text = SwearTracker(add_swears, paused=lambda: hub.paused).feed
+    async def add_extra(counter_id: str, words: list[str]) -> None:
+        try:
+            await hub.increment_extra(counter_id, len(words), speech=True)
+        except KeyError:
+            pass  # счётчик удалили, пока шла фраза
+
+    main_tracker = SwearTracker(add_swears, paused=lambda: hub.paused)
+    extra_trackers = ExtraTrackers(hub.extra, add_extra, paused=lambda: hub.paused)
+
+    async def on_text(text: str, is_final: bool) -> None:
+        await main_tracker.feed(text, is_final)
+        await extra_trackers.feed(text, is_final)
 
     # Микрофон: ключ --device, иначе выбранный на странице управления, иначе системный.
     if args.device:
