@@ -482,16 +482,19 @@ def test_invalid_label_rejected(client, settings_path, body):
 
 
 def test_version(client):
-    from app import SUPPORT_URL, __version__
+    from app import SUPPORT_LINKS, __version__
 
-    assert client.get("/api/version").json() == {"version": __version__, "support_url": SUPPORT_URL}
+    assert client.get("/api/version").json() == {"version": __version__, "support": SUPPORT_LINKS}
 
 
-def test_support_url_is_reported(client, monkeypatch):
-    from app import server
+def test_support_links_are_valid(client):
+    from app import SUPPORT_LINKS
 
-    monkeypatch.setattr(server, "SUPPORT_URL", "https://boosty.to/example")
-    assert client.get("/api/version").json()["support_url"] == "https://boosty.to/example"
+    for link in SUPPORT_LINKS:
+        assert link["name"] and link["url"].startswith("https://")
+        # QR-код отдаётся вместе со страницей управления.
+        res = client.get(f"/control/{link['qr']}")
+        assert res.status_code == 200 and res.content.startswith(b"\x89PNG")
 
 
 # --- обновления ---

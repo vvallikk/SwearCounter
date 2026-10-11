@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import SUPPORT_URL, __version__
+from . import SUPPORT_LINKS, __version__
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -259,7 +259,7 @@ def create_app(
 
     @app.get("/api/version")
     async def get_version():
-        return {"version": __version__, "support_url": SUPPORT_URL}
+        return {"version": __version__, "support": SUPPORT_LINKS}
 
     @app.get("/api/update")
     async def get_update():

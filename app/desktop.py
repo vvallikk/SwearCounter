@@ -19,7 +19,7 @@ from socket import socket
 import uvicorn
 from fastapi import FastAPI
 
-from . import SUPPORT_URL, __version__
+from . import SUPPORT_LINKS, __version__
 from .paths import ICON_FILE, WEBVIEW_DIR
 from .updater import Updater
 
@@ -131,6 +131,11 @@ def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater 
         window.show()
         window.restore()
 
+    def open_support() -> None:
+        # Раскрываем блок «Поддержать» в окне: там все способы и QR-коды.
+        show()
+        window.evaluate_js("window.openSupport && window.openSupport()")
+
     def copy_overlay() -> None:
         copy_to_clipboard(urls.overlay)
         icon.notify(f"Адрес оверлея скопирован: {urls.overlay}", TITLE)
@@ -169,9 +174,7 @@ def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater 
             pystray.MenuItem("Скопировать адрес оверлея", copy_overlay),
             pystray.MenuItem("Открыть в браузере", lambda: webbrowser.open(urls.control)),
             pystray.MenuItem("Проверить обновления", check_updates, visible=updater is not None),
-            pystray.MenuItem(
-                "Поддержать автора", lambda: webbrowser.open(SUPPORT_URL), visible=bool(SUPPORT_URL)
-            ),
+            pystray.MenuItem("Поддержать автора", open_support, visible=bool(SUPPORT_LINKS)),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Выход", quit_app),
         ),

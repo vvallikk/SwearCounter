@@ -912,15 +912,41 @@
   $("words-edit").addEventListener("click", () => openWords(wordListEl.value));
   $("words-folder").addEventListener("click", () => openWords(null));
 
-  // --- Версия и кнопка «Поддержать» (адрес задаёт SUPPORT_URL в app/__init__.py) ---
+  // --- Версия и кнопка «Поддержать» (способы задаёт SUPPORT_LINKS в app/__init__.py) ---
 
-  function showVersion({ version, support_url: supportUrl }) {
+  function showVersion({ version, support }) {
     $("version").textContent = `v${version}`;
     // Только https: в ссылку не должен попасть javascript: или другой протокол.
-    const valid = typeof supportUrl === "string" && /^https:\/\//i.test(supportUrl);
-    if (valid) $("support").href = supportUrl;
-    $("support-row").hidden = !valid;
+    const links = (Array.isArray(support) ? support : [])
+      .filter((l) => l && typeof l.url === "string" && /^https:\/\//i.test(l.url));
+    const box = $("support-links");
+    box.replaceChildren(...links.map((l) => {
+      const a = document.createElement("a");
+      a.className = "support-card";
+      a.href = l.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      if (typeof l.qr === "string" && /^[\w/-]+\.png$/.test(l.qr)) {
+        const img = document.createElement("img");
+        img.src = l.qr;
+        img.alt = `QR-код ${l.name}`;
+        a.append(img);
+      }
+      a.append(String(l.name || l.url));
+      return a;
+    }));
+    $("support").hidden = $("support-open").hidden = !links.length;
   }
+
+  // Сердечко в углу и пункт трея «Поддержать автора»: раскрыть блок и прокрутить к нему.
+  function openSupport() {
+    const details = $("support");
+    if (details.hidden) return;
+    details.open = true;
+    details.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  window.openSupport = openSupport;
+  $("support-open").addEventListener("click", openSupport);
 
   // --- WebSocket: счёт, звук, оформление и уровень микрофона ---
 
