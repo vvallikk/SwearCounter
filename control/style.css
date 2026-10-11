@@ -283,6 +283,7 @@ select {
 .icon-btn:hover { border-color: var(--border); color: var(--text); }
 .icon-btn.confirm { width: auto; padding: 0 8px; font-size: 12px; font-weight: 600; color: #fff; background: var(--danger); }
 .sound-actions { margin-top: 10px; }
+.words-actions { margin-top: 10px; flex-wrap: wrap; }
 
 /* --- Оформление счётчика: выпадающий список и превью выбранного стиля --- */
 .preset-picker { display: flex; align-items: flex-start; gap: 10px; }

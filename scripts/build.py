@@ -43,7 +43,8 @@ def main() -> None:
         check=True,
     )
     # Файлы, которые пользователь меняет сам, кладём рядом с exe (см. app/paths.py).
-    shutil.copy2(ROOT / "words.txt", APP_DIR / "words.txt")
+    # Списки слов программа и сама разложит при первом запуске, но так их видно сразу.
+    shutil.copytree(ROOT / "wordlists", APP_DIR / "wordlists", dirs_exist_ok=True)
     shutil.copy2(ROOT / "README.md", APP_DIR / "README.md")
     # Лицензия программы и лицензии всего стороннего, что вошло в сборку.
     shutil.copy2(ROOT / "LICENSE", APP_DIR / "LICENSE.txt")

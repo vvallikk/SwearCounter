@@ -1,4 +1,4 @@
-"""Поиск матов в распознанном тексте по списку корней из words.txt."""
+"""Поиск слов в распознанном тексте по списку корней (см. app/wordlists.py)."""
 
 import asyncio
 import logging
@@ -13,7 +13,7 @@ _WORD_RE = re.compile(r"\w+")
 # Сколько мат должен продержаться в промежуточном тексте, чтобы засчитаться до конца фразы.
 DEBOUNCE_SECONDS = 1.5
 
-# Как часто проверять, не изменили ли words.txt (его правят, не закрывая приложение).
+# Как часто проверять, не изменили ли файл списка (его правят, не закрывая приложение).
 RELOAD_CHECK_SECONDS = 1.0
 
 # Корни, загруженные load_words(); используются count_profanity по умолчанию.
@@ -21,9 +21,6 @@ _roots: tuple[str, ...] = ()
 _source: Path | None = None  # файл, из которого они загружены
 _stamp: tuple[int, int] | None = None  # его время изменения и размер при загрузке
 _checked_at = 0.0
-
-# Тестовые корни из words.txt версий до 0.2.2 (см. replace_placeholder_words).
-PLACEHOLDER_ROOTS = {"тестслов", "проверк"}
 
 
 def normalize(text: str) -> str:
@@ -36,7 +33,7 @@ def load_words(path: Path) -> tuple[str, ...]:
     path = Path(path)
     _source, _stamp, _checked_at = path, _file_stamp(path), time.monotonic()
     try:
-        _roots = _read_roots(path)
+        _roots = read_roots(path)
     except OSError as e:
         log.error("Не удалось прочитать список слов %s: %s", path, e)
         _roots = ()
@@ -44,32 +41,14 @@ def load_words(path: Path) -> tuple[str, ...]:
     return _roots
 
 
-def _read_roots(path: Path) -> tuple[str, ...]:
+def read_roots(path: Path) -> tuple[str, ...]:
+    """Корни из файла списка; OSError, если его не прочитать."""
     roots = []
     for line in path.read_text(encoding="utf-8-sig").splitlines():
         line = line.strip()
         if line and not line.startswith("#"):
             roots.append(normalize(line))
     return tuple(dict.fromkeys(roots))  # без повторов, порядок сохраняем
-
-
-def replace_placeholder_words(user_file: Path, bundled_file: Path) -> bool:
-    """Заменяет words.txt пользователя встроенным, если там ещё корни-заглушки.
-
-    До версии 0.2.2 вместо списка матов поставлялись тестовые корни, а обновление
-    не трогает words.txt пользователя: без замены у обновившихся счётчик бы молчал.
-    Файл, который пользователь уже правил сам, не трогаем.
-    """
-    if user_file.resolve() == bundled_file.resolve():
-        return False
-    try:
-        if set(_read_roots(user_file)) != PLACEHOLDER_ROOTS:
-            return False
-        user_file.write_bytes(bundled_file.read_bytes())
-    except OSError:
-        return False
-    log.info("Список слов-заглушка заменён настоящим (%s)", user_file)
-    return True
 
 
 def current_roots() -> tuple[str, ...]:

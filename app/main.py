@@ -15,13 +15,22 @@ from fastapi import FastAPI
 
 from . import __version__
 from .counter import Counter
-from .paths import COUNTER_FILE, DATA_DIR, LOG_FILE, RESOURCE_DIR, SETTINGS_FILE, SOUNDS_DIR, words_file
-from .profanity import SwearTracker, load_words, replace_placeholder_words
+from .paths import (
+    BUNDLED_WORDLISTS_DIR,
+    COUNTER_FILE,
+    LOG_FILE,
+    OLD_WORDS_FILE,
+    SETTINGS_FILE,
+    SOUNDS_DIR,
+    WORDLISTS_DIR,
+)
+from .profanity import SwearTracker
 from .server import Hub, create_app
 from .settings import Settings
 from .sound import Sound
 from .stt import CATALOG, VoskRecognizer, find_model, installed_models
 from .updater import Updater
+from .wordlists import WordLists
 
 HOST = "127.0.0.1"
 PORT = 8765  # основной порт: его адрес прописывают в OBS
@@ -114,10 +123,10 @@ class Prepared:
 
 def prepare(args: argparse.Namespace) -> Prepared:
     """Собирает приложение и занимает порт; сервер ещё не запущен."""
-    replace_placeholder_words(DATA_DIR / "words.txt", RESOURCE_DIR / "words.txt")
-    load_words(words_file())
     hub = Hub(Counter(COUNTER_FILE))
     settings = Settings(SETTINGS_FILE)
+    word_lists = WordLists(settings, WORDLISTS_DIR, BUNDLED_WORDLISTS_DIR)
+    word_lists.prepare(OLD_WORDS_FILE)
 
     async def add_swears(found: int) -> None:
         count = await hub.increment(found)
@@ -148,7 +157,13 @@ def prepare(args: argparse.Namespace) -> Prepared:
 
     updater = Updater(settings)
     app = create_app(
-        hub, recognizer, settings, Sound(settings, SOUNDS_DIR), updater=updater, check_updates=True
+        hub,
+        recognizer,
+        settings,
+        Sound(settings, SOUNDS_DIR),
+        updater=updater,
+        check_updates=True,
+        word_lists=word_lists,
     )
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.

@@ -739,6 +739,64 @@
   $("update-auto").addEventListener("change", (e) =>
     updateCall("POST", "/api/update/auto", { enabled: e.target.checked }));
 
+  // --- Что считать: списки слов из папки wordlists ---
+
+  const wordListEl = $("word-list");
+  const wordsStatusEl = $("words-status");
+  const wordsRefreshBtn = $("words-refresh");
+
+  function plural(n, one, few, many) {
+    const mod10 = n % 10, mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return one;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+    return many;
+  }
+
+  function showWords(state) {
+    $("words-section").hidden = false;
+    const options = state.lists.map(
+      (list) => new Option(`${list.name} — ${list.words} ${plural(list.words, "корень", "корня", "корней")}`, list.id)
+    );
+    wordListEl.replaceChildren(...options);
+    wordListEl.value = state.active;
+    const empty = !state.lists.length;
+    $("words-edit").disabled = empty;
+    setStatus(wordsStatusEl, empty ? "В папке нет ни одного списка" : "", empty);
+  }
+
+  async function loadWords() {
+    wordsRefreshBtn.disabled = true;
+    try {
+      showWords(await api("GET", "/api/words"));
+    } catch (e) {
+      // нет связи с сервером: список обновится при переподключении
+    } finally {
+      wordsRefreshBtn.disabled = false;
+    }
+  }
+
+  async function openWords(id) {
+    try {
+      showWords(await api("POST", "/api/words/open", { id }));
+    } catch (e) {
+      setStatus(wordsStatusEl, e.message, true);
+    }
+  }
+
+  wordsRefreshBtn.addEventListener("click", loadWords);
+  // Списки правят в Блокноте: вернулись в окно — показываем свежие названия и число корней.
+  window.addEventListener("focus", loadWords);
+  wordListEl.addEventListener("change", async () => {
+    try {
+      showWords(await api("POST", "/api/words/active", { id: wordListEl.value }));
+    } catch (e) {
+      setStatus(wordsStatusEl, e.message, true);
+      loadWords();
+    }
+  });
+  $("words-edit").addEventListener("click", () => openWords(wordListEl.value));
+  $("words-folder").addEventListener("click", () => openWords(null));
+
   // --- WebSocket: счёт, звук, оформление и уровень микрофона ---
 
   function connect() {
@@ -748,6 +806,7 @@
       setOnline(true);
       refreshSpeech();
       loadDevices();
+      loadWords();
       api("GET", "/api/version").then(({ version }) => ($("version").textContent = `v${version}`), () => {});
       api("GET", "/api/update").then(showUpdate, () => {});
     };

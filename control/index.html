@@ -46,6 +46,21 @@
       <div id="mic-status" class="status-line"></div>
     </section>
 
+    <section id="words-section" class="section" hidden>
+      <label class="section-title" for="word-list">Что считать</label>
+      <div class="row">
+        <div class="select-wrap"><select id="word-list"></select></div>
+        <button id="words-refresh" class="square-btn" type="button" title="Обновить списки">⟳</button>
+      </div>
+      <div class="row words-actions">
+        <button id="words-edit" class="secondary-btn" type="button">✎ Изменить список</button>
+        <button id="words-folder" class="secondary-btn" type="button">📁 Папка со списками</button>
+      </div>
+      <p class="note">Свой список — любой .txt-файл в этой папке: по одному корню на строку,
+        слово засчитывается, если начинается с корня. Правки подхватываются сами, без перезапуска.</p>
+      <div id="words-status" class="status-line"></div>
+    </section>
+
     <section id="label-section" class="section" hidden>
       <label class="section-title" for="label-text">Подпись к счётчику</label>
       <div class="row">
@@ -123,8 +138,7 @@
       <h2 class="section-title">О программе</h2>
       <p class="note">Изначально задумывалась как счётчик матов для стримов в OBS, но используйте её
         как угодно: OBS не обязателен, а считать можно любые слова — слова-паразиты, имя друга,
-        что угодно. Список слов — в файле <code>words.txt</code> рядом с программой: по одному корню
-        на строку, слово засчитывается, если начинается с корня. Изменения подхватываются сами.</p>
+        что угодно. Список выбирается в разделе «Что считать», там же можно создать свой.</p>
       <p class="note">Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть»,
         без каких-либо гарантий.</p>
     </section>

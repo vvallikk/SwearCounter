@@ -5,7 +5,7 @@ import os
 import pytest
 
 from app import profanity
-from app.profanity import count_profanity, load_words, replace_placeholder_words
+from app.profanity import count_profanity, load_words
 
 # Как после load_words: корни уже нормализованы (нижний регистр, е вместо ё).
 ROOTS = ("бля", "хрен", "ежик")
@@ -95,26 +95,3 @@ def test_deleted_words_file_keeps_old_list(tmp_path, monkeypatch):
     load_words(path)
     path.unlink()
     assert count_profanity("бля") == 1
-
-
-def test_placeholder_words_replaced(tmp_path):
-    user, bundled = tmp_path / "user.txt", tmp_path / "bundled.txt"
-    user.write_text("# заглушка\nтестслов\nпроверк\n", encoding="utf-8")
-    bundled.write_text("бля\n", encoding="utf-8")
-    assert replace_placeholder_words(user, bundled)
-    assert user.read_text(encoding="utf-8") == "бля\n"
-
-
-def test_edited_words_not_replaced(tmp_path):
-    user, bundled = tmp_path / "user.txt", tmp_path / "bundled.txt"
-    user.write_text("тестслов\nпроверк\nхрен\n", encoding="utf-8")
-    bundled.write_text("бля\n", encoding="utf-8")
-    assert not replace_placeholder_words(user, bundled)
-    assert "хрен" in user.read_text(encoding="utf-8")
-
-
-def test_missing_user_words_not_created(tmp_path):
-    user, bundled = tmp_path / "user.txt", tmp_path / "bundled.txt"
-    bundled.write_text("бля\n", encoding="utf-8")
-    assert not replace_placeholder_words(user, bundled)
-    assert not user.exists()

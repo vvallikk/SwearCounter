@@ -9,7 +9,7 @@ from pathlib import Path
 
 if getattr(sys, "frozen", False):
     # Собранный exe: ресурсы (overlay, control) PyInstaller кладёт в sys._MEIPASS,
-    # а изменяемые файлы (counter.json, words.txt) храним рядом с exe.
+    # а изменяемые файлы (counter.json, wordlists) храним рядом с exe.
     DATA_DIR = Path(sys.executable).resolve().parent
     RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", DATA_DIR))
 else:
@@ -19,12 +19,11 @@ else:
 OVERLAY_DIR = RESOURCE_DIR / "overlay"
 CONTROL_DIR = RESOURCE_DIR / "control"
 COUNTER_FILE = DATA_DIR / "counter.json"
-
-
-def words_file() -> Path:
-    """words.txt рядом с exe (чтобы пользователь мог его править), иначе встроенный."""
-    path = DATA_DIR / "words.txt"
-    return path if path.exists() else RESOURCE_DIR / "words.txt"
+# Списки слов: встроенные копируются рядом с exe, чтобы пользователь мог их править
+# и добавлять свои (см. app/wordlists.py). Из исходников это одна и та же папка.
+BUNDLED_WORDLISTS_DIR = RESOURCE_DIR / "wordlists"
+WORDLISTS_DIR = DATA_DIR / "wordlists"
+OLD_WORDS_FILE = DATA_DIR / "words.txt"  # единственный список версий до 0.3.0
 
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
