@@ -21,6 +21,7 @@ models, sounds, presets, webview) не трогаются.
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -119,6 +120,22 @@ def pick_asset(release: dict) -> dict | None:
     return None
 
 
+def sha256_of(asset: dict) -> str | None:
+    """Хеш из поля digest вида "sha256:<64 hex>"; None, если GitHub его не дал."""
+    digest = asset.get("digest")
+    if isinstance(digest, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", digest.lower()):
+        return digest[len("sha256:"):].lower()
+    return None
+
+
+def file_sha256(path: Path) -> str:
+    sha = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(1024 * 1024):
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
 def release_info(release: dict, current: str = __version__) -> dict | None:
     """Сведения об обновлении из одного релиза GitHub; None, если обновлять не на что."""
     tag = release.get("tag_name") or ""
@@ -130,6 +147,8 @@ def release_info(release: dict, current: str = __version__) -> dict | None:
     return {
         "latest": tag.lstrip("v"),
         "url": asset["browser_download_url"],
+        # GitHub считает SHA-256 каждого файла релиза: им проверяем, что архив скачался целым.
+        "sha256": sha256_of(asset),
         "size": asset.get("size", 0),
         "notes": release.get("body") or "",
         "html_url": release.get("html_url") or f"https://github.com/{REPO}/releases",
@@ -364,7 +383,11 @@ class Updater:
         archive = self.update_dir / "update.zip.part"
         new_dir = self.update_dir / "new"
         try:
+            if not self.info.get("sha256"):
+                raise ValueError("у релиза нет контрольной суммы, скачайте его вручную со страницы релиза")
             fetch_to_file(self.info["url"], archive, self)
+            if file_sha256(archive) != self.info["sha256"]:
+                raise ValueError("архив скачался с ошибкой (контрольная сумма не совпала), попробуйте ещё раз")
             self.status = "extracting"
             with zipfile.ZipFile(archive) as zf:
                 zf.extractall(new_dir)

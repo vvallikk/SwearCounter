@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import io
 import json
 import time
@@ -25,25 +26,6 @@ ROOT = Path(__file__).resolve().parent.parent
 ZIP_URL = "https://github.com/vvallikk/SwearCounter/releases/download/v0.3.0/SwearCounter-v0.3.0-windows.zip"
 
 
-def make_release(tag="v0.3.0", **extra):
-    return {
-        "tag_name": tag,
-        "html_url": f"https://github.com/vvallikk/SwearCounter/releases/tag/{tag}",
-        "body": "Что нового",
-        "draft": False,
-        "prerelease": False,
-        "assets": [
-            {"name": "checksums.txt", "browser_download_url": "https://example.invalid/sums", "size": 1},
-            {"name": f"SwearCounter-{tag}-windows.zip", "browser_download_url": ZIP_URL, "size": 1234},
-        ],
-        **extra,
-    }
-
-
-def releases(*items) -> bytes:
-    return json.dumps(list(items)).encode()
-
-
 def make_zip(with_exe=True) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
@@ -52,6 +34,39 @@ def make_zip(with_exe=True) -> bytes:
         zf.writestr("SwearCounter/_internal/lib.dll", b"dll")
         zf.writestr("SwearCounter/wordlists/swears.txt", "мат")
     return buf.getvalue()
+
+
+# Архивы собираются один раз: у zip внутри время записи, а хеш должен совпасть с релизом.
+ZIP = make_zip()
+ZIP_NO_EXE = make_zip(with_exe=False)
+
+
+def digest(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def make_release(tag="v0.3.0", zip_data=ZIP, **extra):
+    return {
+        "tag_name": tag,
+        "html_url": f"https://github.com/vvallikk/SwearCounter/releases/tag/{tag}",
+        "body": "Что нового",
+        "draft": False,
+        "prerelease": False,
+        "assets": [
+            {"name": "checksums.txt", "browser_download_url": "https://example.invalid/sums", "size": 1},
+            {
+                "name": f"SwearCounter-{tag}-windows.zip",
+                "browser_download_url": ZIP_URL,
+                "size": 1234,
+                "digest": digest(zip_data),
+            },
+        ],
+        **extra,
+    }
+
+
+def releases(*items) -> bytes:
+    return json.dumps(list(items)).encode()
 
 
 class SlowResponse(io.BytesIO):
@@ -130,6 +145,7 @@ def test_release_info_picks_zip_asset():
     assert info == {
         "latest": "0.3.0",
         "url": ZIP_URL,
+        "sha256": hashlib.sha256(ZIP).hexdigest(),
         "size": 1234,
         "notes": "Что нового",
         "html_url": "https://github.com/vvallikk/SwearCounter/releases/tag/v0.3.0",
@@ -414,7 +430,7 @@ async def check_and_download(updater):
 
 def test_download_unpacks_update(updater, responses):
     responses[updater_module.RELEASES_URL] = releases(make_release())
-    responses[ZIP_URL] = make_zip()
+    responses[ZIP_URL] = ZIP
     asyncio.run(check_and_download(updater))
     assert updater.status == "ready"
     new = updater.update_dir / "new" / "SwearCounter"
@@ -424,16 +440,37 @@ def test_download_unpacks_update(updater, responses):
 
 
 def test_download_rejects_archive_without_exe(updater, responses):
-    responses[updater_module.RELEASES_URL] = releases(make_release())
-    responses[ZIP_URL] = make_zip(with_exe=False)
+    responses[updater_module.RELEASES_URL] = releases(make_release(zip_data=ZIP_NO_EXE))
+    responses[ZIP_URL] = ZIP_NO_EXE
     asyncio.run(check_and_download(updater))
     assert updater.status == "error" and "SwearCounter.exe" in updater.error
     assert not updater.update_dir.exists()
 
 
+def test_download_rejects_damaged_archive(updater, responses):
+    responses[updater_module.RELEASES_URL] = releases(make_release())
+    responses[ZIP_URL] = ZIP_NO_EXE  # другой архив: хеш не совпадает с релизом
+    asyncio.run(check_and_download(updater))
+    assert updater.status == "error" and "контрольная сумма" in updater.error
+    assert not updater.update_dir.exists()
+
+
+def test_download_requires_checksum(updater, responses):
+    release = make_release()
+    del release["assets"][1]["digest"]
+    responses[updater_module.RELEASES_URL] = releases(release)
+    asyncio.run(check_and_download(updater))
+    assert updater.status == "error" and "контрольной суммы" in updater.error
+
+
+@pytest.mark.parametrize("value", [None, "", "md5:abc", "sha256:xyz", "sha256:" + "a" * 63])
+def test_sha256_of_rejects_bad_digest(value):
+    assert updater_module.sha256_of({"digest": value}) is None
+
+
 def test_cancel_download(updater, responses):
     responses[updater_module.RELEASES_URL] = releases(make_release())
-    responses[ZIP_URL] = SlowResponse(make_zip())
+    responses[ZIP_URL] = SlowResponse(ZIP)
 
     async def scenario():
         await updater.check()
@@ -462,7 +499,7 @@ def test_apply_requires_downloaded_update(updater):
 
 def test_apply_starts_script(updater, responses, monkeypatch):
     responses[updater_module.RELEASES_URL] = releases(make_release())
-    responses[ZIP_URL] = make_zip()
+    responses[ZIP_URL] = ZIP
     started = []
     monkeypatch.setattr(updater_module.subprocess, "Popen", lambda args, **kw: started.append(args))
     asyncio.run(check_and_download(updater))

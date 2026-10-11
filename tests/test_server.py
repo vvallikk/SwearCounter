@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.counter import Counter
+from app import server
 from app.server import Hub, create_app
 from app.settings import Settings
 from app.sound import Sound
@@ -71,7 +72,7 @@ def hub(counter):
 @pytest.fixture
 def client(hub, recognizer, settings, sound, fake_sd):
     app = create_app(hub, recognizer, settings, sound)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         yield client
 
 
@@ -80,7 +81,7 @@ def client(hub, recognizer, settings, sound, fake_sd):
 
 def test_recognizer_started_and_stopped_with_app(hub, recognizer, settings, sound, fake_sd):
     app = create_app(hub, recognizer, settings, sound)
-    with TestClient(app):
+    with TestClient(app, base_url="http://localhost"):
         assert recognizer.calls == [("start",)]
     assert recognizer.calls == [("start",), ("stop",)]
 
@@ -88,7 +89,7 @@ def test_recognizer_started_and_stopped_with_app(hub, recognizer, settings, soun
 def test_state_returns_saved_count(counter_path, recognizer, settings, sound, fake_sd):
     counter_path.write_text('{"count": 7}', encoding="utf-8")
     app = create_app(Hub(Counter(counter_path)), recognizer, settings, sound)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         assert client.get("/api/state").json() == {"count": 7}
 
 
@@ -308,12 +309,12 @@ def receive_until(ws, kind: str, limit: int = 5) -> dict:
 
 def test_ws_greets_with_state_first(client):
     client.post("/api/increment")
-    with client.websocket_connect("/ws") as ws:
+    with client.websocket_connect("ws://localhost/ws") as ws:
         assert ws.receive_json() == {"type": "state", "count": 1}
 
 
 def test_ws_broadcasts_increment_and_reset(client):
-    with client.websocket_connect("/ws") as first, client.websocket_connect("/ws") as second:
+    with client.websocket_connect("ws://localhost/ws") as first, client.websocket_connect("ws://localhost/ws") as second:
         for ws in (first, second):
             assert ws.receive_json()["type"] == "state"
 
@@ -326,7 +327,7 @@ def test_ws_broadcasts_increment_and_reset(client):
 
 
 def test_ws_disconnect_removes_client(client, hub):
-    with client.websocket_connect("/ws") as ws:
+    with client.websocket_connect("ws://localhost/ws") as ws:
         ws.receive_json()
         client.get("/api/state")  # даём серверу закончить подключение
         assert len(hub.clients) == 1
@@ -398,7 +399,7 @@ def test_volume(client):
 
 
 def test_sound_changes_reach_overlays(client):
-    with client.websocket_connect("/ws") as ws:
+    with client.websocket_connect("ws://localhost/ws") as ws:
         ws.receive_json()  # state
         assert ws.receive_json()["type"] == "sound"
         ws.receive_json()  # style
@@ -411,13 +412,13 @@ def test_sound_changes_reach_overlays(client):
 
 
 def test_ws_greeting_includes_sound_and_style(client):
-    with client.websocket_connect("/ws") as ws:
+    with client.websocket_connect("ws://localhost/ws") as ws:
         types_ = [ws.receive_json()["type"] for _ in range(3)]
     assert types_ == ["state", "sound", "style"]
 
 
 def test_preset_is_saved_and_broadcast(client, settings_path):
-    with client.websocket_connect("/ws") as ws:
+    with client.websocket_connect("ws://localhost/ws") as ws:
         for _ in range(3):
             ws.receive_json()
         assert client.post("/api/overlay/preset", json={"preset": "neon"}).json()["preset"] == "neon"
@@ -448,7 +449,7 @@ def test_invalid_preset_rejected(client, preset):
 
 
 def test_label_is_saved_and_broadcast(client, settings_path):
-    with client.websocket_connect("/ws") as ws:
+    with client.websocket_connect("ws://localhost/ws") as ws:
         for _ in range(3):
             ws.receive_json()
         response = client.post("/api/overlay/label", json={"text": "  Маты:\n ", "position": "top"})
@@ -484,7 +485,9 @@ def test_invalid_label_rejected(client, settings_path, body):
 def test_version(client):
     from app import SUPPORT_LINKS, __version__
 
-    assert client.get("/api/version").json() == {"version": __version__, "support": SUPPORT_LINKS}
+    assert client.get("/api/version").json() == {
+        "version": __version__, "support": SUPPORT_LINKS, "order_email": server.ORDER_EMAIL,
+    }
 
 
 def test_support_links_are_valid(client):
@@ -513,7 +516,7 @@ def update_client(hub, recognizer, settings, sound, fake_sd, tmp_path, monkeypat
     monkeypatch.setattr(updater_module, "fetch_releases", lambda: [release])
     updater = updater_module.Updater(settings, install_dir=tmp_path, frozen=False)
     app = create_app(hub, recognizer, settings, sound, updater=updater)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         yield client, updater
 
 
@@ -524,7 +527,7 @@ def test_update_state(client):
 
 def test_update_check_is_broadcast(update_client):
     client, _ = update_client
-    with client.websocket_connect("/ws") as ws:
+    with client.websocket_connect("ws://localhost/ws") as ws:
         for _ in range(3):
             ws.receive_json()  # state, sound, style
         assert client.post("/api/update/check").json()["latest"] == "9.0.0"
@@ -567,7 +570,6 @@ def test_update_apply_restarts(update_client, monkeypatch):
     "headers",
     [{"Origin": "https://evil.example"}, {"Origin": "http://localhost.evil.example:8765"}, {"Origin": "null"},
      {"Origin": "http://localhost:3000", "Host": "localhost:8765"},
-     {"Origin": "http://evil.example", "Host": "evil.example"},  # DNS rebinding
      {"Sec-Fetch-Site": "cross-site"}, {"Sec-Fetch-Site": "same-site"}],
 )
 def test_foreign_origin_cannot_change_state(client, headers):
@@ -611,7 +613,7 @@ def word_lists(settings, tmp_path, monkeypatch):
 @pytest.fixture
 def words_client(hub, recognizer, settings, sound, fake_sd, word_lists):
     app = create_app(hub, recognizer, settings, sound, word_lists=word_lists)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         yield client
 
 
@@ -694,7 +696,7 @@ def locked_client(hub, recognizer, settings, sound, fake_sd, tmp_path):
     updater.info = {"latest": "9.0.0", "url": "https://x/z.zip", "size": 1, "notes": "", "html_url": "", "force": True}
     updater.status = "available"
     app = create_app(hub, recognizer, settings, sound, updater=updater)
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://localhost") as client:
         yield client, updater
 
 
@@ -741,4 +743,87 @@ def test_open_overlay_in_browser(client, monkeypatch):
     monkeypatch.setattr(server.webbrowser, "open", opened.append)
     r = client.post("/api/overlay/open")
     assert r.status_code == 200
-    assert opened == ["http://testserver/overlay/"] and r.json() == {"url": opened[0]}
+    assert opened == ["http://localhost/overlay/"] and r.json() == {"url": opened[0]}
+
+
+@pytest.mark.parametrize("host", ["evil.example", "evil.example:8765", "localhost.evil.example", ""])
+def test_foreign_host_is_rejected(client, host):
+    """DNS rebinding: чужой сайт указывает свой домен на 127.0.0.1, но Host у запроса — его."""
+    for method, url in (("get", "/api/state"), ("post", "/api/increment"), ("get", "/control/")):
+        res = client.request(method, url, headers={"Host": host})
+        assert res.status_code == 400
+    assert client.get("/api/state").json() == {"count": 0}
+
+
+@pytest.mark.parametrize("host", ["localhost:8765", "127.0.0.1:8765", "[::1]:8765", "LOCALHOST"])
+def test_local_host_is_allowed(client, host):
+    assert client.get("/api/state", headers={"Host": host}).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{"Origin": "https://evil.example"}, {"Origin": "null"}, {"Host": "evil.example"}],
+)
+def test_ws_rejects_foreign_pages(client, headers):
+    from starlette.websockets import WebSocketDisconnect
+
+    with pytest.raises(WebSocketDisconnect) as e, client.websocket_connect("ws://localhost/ws", headers=headers) as ws:
+        ws.receive_json()
+    assert e.value.code == 1008
+
+
+@pytest.mark.parametrize("headers", [{}, {"Origin": "http://localhost:8765"}, {"Origin": "http://127.0.0.1:8765"}])
+def test_ws_accepts_own_pages_and_obs(client, headers):
+    with client.websocket_connect("ws://localhost/ws", headers=headers) as ws:
+        assert ws.receive_json()["type"] == "state"
+
+
+def test_order_hidden_without_email(client, monkeypatch):
+    monkeypatch.setattr(server, "ORDER_EMAIL", "")
+    opened = []
+    monkeypatch.setattr(server.webbrowser, "open", opened.append)
+    res = client.post("/api/order", json={"email": "me@example.com", "description": "Красный огонь"})
+    assert res.status_code == 404 and opened == []
+
+
+@pytest.fixture
+def order(monkeypatch):
+    monkeypatch.setattr(server, "ORDER_EMAIL", "author@example.com")
+    opened = []
+    monkeypatch.setattr(server.webbrowser, "open", lambda url: opened.append(url) or True)
+    return opened
+
+
+def test_order_opens_mail(client, order):
+    from urllib.parse import parse_qs, urlsplit
+
+    res = client.post("/api/order", json={"email": " me@example.com ", "description": "Хорёк & огонь?\nИ звук"})
+    assert res.status_code == 200
+    assert res.json() == {"opened": True, "email": "author@example.com", "subject": server.ORDER_SUBJECT}
+    parts = urlsplit(order[0])
+    assert parts.scheme == "mailto" and parts.path == "author@example.com"
+    query = parse_qs(parts.query)
+    assert query["subject"] == [server.ORDER_SUBJECT]
+    body = query["body"][0]
+    assert "Почта для связи: me@example.com" in body
+    assert "Хорёк & огонь?\nИ звук" in body
+    assert server.__version__ in body
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"email": "не почта", "description": "Красный огонь"},
+        {"email": "a@b", "description": "Красный огонь"},
+        {"email": "me@example.com", "description": "   "},
+        {"email": "me@example.com", "description": "x" * (server.ORDER_DESCRIPTION_MAX + 1)},
+        {"email": ("x" * 250) + "@example.com", "description": "Красный огонь"},
+    ],
+)
+def test_order_validates_fields(client, order, payload):
+    assert client.post("/api/order", json=payload).status_code == 400
+    assert order == []
+
+
+def test_order_needs_fields(client, order):
+    assert client.post("/api/order", json={"email": "me@example.com"}).status_code == 422

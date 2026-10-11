@@ -341,7 +341,7 @@ def test_resampler_keeps_speech_frequencies(source):
     # Сглаживание чуть сдвигает фазу и ослабляет тон, но форма сохраняется.
     shift = (round(source / 16000) - 1) / 2 / source * 16000
     expected = [math.sin(2 * math.pi * 440 * (i - shift) / 16000) for i in range(len(out))]
-    error = max(abs(a - b) for a, b in zip(out[100:], expected[100:]))
+    error = max(abs(a - b) for a, b in zip(out[100:], expected[100:], strict=True))
     assert error < 0.05
 
 

@@ -443,3 +443,32 @@ select {
 .download-text { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .small-btn { padding: 4px 10px; font-size: 12px; }
 .download-note { margin-top: 6px; }
+
+/* --- Заказ оформления --- */
+.link-btn {
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  text-decoration: underline;
+}
+.note a { color: var(--accent); }
+.dialog {
+  width: min(440px, calc(100vw - 32px));
+  padding: 20px;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+.dialog .section-title { margin-top: 0; }
+.field { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.field .text-input { flex: none; color: var(--text); }
+textarea.text-input { resize: vertical; min-height: 110px; font-size: 14px; line-height: 1.4; }
+.order-fallback { margin-top: 4px; }
+.order-fallback .copy-link { max-width: 100%; overflow-wrap: anywhere; }
+.dialog-actions { justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.primary-btn { color: #fff; background: var(--accent); border-color: var(--accent); }
+.primary-btn:hover:not(:disabled) { border-color: var(--accent); filter: brightness(1.1); }

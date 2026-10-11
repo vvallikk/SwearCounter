@@ -977,8 +977,9 @@
 
   // --- Версия и кнопка «Поддержать» (способы задаёт SUPPORT_LINKS в app/__init__.py) ---
 
-  function showVersion({ version, support }) {
+  function showVersion({ version, support, order_email: orderEmail }) {
     $("version").textContent = `v${version}`;
+    $("order-offer").hidden = !orderEmail;
     // Только https: в ссылку не должен попасть javascript: или другой протокол.
     const links = (Array.isArray(support) ? support : [])
       .filter((l) => l && typeof l.url === "string" && /^https:\/\//i.test(l.url));
@@ -1000,6 +1001,74 @@
     }));
     $("support").hidden = $("support-open").hidden = !links.length;
   }
+
+  // --- Заказ оформления у автора ---
+  // Письмо собирает сервер и открывает почтовую программу: во встроенном окне
+  // программы ссылка mailto: сама не открывается.
+
+  const orderDialog = $("order-dialog");
+  const orderForm = $("order-form");
+  const orderEmailEl = $("order-email");
+  const orderDescriptionEl = $("order-description");
+  const orderStatusEl = $("order-status");
+  const orderSendBtn = $("order-send");
+  const orderFallback = $("order-fallback");
+  const orderCopyBtn = $("order-copy");
+
+  function showOrderAddress(email) {
+    orderCopyBtn.replaceChildren(email, el("span", "copy-label", "Скопировать"));
+    orderCopyBtn.dataset.email = email;
+    orderFallback.hidden = false;
+  }
+
+  $("order-open").addEventListener("click", () => {
+    setStatus(orderStatusEl, "");
+    orderFallback.hidden = true;
+    orderSendBtn.textContent = "Отправить";
+    orderDialog.showModal();
+    (orderEmailEl.value ? orderDescriptionEl : orderEmailEl).focus();
+  });
+  $("order-cancel").addEventListener("click", () => orderDialog.close());
+
+  orderCopyBtn.addEventListener("click", async () => {
+    const ok = await copyText(orderCopyBtn.dataset.email || "");
+    orderCopyBtn.classList.toggle("copied", ok);
+    orderCopyBtn.lastChild.textContent = ok ? "Скопировано" : "Не скопировалось";
+  });
+
+  orderForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = orderEmailEl.value.trim();
+    const description = orderDescriptionEl.value.trim();
+    if (!orderEmailEl.checkValidity() || !email) {
+      setStatus(orderStatusEl, "Укажите почту, на которую автор сможет ответить", true);
+      orderEmailEl.focus();
+      return;
+    }
+    if (!description) {
+      setStatus(orderStatusEl, "Опишите, каким должно быть оформление", true);
+      orderDescriptionEl.focus();
+      return;
+    }
+    orderSendBtn.disabled = true;
+    setStatus(orderStatusEl, "Открываю почтовую программу…");
+    try {
+      const res = await api("POST", "/api/order", { email, description });
+      setStatus(
+        orderStatusEl,
+        res.opened
+          ? "Письмо открылось в почтовой программе: проверьте его и отправьте. Если ничего не открылось, напишите автору на почту:"
+          : `Почтовая программа не открылась. Напишите автору на почту, тема «${res.subject}»:`,
+        false, res.opened,
+      );
+      showOrderAddress(res.email);
+      orderSendBtn.textContent = "Открыть ещё раз";
+    } catch (e) {
+      setStatus(orderStatusEl, e.message, true);
+    } finally {
+      orderSendBtn.disabled = false;
+    }
+  });
 
   // Сердечко в углу и пункт трея «Поддержать автора»: раскрыть блок и прокрутить к нему.
   function openSupport() {
