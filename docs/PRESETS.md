@@ -109,7 +109,7 @@ img/coin.png
 ```
 
 Если берёте встроенную анимацию полем `animation`, задайте и переменные, которыми
-пользуются её стили: для `explosion` — `--accent`, для `ferret` — `--fur`, `--fur-dark`, `--nose`.
+пользуются её стили: для `explosion` — `--accent`.
 
 ### animation.js
 

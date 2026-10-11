@@ -438,8 +438,8 @@ def test_every_overlay_preset_is_accepted(client, preset):
     assert client.post("/api/overlay/preset", json={"preset": preset}).json()["preset"] == preset
 
 
-def test_ferret_preset_is_listed():
-    assert "ferret" in PRESET_IDS
+def test_personal_ferret_preset_is_not_builtin():
+    assert "ferret" not in PRESET_IDS
 
 
 @pytest.mark.parametrize("preset", ["", "Neon", "../etc", "a" * 33])
