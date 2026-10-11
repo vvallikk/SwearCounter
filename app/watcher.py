@@ -13,7 +13,7 @@ import time
 from collections.abc import Callable
 from ctypes import wintypes
 
-from . import autostart
+from . import autostart, i18n
 from .obs import ObsClient, ObsError, stream_started
 from .paths import ICON_FILE, SETTINGS_FILE
 from .settings import Settings
@@ -238,8 +238,9 @@ NIN_BALLOONUSERCLICK = 0x0405  # WM_USER + 5: нажали на само уве�
 class Tray:
     """Значок появляется только вместе с уведомлением; нажатие на любое из них запускает программу."""
 
-    def __init__(self, on_launch: Callable[[], None]):
+    def __init__(self, on_launch: Callable[[], None], language: Callable[[], str] = lambda: i18n.RU):
         self._on_launch = on_launch
+        self._language = language  # язык интерфейса (i18n.py): читается при каждом показе
         self._icon = None
 
     def _launch(self) -> None:
@@ -253,15 +254,16 @@ class Tray:
         from PIL import Image
         from pystray import _win32
 
-        from .desktop import TITLE
+        def label(text: str) -> Callable:
+            return lambda item: i18n.tr(text, self._language())
 
         icon = pystray.Icon(
             "SwearCounterWatch",
             Image.open(ICON_FILE),
-            TITLE,
+            i18n.title(self._language()),
             menu=pystray.Menu(
-                pystray.MenuItem("Запустить счётчик матов", self._launch, default=True),
-                pystray.MenuItem("Скрыть", lambda: setattr(icon, "visible", False)),
+                pystray.MenuItem(label("Запустить счётчик матов"), self._launch, default=True),
+                pystray.MenuItem(label("Скрыть"), lambda: setattr(icon, "visible", False)),
             ),
         )
         # pystray не сообщает о нажатии на само уведомление: подменяем обработчик
@@ -279,11 +281,12 @@ class Tray:
         return icon
 
     def notify(self, text: str) -> None:
-        from .desktop import TITLE
-
+        lang = self._language()
         icon = self._ensure_icon()
+        icon.title = i18n.title(lang)
+        icon.update_menu()
         icon.visible = True
-        icon.notify(text, TITLE)
+        icon.notify(i18n.tr(text, lang), i18n.title(lang))
 
     def stop(self) -> None:
         if self._icon is not None:
@@ -298,7 +301,7 @@ def run() -> None:
         if not first:
             return
         watcher: Watcher | None = None
-        tray = Tray(lambda: watcher.launch())
+        tray = Tray(lambda: watcher.launch(), lambda: i18n.language(Settings(SETTINGS_FILE)))
         watcher = Watcher(
             settings=lambda: Settings(SETTINGS_FILE),
             obs_running=obs_running,

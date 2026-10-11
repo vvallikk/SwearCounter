@@ -73,3 +73,12 @@ def test_server_thread_reports_failed_start():
     server = ServerThread(app, sock)
     assert not server.start(timeout=10)
     server.stop(timeout=10)
+
+
+def test_port_notice_in_english(settings):
+    from app import i18n
+
+    settings.set(i18n.SETTING, i18n.EN)
+    with _bound_socket() as sock:
+        prepared = Prepared(FastAPI(), sock, count=0, model_missing=False, settings=settings)
+        assert prepared.port_notice.startswith(f"Port {PORT} is busy")

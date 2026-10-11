@@ -13,7 +13,7 @@ import sounddevice as sd
 import uvicorn
 from fastapi import FastAPI
 
-from . import __version__
+from . import __version__, i18n
 from .autostart import AUTOSTART_ARG, WATCH_ARG
 from .counter import Counter
 from .extra_counters import ExtraCounters, ExtraTrackers
@@ -134,10 +134,12 @@ class Prepared:
         """Предупреждение, если основной порт занят и адрес оверлея в OBS устарел."""
         if self.port == PORT:
             return None
-        return (
-            f"Порт {PORT} занят, сервер запущен на {self.port}. Если в OBS прописан старый "
-            "адрес оверлея, обновите его или освободите порт."
+        text = (
+            "Порт {} занят, сервер запущен на {}. Если в OBS прописан старый адрес оверлея, "
+            "обновите его или освободите порт."
         )
+        lang = i18n.language(self.settings) if self.settings is not None else i18n.RU
+        return i18n.tr(text, lang).format(PORT, self.port)
 
 
 def prepare(args: argparse.Namespace) -> Prepared:
@@ -250,7 +252,9 @@ def main(argv: list[str] | None = None) -> None:
         if not first:
             # С Windows программа стартует молча; повторный запуск вручную — сообщение.
             if not args.autostart:
-                desktop.message_box("Счётчик матов уже запущен: его значок — в области уведомлений.")
+                lang = i18n.language(Settings(SETTINGS_FILE))
+                text = i18n.tr("Счётчик матов уже запущен: его значок — в области уведомлений.", lang)
+                desktop.message_box(text, title=i18n.title(lang))
             return
         prepared = prepare(args)
         log.info("Счётчик матов %s, порт %d", __version__, prepared.port)
@@ -264,6 +268,7 @@ def main(argv: list[str] | None = None) -> None:
             notice=prepared.port_notice,
             updater=prepared.updater,
             hidden=args.autostart,
+            language=lambda: i18n.language(prepared.settings),
         )
     # Mutex уже отпущен: процесс ожидания не выйдет сразу, решив, что программа ещё работает.
     # После установки обновления apply.cmd сам запустит новую версию, а ожидание держало бы файлы exe.

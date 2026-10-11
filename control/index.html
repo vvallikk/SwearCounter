@@ -10,11 +10,13 @@
       if (localStorage.getItem("theme") === "light") document.documentElement.dataset.theme = "light";
     } catch (e) {}
   </script>
+  <script src="i18n.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="card">
     <button id="theme" class="theme-btn" type="button"></button>
+    <button id="language" class="theme-btn language-btn" type="button"></button>
     <button id="support-open" class="theme-btn support-heart" type="button" title="Поддержать автора" hidden>❤</button>
     <div class="header">
       <h1>Счётчик матов <span id="version" class="version"></span>
