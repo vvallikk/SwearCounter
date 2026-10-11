@@ -9,6 +9,7 @@ from app.stt.catalog import (
     SHERPA_NEMO_CTC,
     SHERPA_T_ONE,
     SHERPA_TRANSDUCER,
+    SHERPA_WHISPER,
     VOSK,
     find_model,
     installed_models,
@@ -63,6 +64,7 @@ REQUIRED_FILES = {
     SHERPA_TRANSDUCER: {"encoder", "decoder", "joiner", "tokens"},
     SHERPA_T_ONE: {"model", "tokens"},
     SHERPA_NEMO_CTC: {"model", "tokens", "vad"},
+    SHERPA_WHISPER: {"encoder", "decoder", "tokens", "vad"},
 }
 
 

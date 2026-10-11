@@ -9,7 +9,7 @@ import types
 import pytest
 
 from app.stt import engines
-from app.stt.catalog import CATALOG, SHERPA_NEMO_CTC, SHERPA_T_ONE, SHERPA_TRANSDUCER, VOSK
+from app.stt.catalog import CATALOG, EN, RU, SHERPA_NEMO_CTC, SHERPA_T_ONE, SHERPA_TRANSDUCER, SHERPA_WHISPER, VOSK
 from app.stt.engines import Resampler, load_engine, to_floats
 
 
@@ -138,7 +138,8 @@ def fake_sherpa(monkeypatch):
     module = types.ModuleType("sherpa_onnx")
     module.OnlineRecognizer = FakeOnlineRecognizer
     module.OfflineRecognizer = types.SimpleNamespace(
-        from_nemo_ctc=lambda **kwargs: types.SimpleNamespace(kind="nemo_ctc", kwargs=kwargs)
+        from_nemo_ctc=lambda **kwargs: types.SimpleNamespace(kind="nemo_ctc", kwargs=kwargs),
+        from_whisper=lambda **kwargs: types.SimpleNamespace(kind="whisper", kwargs=kwargs),
     )
     vad_configs = []
 
@@ -210,6 +211,21 @@ def test_nemo_ctc_model_with_vad(fake_sherpa, models_dir):
     assert config.silero_vad.model == str(model.path / model.model_files["vad"])
     assert config.sample_rate == engines.VAD_SAMPLE_RATE
     assert config.silero_vad.max_speech_duration == engines.MAX_PHRASE_SECONDS
+    assert engine.partial_seconds == engines.PARTIAL_SECONDS
+
+
+@pytest.mark.parametrize("language", [RU, EN])
+def test_whisper_model_with_vad(fake_sherpa, models_dir, language):
+    model = next(m for m in CATALOG if m.engine == SHERPA_WHISPER and m.language == language)
+    engine = load_engine(str(model.path))
+    assert engine.rec.kind == "whisper"
+    for role in ("encoder", "decoder", "tokens"):
+        assert engine.rec.kwargs[role] == str(model.path / model.model_files[role])
+    assert engine.rec.kwargs["language"] == language
+    assert engine.partial_seconds == engines.WHISPER_PARTIAL_SECONDS
+    session = engine.session(48000)
+    assert session.partial_seconds == engines.WHISPER_PARTIAL_SECONDS
+    assert fake_sherpa.vad_configs[-1].silero_vad.model == str(model.path / model.model_files["vad"])
 
 
 # --- Vosk ---
@@ -272,20 +288,20 @@ def test_online_session_empty_phrase_end():
 # --- GigaAM: детектор речи и распознавание фраз ---
 
 
-def vad_session(samplerate=16000):
-    return engines._VadSession(FakeOfflineRecognizer(), FakeVad(), samplerate)
+def vad_session(samplerate=16000, partial_samples=None):
+    partial_seconds = (partial_samples or 1e9) / engines.VAD_SAMPLE_RATE
+    return engines._VadSession(FakeOfflineRecognizer(), FakeVad(), samplerate, partial_seconds)
 
 
 def test_vad_session_final_after_pause():
     session = vad_session()
-    assert session.accept(pcm(*[100] * 250)) == []  # речь короче PARTIAL_SECONDS
+    assert session.accept(pcm(*[100] * 250)) == []  # промежуточный текст ещё не нужен
     assert session.accept(pcm(*[0] * 10)) == [("слово слово", True)]
     assert session.accept(pcm(*[0] * 10)) == []
 
 
-def test_vad_session_partials_while_speaking(monkeypatch):
-    monkeypatch.setattr(engines, "PARTIAL_SECONDS", 200 / engines.VAD_SAMPLE_RATE)
-    session = vad_session()
+def test_vad_session_partials_while_speaking():
+    session = vad_session(partial_samples=200)
     assert session.accept(pcm(*[100] * 150)) == []
     assert session.accept(pcm(*[100] * 100)) == [("слово слово", False)]  # 250 отсчётов речи
     assert session.accept(pcm(*[100] * 100)) == []  # ещё не прошло 200 отсчётов
@@ -295,9 +311,8 @@ def test_vad_session_partials_while_speaking(monkeypatch):
     assert session.accept(pcm(*[100] * 150)) == []
 
 
-def test_vad_session_does_not_repeat_same_partial(monkeypatch):
-    monkeypatch.setattr(engines, "PARTIAL_SECONDS", 10 / engines.VAD_SAMPLE_RATE)
-    session = vad_session()
+def test_vad_session_does_not_repeat_same_partial():
+    session = vad_session(partial_samples=10)
     assert session.accept(pcm(*[100] * 120)) == [("слово", False)]
     assert session.accept(pcm(*[100] * 20)) == []  # «слово» снова: не повторяем
 

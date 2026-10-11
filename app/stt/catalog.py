@@ -16,6 +16,7 @@ VOSK = "vosk"
 SHERPA_TRANSDUCER = "sherpa-transducer"  # потоковая Zipformer: encoder, decoder, joiner
 SHERPA_T_ONE = "sherpa-t-one"  # потоковая CTC-модель T-one
 SHERPA_NEMO_CTC = "sherpa-nemo-ctc"  # распознаёт фразу целиком; фразы выделяет VAD
+SHERPA_WHISPER = "sherpa-whisper"  # Whisper: тоже фразами через VAD, язык речи из language
 
 RU = "ru"
 EN = "en"
@@ -25,6 +26,13 @@ SHERPA_RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-m
 VOSK_STREAMING_RU = (
     "https://huggingface.co/alphacep/vosk-model-streaming-ru/resolve/83bbf6f40059480e96251be8aed3d32bc7c80c33"
 )
+WHISPER_SMALL = (
+    "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small/resolve/8f3c18b358db4d1f2fc1eae49d75cd20989e4309"
+)
+WHISPER_SMALL_EN = (
+    "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-small.en/resolve/d9533f69affd85061aee349af7fea5cb2996dbbe"
+)
+SILERO_VAD = f"{SHERPA_RELEASES}/silero_vad.onnx"
 
 
 @dataclass(frozen=True)
@@ -164,8 +172,37 @@ CATALOG = [
         load_time="~1 с",
         url=f"{SHERPA_RELEASES}/sherpa-onnx-nemo-ctc-giga-am-v3-russian-2025-12-16.tar.bz2",
         # Детектор речи (Silero VAD) выделяет фразы, которые потом распознаёт модель.
-        files=(f"{SHERPA_RELEASES}/silero_vad.onnx",),
+        files=(SILERO_VAD,),
         model_files={"model": "model.int8.onnx", "tokens": "tokens.txt", "vad": "silero_vad.onnx"},
+    ),
+    ModelInfo(
+        id="sherpa-onnx-whisper-small",
+        engine=SHERPA_WHISPER,
+        title="Устойчивая к шуму",
+        name="Whisper small, OpenAI",
+        summary="понимает речь сквозь шум и музыку",
+        description=(
+            "Модель Whisper от OpenAI, обученная на сотнях тысяч часов речи со всего интернета. "
+            "Хорошо понимает речь сквозь шум, музыку и акценты. Распознаёт фразами, как самая точная, "
+            "но процессор нагружает заметно сильнее: на слабом компьютере может мешать игре."
+        ),
+        disk="365 МБ",
+        download_size="360 МБ",
+        memory="~0,9 ГБ",
+        load_time="~1 с",
+        url="",
+        files=(
+            f"{WHISPER_SMALL}/small-encoder.int8.onnx",
+            f"{WHISPER_SMALL}/small-decoder.int8.onnx",
+            f"{WHISPER_SMALL}/small-tokens.txt",
+            SILERO_VAD,
+        ),
+        model_files={
+            "encoder": "small-encoder.int8.onnx",
+            "decoder": "small-decoder.int8.onnx",
+            "tokens": "small-tokens.txt",
+            "vad": "silero_vad.onnx",
+        },
     ),
     ModelInfo(
         id="vosk-model-ru-0.42",
@@ -241,6 +278,37 @@ CATALOG = [
         memory="~0,5 ГБ",
         load_time="~1 с",
         url="https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip",
+    ),
+    ModelInfo(
+        id="sherpa-onnx-whisper-small.en",
+        engine=SHERPA_WHISPER,
+        language=EN,
+        title="Устойчивая к шуму",
+        name="Whisper small.en, OpenAI",
+        summary="понимает речь сквозь шум и музыку",
+        description=(
+            "Английская модель Whisper от OpenAI, обученная на сотнях тысяч часов речи. "
+            "Обычно точнее остальных английских моделей и лучше понимает речь сквозь шум, музыку "
+            "и акценты. Распознаёт фразами и заметно сильнее нагружает процессор: "
+            "на слабом компьютере может мешать игре."
+        ),
+        disk="365 МБ",
+        download_size="360 МБ",
+        memory="~0,9 ГБ",
+        load_time="~1 с",
+        url="",
+        files=(
+            f"{WHISPER_SMALL_EN}/small.en-encoder.int8.onnx",
+            f"{WHISPER_SMALL_EN}/small.en-decoder.int8.onnx",
+            f"{WHISPER_SMALL_EN}/small.en-tokens.txt",
+            SILERO_VAD,
+        ),
+        model_files={
+            "encoder": "small.en-encoder.int8.onnx",
+            "decoder": "small.en-decoder.int8.onnx",
+            "tokens": "small.en-tokens.txt",
+            "vad": "silero_vad.onnx",
+        },
     ),
 ]
 
