@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Resp
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, hotkeys, mail, obs, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, goals, hotkeys, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -48,6 +48,9 @@ class Hub:
         # Не сохраняется: после перезапуска программа снова слушает.
         self.paused = False
         self.timer = NoSwearTimer()
+        # Особые числа и цель (app/goals.py): на них оверлей празднует.
+        self.milestones: list[int] = []
+        self.goal = 0
 
     async def connect(self, ws: WebSocket, greeting: list[dict] = ()) -> None:
         """Подключает клиента и отправляет ему счёт и сообщения greeting."""
@@ -55,6 +58,7 @@ class Hub:
             await ws.send_json({"type": "state", "count": self.counter.value})
             await ws.send_json(self.pause_message())
             await ws.send_json(self.timer.message())
+            await ws.send_json(self.goals_message())
             for message in greeting:
                 await ws.send_json(message)
             self.clients.add(ws)
@@ -67,8 +71,13 @@ class Hub:
         async with self._lock:
             if self.locked() or (speech and self.paused):
                 return self.counter.value
+            before = self.counter.value
             count = await self.counter.add(delta)
-            await self._broadcast({"type": "increment", "count": count, "delta": delta})
+            message = {"type": "increment", "count": count, "delta": delta}
+            milestone = goals.reached(self.milestones, self.goal, before, count)
+            if milestone is not None:
+                message["milestone"] = milestone
+            await self._broadcast(message)
             self.timer.hit()
             await self._broadcast(self.timer.message())
             return count
@@ -83,6 +92,9 @@ class Hub:
 
     def pause_message(self) -> dict:
         return {"type": "pause", "paused": self.paused}
+
+    def goals_message(self) -> dict:
+        return {"type": "goals", "milestones": self.milestones, "goal": self.goal}
 
     async def set_paused(self, paused: bool) -> bool:
         async with self._lock:
@@ -110,6 +122,11 @@ class Hub:
         for ws, result in zip(clients, results, strict=True):
             if isinstance(result, Exception):
                 self.clients.discard(ws)
+
+
+class GoalsChoice(BaseModel):
+    milestones: list[int]
+    goal: int = 0
 
 
 class ModelChoice(BaseModel):
@@ -314,6 +331,13 @@ def create_app(
     updater.on_change = on_update_change
     hub.locked = lambda: updater.locked
 
+    # Испорченные настройки (правили руками) — особые числа по умолчанию и без цели.
+    try:
+        hub.milestones = goals.clean_milestones(settings.get("milestones", goals.DEFAULT_MILESTONES))
+        hub.goal = goals.clean_goal(settings.get("goal", 0))
+    except (goals.GoalsError, TypeError):
+        hub.milestones, hub.goal = list(goals.DEFAULT_MILESTONES), 0
+
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
 
@@ -403,6 +427,25 @@ def create_app(
         state = hub.timer.message()
         del state["type"]
         return state
+
+    @app.get("/api/goals")
+    async def get_goals():
+        message = hub.goals_message()
+        del message["type"]
+        return message
+
+    @app.post("/api/goals")
+    async def post_goals(choice: GoalsChoice):
+        try:
+            milestones = goals.clean_milestones(choice.milestones)
+            goal = goals.clean_goal(choice.goal)
+        except goals.GoalsError as e:
+            raise HTTPException(400, str(e)) from None
+        settings.set("milestones", milestones)
+        settings.set("goal", goal)
+        hub.milestones, hub.goal = milestones, goal
+        await hub.broadcast(hub.goals_message())
+        return await get_goals()
 
     @app.get("/api/hotkeys")
     async def get_hotkeys():

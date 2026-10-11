@@ -196,8 +196,10 @@
 
   const overlayUrl = `${location.origin}/overlay/`;
   const timerOverlayUrl = `${overlayUrl}?show=timer`;
+  const goalOverlayUrl = `${overlayUrl}?show=goal`;
   $("overlay-url-text").textContent = overlayUrl;
   $("timer-url-text").textContent = timerOverlayUrl;
+  $("goal-url-text").textContent = goalOverlayUrl;
 
   async function copyText(text) {
     try {
@@ -231,6 +233,52 @@
   }
   bindCopyLink($("overlay-url"), overlayUrl);
   bindCopyLink($("timer-url"), timerOverlayUrl);
+  bindCopyLink($("goal-url"), goalOverlayUrl);
+
+  // --- Цели: особые числа и отсчёт «осталось N» ---
+
+  const milestonesEl = $("milestones");
+  const goalEl = $("goal");
+  const goalsStatusEl = $("goals-status");
+  let goalsState = { milestones: [], goal: 0 };
+  let currentCount = 0;
+
+  function renderGoalLeft() {
+    $("goal-line").hidden = !goalsState.goal;
+    $("goal-links").hidden = !goalsState.goal;
+    $("goal-left").textContent = Math.max(goalsState.goal - currentCount, 0);
+  }
+
+  function showGoals(state) {
+    goalsState = state;
+    $("goals-section").hidden = false;
+    if (document.activeElement !== milestonesEl) milestonesEl.value = state.milestones.join(", ");
+    if (document.activeElement !== goalEl) goalEl.value = state.goal || "";
+    renderGoalLeft();
+  }
+
+  async function saveGoals() {
+    const parts = milestonesEl.value.split(/[\s,;]+/).filter(Boolean);
+    if (parts.some((part) => !/^\d+$/.test(part))) {
+      setStatus(goalsStatusEl, "Особые числа — целые числа через запятую", true);
+      return;
+    }
+    if (goalEl.value !== "" && !/^\d+$/.test(goalEl.value)) {
+      setStatus(goalsStatusEl, "Цель — целое число; пустое поле — без цели", true);
+      return;
+    }
+    try {
+      const state = await api("POST", "/api/goals", { milestones: parts.map(Number), goal: Number(goalEl.value) });
+      showGoals(state);
+      milestonesEl.value = state.milestones.join(", ");
+      goalEl.value = state.goal || "";
+      setStatus(goalsStatusEl, "Сохранено", false, true);
+    } catch (e) {
+      setStatus(goalsStatusEl, e.message, true);
+    }
+  }
+  milestonesEl.addEventListener("change", saveGoals);
+  goalEl.addEventListener("change", saveGoals);
 
   // --- Таймер «без мата»: сервер присылает состояние, секунды отсчитываем здесь ---
 
@@ -1453,11 +1501,16 @@
       else if (msg.type === "presets") loadCustomPresets();
       else if (msg.type === "pause") showPause(msg.paused);
       else if (msg.type === "timer") showTimer(msg);
+      else if (msg.type === "goals") showGoals(msg);
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);
       }
-      else if (msg.count !== undefined) countEl.textContent = msg.count;
+      else if (msg.count !== undefined) {
+        countEl.textContent = msg.count;
+        currentCount = msg.count;
+        renderGoalLeft();
+      }
     };
     ws.onclose = () => {
       setOnline(false);

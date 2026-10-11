@@ -122,6 +122,14 @@ window.createDingPlayer = function createDingPlayer() {
     bell(ctx, out, 2637.0, t + 0.18, 0.5); // E7
   }
 
+  // Фанфары на особом числе: восходящее арпеджио и аккорд в конце
+  function synthFanfare(ctx, out) {
+    const t = ctx.currentTime + 0.01;
+    const notes = [523.25, 659.25, 783.99]; // C5 E5 G5
+    notes.forEach((freq, i) => bell(ctx, out, freq, t + i * 0.12, 0.9));
+    for (const freq of [1046.5, 1318.5, 1568.0]) bell(ctx, out, freq, t + 0.4, 0.6); // C6 E6 G6
+  }
+
   // Стандартные звуки: файл в overlay/sounds/ (необязательно) и синтезированная замена,
   // которая играет, если файла нет или он не загрузился.
   const STANDARD = {
@@ -151,6 +159,15 @@ window.createDingPlayer = function createDingPlayer() {
     play((activeId && buffer) || standardsReady.get(standardName) || null);
   }
 
+  function playFanfare() {
+    const ctx = context();
+    if (!ctx || volume === 0) return;
+    const out = ctx.createGain();
+    out.gain.value = 0.3 * volume;
+    out.connect(ctx.destination);
+    synthFanfare(ctx, out);
+  }
+
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
   async function preview(id) {
     context(); // запускаем звук сразу по клику, пока файл догружается
@@ -172,5 +189,5 @@ window.createDingPlayer = function createDingPlayer() {
   // В обычном браузере звук разрешается только после клика по странице (в OBS это не нужно)
   document.addEventListener("pointerdown", () => context());
 
-  return { apply, play: playActive, preview, setStandard, canDecode, setVolume: (v) => (volume = v / 100) };
+  return { apply, play: playActive, playFanfare, preview, setStandard, canDecode, setVolume: (v) => (volume = v / 100) };
 };

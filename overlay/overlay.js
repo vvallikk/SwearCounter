@@ -25,8 +25,11 @@
   const preview = params.get("preview") === "1";
   // ?preset=<id> закрепляет пресет; без него пресет приходит по WebSocket.
   const fixedPreset = params.get("preset") || null;
-  // ?show=timer — вместо счёта таймер «без мата»; подпись тогда своя: ?label=Без мата:
+  // ?show=timer — вместо счёта таймер «без мата», ?show=goal — сколько осталось до цели.
+  // Подпись у них своя: ?label=Без мата:
   const showTimer = params.get("show") === "timer";
+  const showGoal = params.get("show") === "goal";
+  const ownLabel = showTimer || showGoal;
   const timerLabel = params.get("label") || "";
 
   const root = document.documentElement;
@@ -92,7 +95,7 @@
   function floatPlus(delta, keyframes, options) {
     const plus = document.createElement("span");
     plus.className = "plus";
-    plus.textContent = "+" + delta;
+    plus.textContent = delta < 0 ? "−" + -delta : "+" + delta; // в отсчёте до цели число убывает
     numberEl.appendChild(plus);
     const anim = plus.animate(
       keyframes || [
@@ -298,6 +301,40 @@
     };
   }
 
+  // Особое число (10, 50, 100… или цель): поверх обычной анимации — покачивание и звёзды
+  const SPARKS = 12;
+  function celebrate() {
+    valueEl.animate(
+      [
+        { transform: "scale(1) rotate(0)" },
+        { transform: "scale(1.25) rotate(-8deg)", offset: 0.25 },
+        { transform: "scale(1.25) rotate(8deg)", offset: 0.5 },
+        { transform: "scale(1.12) rotate(-4deg)", offset: 0.75 },
+        { transform: "scale(1) rotate(0)" },
+      ],
+      { duration: 1200, delay: 500, easing: "ease-in-out" }
+    );
+    for (let i = 0; i < SPARKS; i++) {
+      const spark = document.createElement("span");
+      spark.className = "spark";
+      spark.textContent = "★";
+      numberEl.appendChild(spark);
+      const angle = (2 * Math.PI * i) / SPARKS;
+      // Разлёт в пределах числа: источник в OBS обычно подогнан под него, дальше звёзды обрежутся
+      const x = Math.cos(angle) * numberEl.offsetWidth * 0.6;
+      const y = Math.sin(angle) * numberEl.offsetHeight * 0.6;
+      const anim = spark.animate(
+        [
+          { transform: "translate(-50%, -50%) scale(0.3)", opacity: 0 },
+          { transform: "translate(-50%, -50%) scale(1)", opacity: 1, offset: 0.15 },
+          { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(0.6)`, opacity: 0 },
+        ],
+        { duration: 1400, delay: 300, easing: "ease-out", fill: "backwards" }
+      );
+      anim.onfinish = () => spark.remove();
+    }
+  }
+
   function playIncrementAnimation(delta) {
     const preset = findPreset(currentPreset);
     const own = (window.OVERLAY_ANIMATIONS || {})[preset.id];
@@ -324,8 +361,8 @@
   // Сообщение "style": пресет (если он не закреплён в адресе) и подпись
   function handleStyle(msg) {
     if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
-    // Подпись со страницы управления относится к счёту, у таймера она из адреса.
-    if (showTimer) applyLabel(timerLabel, msg.label_position);
+    // Подпись со страницы управления относится к счёту, у таймера и цели она из адреса.
+    if (ownLabel) applyLabel(timerLabel, msg.label_position);
     else if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
   }
 
@@ -343,6 +380,13 @@
   function renderTimer() {
     const now = timerState.elapsed + (timerState.running ? (performance.now() - timerState.at) / 1000 : 0);
     setCount(formatDuration(now));
+  }
+
+  // --- Отсчёт до цели (?show=goal): «—», пока цель не задана ---
+  let goalState = { count: 0, goal: 0 };
+
+  function renderGoal() {
+    setCount(goalState.goal ? Math.max(goalState.goal - goalState.count, 0) : "—");
   }
 
   applyPreset(fixedPreset || "classic");
@@ -394,7 +438,8 @@
     renderTimer();
     setInterval(renderTimer, 1000);
   }
-  if (!muted && !showTimer) {
+  if (showGoal) renderGoal();
+  if (!muted && !ownLabel) {
     player = window.createDingPlayer();
     player.setStandard(findPreset(currentPreset).sound);
   }
@@ -422,12 +467,32 @@
         }
         return;
       }
+      if (showGoal) {
+        if (msg.type === "state" || msg.type === "increment") {
+          const left = goalState.goal - goalState.count;
+          goalState.count = msg.count;
+          renderGoal();
+          if (msg.type === "increment" && goalState.goal && left > 0) {
+            playIncrementAnimation(-Math.min(msg.delta || 1, left));
+            if (msg.milestone === goalState.goal) celebrate();
+          }
+        } else if (msg.type === "goals") {
+          goalState.goal = msg.goal;
+          renderGoal();
+        } else if (msg.type === "style") {
+          handleStyle(msg);
+        } else if (msg.type === "presets") {
+          location.reload();
+        }
+        return;
+      }
       if (msg.type === "state") {
         setCount(msg.count);
       } else if (msg.type === "increment") {
         setCount(msg.count);
         playIncrementAnimation(msg.delta || 1);
-        if (player) player.play();
+        if (msg.milestone) celebrate();
+        if (player) (msg.milestone ? player.playFanfare : player.play)();
       } else if (msg.type === "sound") {
         if (player) player.apply(msg);
       } else if (msg.type === "style") {

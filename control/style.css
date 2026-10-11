@@ -529,6 +529,7 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 .obs-ws { margin-top: 10px; }
 
 /* Горячие клавиши: кнопка показывает сочетание, по нажатию ждёт новое. */
+.goal-input { justify-self: start; width: 140px; flex: none; }
 .hotkey { justify-self: start; min-width: 180px; text-align: left; font-variant-numeric: tabular-nums; }
 .hotkey.empty { color: var(--muted); }
 .hotkey.recording { border-color: var(--accent); border-style: dashed; }

@@ -32,6 +32,7 @@
       <div id="count" class="count">—</div>
       <div class="timer-line" title="Сколько удалось продержаться без нужных слов. Рекорд — с запуска программы или сброса счёта; на паузе таймер стоит.">
         Без мата: <b id="timer-now">0:00</b> · рекорд <b id="timer-record">0:00</b></div>
+      <div id="goal-line" class="timer-line" hidden>До цели: <b id="goal-left"></b></div>
       <div class="buttons">
         <button id="inc" type="button">+1 (тест)</button>
         <button id="pause" type="button" aria-pressed="false">⏸ Пауза</button>
@@ -51,6 +52,14 @@
           <button id="timer-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
             <span id="timer-url-text"></span><span class="copy-label">Копировать</span>
           </button>
+        </div>
+        <div id="goal-links" hidden>
+          Отсчёт до цели — отдельный источник:
+          <div class="overlay-links">
+            <button id="goal-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
+              <span id="goal-url-text"></span><span class="copy-label">Копировать</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -164,6 +173,19 @@
         </div>
         <div id="download-note" class="note download-note" hidden></div>
         <div id="model-list" class="model-list"></div>
+      </section>
+
+      <section id="goals-section" class="section" hidden>
+        <h2 class="section-title">Цели</h2>
+        <div class="autostart-grid">
+          <label for="milestones">Особые числа</label>
+          <input id="milestones" class="text-input" type="text" autocomplete="off" placeholder="Например: 10, 50, 100">
+          <label for="goal">Цель</label>
+          <input id="goal" class="text-input goal-input" type="number" min="0" placeholder="Без цели">
+        </div>
+        <p class="note">На особых числах и на цели оверлей празднует: звёзды и фанфары. До цели идёт
+          отсчёт «осталось N» — на вкладке «Счётчик» и отдельным источником для OBS.</p>
+        <div id="goals-status" class="status-line"></div>
       </section>
 
       <section id="hotkeys-section" class="section" hidden>
