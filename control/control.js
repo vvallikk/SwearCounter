@@ -65,6 +65,62 @@
     });
   }
 
+  // --- Вкладки: открывается последняя (или та, что в адресе: #settings) ---
+
+  const tabButtons = [...document.querySelectorAll(".tab")];
+  const TABS = tabButtons.map((b) => b.dataset.tab);
+
+  function selectTab(name, focus) {
+    if (!TABS.includes(name)) return;
+    for (const button of tabButtons) {
+      const selected = button.dataset.tab === name;
+      button.setAttribute("aria-selected", String(selected));
+      button.tabIndex = selected ? 0 : -1;
+      $(`tab-${button.dataset.tab}`).hidden = !selected;
+      if (selected && focus) button.focus();
+    }
+    try {
+      localStorage.setItem("tab", name);
+    } catch (e) {
+      // без хранилища просто не запомним
+    }
+    if (location.hash && location.hash !== `#${name}`) history.replaceState(null, "", location.pathname + location.search);
+    document.dispatchEvent(new CustomEvent("tabchange", { detail: name }));
+  }
+
+  function savedTab() {
+    try {
+      return localStorage.getItem("tab");
+    } catch (e) {
+      return null;
+    }
+  }
+
+  for (const button of tabButtons) {
+    button.addEventListener("click", () => selectTab(button.dataset.tab));
+    button.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      const index = (TABS.indexOf(button.dataset.tab) + step + TABS.length) % TABS.length;
+      selectTab(TABS[index], true);
+    });
+  }
+  const hashTab = location.hash.slice(1);
+  selectTab(TABS.includes(hashTab) ? hashTab : TABS.includes(savedTab()) ? savedTab() : "counter");
+  window.addEventListener("hashchange", () => selectTab(location.hash.slice(1)));
+
+  // Показывает раздел на вкладке настроек и прокручивает к нему.
+  function showInSettings(node) {
+    selectTab("settings");
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  $("update-badge").addEventListener("click", (event) => {
+    event.preventDefault();
+    showInSettings($("update-section"));
+  });
+
   // --- Тема: при первом входе тёмная, потом — последний выбор ---
 
   const themeBtn = $("theme");
@@ -452,7 +508,9 @@
     if (wantedPreset !== null) showPreset(wantedPreset);
     // В превью наборы подключаются при загрузке страницы оверлея: после изменений перезагружаем его,
     // выбранное оформление превью получит заново по событию load (sendPreviewStyle).
-    if (changed && presetPreviewEl.contentWindow && presetPreviewEl.src) presetPreviewEl.contentWindow.location.reload();
+    // Именно src заново, а не contentWindow.location.reload(): пока iframe грузится,
+    // в нём ещё about:blank, и reload перезагрузил бы пустую страницу вместо превью.
+    if (changed && presetPreviewEl.getAttribute("src")) presetPreviewEl.src = presetPreviewEl.getAttribute("src");
   }
 
   // Превью загружается один раз, а стиль в нём меняется сообщением. Если бы iframe
@@ -460,10 +518,17 @@
   function sendPreviewStyle() {
     const win = presetPreviewEl.contentWindow;
     if (!win || !shownPreset) return;
-    const message = { type: "style", preset: shownPreset, label: labelTextEl.value.trim(), label_position: labelPositionEl.value };
+    const message = {
+      type: "style",
+      preset: shownPreset,
+      label: labelTextEl.value.trim(),
+      label_position: labelPositionEl.value,
+      visible: !$("tab-look").hidden, // на скрытой вкладке превью не анимируется
+    };
     win.postMessage(message, location.origin);
   }
   presetPreviewEl.addEventListener("load", sendPreviewStyle);
+  document.addEventListener("tabchange", sendPreviewStyle);
 
   function showPreset(id) {
     wantedPreset = id;
@@ -667,7 +732,7 @@
   const expandedModels = new Set();
   const downloadBars = new Map(); // id модели → {bar, text} в её карточке
   const STATUS_TEXT = {
-    no_model: "Модель ещё не скачана. Нажмите на модель ниже — она скачается и включится",
+    no_model: "Модель ещё не скачана. Скачайте любую модель ниже — она включится сама",
     listening: "Модель работает",
     mic_error: "Модель загружена, но микрофон не открылся",
     error: "Ошибка распознавания, подробности в консоли приложения. Нажмите на модель, чтобы перезапустить",
@@ -695,6 +760,7 @@
     const selected = m.id === current && m.installed;
     if (selected) card.classList.add("current");
     if (active) card.classList.add("downloading");
+    if (!m.installed && !active) card.classList.add("missing");
 
     const pick = el("button", "model-pick");
     pick.type = "button";
@@ -704,8 +770,8 @@
     else if (active) title.append(el("span", "badge", "скачивается"));
     else if (!m.installed) title.append(el("span", "badge", `не скачана · ${m.download_size}`));
     pick.append(title, el("span", "summary", m.summary));
-    // Нескачанная модель по клику скачивается; упавшую можно перезапустить кликом по ней же.
-    if (!active && (!m.installed || !selected || failed)) pick.addEventListener("click", () => chooseModel(m));
+    // Включается кликом только скачанная модель; упавшую можно перезапустить кликом по ней же.
+    if (!active && m.installed && (!selected || failed)) pick.addEventListener("click", () => chooseModel(m));
     else pick.setAttribute("aria-disabled", "true");
 
     const details = el("div", "model-details");
@@ -717,7 +783,7 @@
       el("p", "specs", `Загрузка в память при запуске: ${m.load_time}`)
     );
     if (!m.installed) {
-      const hint = el("p", "specs", `Нажмите на модель, чтобы скачать её (${m.download_size}).`);
+      const hint = el("p", "specs", `Скачивается кнопкой «Скачать» (${m.download_size}).`);
       // Вручную предлагаем ставить только модели из одного архива: модель из нескольких
       // файлов проще и надёжнее скачать кнопкой.
       if (m.url && !m.files.length) {
@@ -741,7 +807,10 @@
     });
 
     const head = el("div", "model-head");
-    head.append(pick, expand);
+    head.append(pick);
+    const action = modelAction(m, selected, active);
+    if (action) head.append(action);
+    head.append(expand);
     card.append(head);
 
     if (active) {
@@ -759,10 +828,45 @@
       card.append(box);
       downloadBars.set(m.id, { bar, text });
     } else if (download && download.status === "error") {
-      card.append(el("div", "model-download status-line error", `${download.error}. Нажмите на модель, чтобы попробовать ещё раз`));
+      card.append(el("div", "model-download status-line error", `${download.error}. Нажмите «Скачать», чтобы попробовать ещё раз`));
     }
     card.append(details);
     return card;
+  }
+
+  // Кнопка в карточке: «Скачать» у нескачанной модели, корзина — у скачанной.
+  function modelAction(m, selected, active) {
+    if (active) return null;
+    const box = el("div", "model-action");
+    let button;
+    if (!m.installed) {
+      button = el("button", "secondary-btn small-btn", "⬇ Скачать");
+      button.title = `Скачать модель (${m.download_size})`;
+      button.addEventListener("click", () => modelCall("POST", `/api/speech/download/${encodeURIComponent(m.id)}`, button));
+    } else {
+      button = el("button", "icon-btn", "🗑");
+      if (selected) {
+        button.disabled = true;
+        button.title = "Выбранную модель удалить нельзя: сначала выберите другую";
+      } else {
+        button.title = "Удалить модель с диска";
+        confirmByTwoClicks(button, "Удалить?", () =>
+          modelCall("DELETE", `/api/speech/model/${encodeURIComponent(m.id)}`, button));
+      }
+    }
+    button.type = "button";
+    box.append(button);
+    return box;
+  }
+
+  async function modelCall(method, url, button) {
+    button.disabled = true;
+    try {
+      showSpeech(await api(method, url));
+    } catch (e) {
+      setStatus(speechStatusEl, e.message, true);
+      button.disabled = false;
+    }
   }
 
   function showModels(state, loading) {
@@ -791,7 +895,7 @@
     if (downloading) {
       downloadNoteEl.textContent =
         `Модель «${downloading.title}» ещё не была скачана — скачиваю её (${downloading.download_size}). ` +
-        (downloading.id === state.wanted ? "Когда скачается, она включится сама. " : "") +
+        (downloading.id === state.wanted || state.status === "no_model" ? "Когда скачается, она включится сама. " : "") +
         "Страницу можно закрыть: скачивание идёт в приложении.";
     }
     progressEl.hidden = !loading;
@@ -809,15 +913,11 @@
   }
 
   async function chooseModel(m) {
-    if (!m.installed) {
-      setStatus(speechStatusEl, `Модель «${m.title}» не скачана — начинаю скачивание (${m.download_size})…`);
-    } else {
-      // Новая загрузка: полоса сразу с нуля, без анимации назад.
-      progressBarEl.style.transition = "none";
-      progressBarEl.style.width = "0";
-      void progressBarEl.offsetWidth;
-      progressBarEl.style.transition = "";
-    }
+    // Новая загрузка: полоса сразу с нуля, без анимации назад.
+    progressBarEl.style.transition = "none";
+    progressBarEl.style.width = "0";
+    void progressBarEl.offsetWidth;
+    progressBarEl.style.transition = "";
     try {
       showSpeech(await api("POST", "/api/speech/model", { model: m.id }));
     } catch (e) {
@@ -825,14 +925,8 @@
     }
   }
 
-  async function cancelDownload(id, button) {
-    button.disabled = true;
-    try {
-      showSpeech(await api("DELETE", `/api/speech/download/${encodeURIComponent(id)}`));
-    } catch (e) {
-      setStatus(speechStatusEl, e.message, true);
-      button.disabled = false;
-    }
+  function cancelDownload(id, button) {
+    return modelCall("DELETE", `/api/speech/download/${encodeURIComponent(id)}`, button);
   }
 
   // --- Обновления программы ---
@@ -892,8 +986,12 @@
     document.body.classList.toggle("update-locked", locked);
     $("update-lock-note").hidden = !locked;
     if (state.html_url && /^https:\/\//i.test(state.html_url)) $("update-manual").href = state.html_url;
-    for (const el of document.querySelector("main").children) {
-      if (el.id !== "update-section") el.inert = locked;
+    // Раздел обновлений лежит на вкладке настроек: открываем её и закрываем всё вокруг раздела.
+    const section = $("update-section");
+    if (locked) selectTab("settings");
+    const panel = $("tab-settings");
+    for (const node of [...document.querySelector("main").children, ...panel.children]) {
+      if (node !== section && node !== panel) node.inert = locked;
     }
   }
 
@@ -1168,7 +1266,7 @@
     const details = $("support");
     if (details.hidden) return;
     details.open = true;
-    details.scrollIntoView({ behavior: "smooth", block: "center" });
+    showInSettings(details);
   }
   window.openSupport = openSupport;
   $("support-open").addEventListener("click", openSupport);

@@ -249,6 +249,55 @@ def test_switch_model_requires_model_field(client):
     assert client.post("/api/speech/model", json={}).status_code == 422
 
 
+def test_download_button_only_downloads(downloader, client, recognizer, models_dir):
+    response = client.post(f"/api/speech/download/{LARGE}")
+
+    assert response.status_code == 200
+    assert downloader[0].started == [LARGE]
+    assert response.json()["wanted"] is None
+    finish_download(client, downloader, models_dir, LARGE)
+    assert recognizer.calls == [("start",)]  # включают кликом по модели
+
+
+def test_first_downloaded_model_is_switched_on_without_choice(downloader, client, recognizer, models_dir):
+    recognizer.status = "no_model"
+    client.post(f"/api/speech/download/{LARGE}")
+    finish_download(client, downloader, models_dir, LARGE)
+    assert recognizer.calls[-1] == ("set_model", models_dir / LARGE)
+
+
+def test_download_unknown_or_installed_model(downloader, client):
+    assert client.post("/api/speech/download/нет-такой").status_code == 404
+    assert client.post(f"/api/speech/download/{SMALL}").status_code == 200
+    assert downloader[0].started == []
+
+
+def test_delete_model(client, recognizer, models_dir):
+    (models_dir / LARGE / "am").mkdir(parents=True)
+    (models_dir / LARGE / "am" / "final.mdl").write_bytes(b"model")
+
+    response = client.delete(f"/api/speech/model/{LARGE}")
+
+    assert response.status_code == 200
+    assert not (models_dir / LARGE).exists()
+    assert list(models_dir.iterdir()) == [models_dir / SMALL]  # временной папки не осталось
+    large = next(m for m in response.json()["models"] if m["id"] == LARGE)
+    assert large["installed"] is False
+
+
+def test_delete_current_model_refused(client, recognizer, models_dir):
+    response = client.delete(f"/api/speech/model/{SMALL}")
+    assert response.status_code == 409
+    assert (models_dir / SMALL).is_dir()
+
+
+def test_delete_model_errors(downloader, client, models_dir):
+    assert client.delete("/api/speech/model/нет-такой").status_code == 404
+    assert client.delete(f"/api/speech/model/{LARGE}").status_code == 404  # не скачана
+    client.post(f"/api/speech/download/{LARGE}")
+    assert client.delete(f"/api/speech/model/{LARGE}").status_code == 409  # скачивается
+
+
 # --- микрофоны ---
 
 

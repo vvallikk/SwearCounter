@@ -21,203 +21,216 @@
         <a id="update-badge" class="update-badge" href="#update-section" hidden></a></h1>
       <div class="status"><span id="dot" class="dot"></span><span id="status">Нет связи с сервером</span></div>
     </div>
-    <div id="count" class="count">—</div>
-    <div class="buttons">
-      <button id="inc" type="button">+1 (тест)</button>
-      <button id="reset" type="button">Сбросить</button>
-    </div>
-    <div class="hint">
-      Оверлей для OBS (источник «Браузер») или любого браузера:
-      <div class="overlay-links">
-        <button id="overlay-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
-          <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
-        </button>
-        <button id="overlay-open" class="secondary-btn" type="button" title="Открыть оверлей в браузере по умолчанию">Открыть в браузере</button>
-      </div>
-    </div>
 
-    <section id="mic-section" class="section" hidden>
-      <label class="section-title" for="mic">Микрофон</label>
-      <div class="row">
-        <div class="select-wrap"><select id="mic"></select></div>
-        <button id="mic-refresh" class="square-btn" type="button" title="Обновить список микрофонов">⟳</button>
-      </div>
-      <div class="meter" title="Громкость микрофона" aria-hidden="true"><div id="meter-mask" class="meter-mask"></div></div>
-      <div class="row monitor-row">
-        <button id="mic-monitor" class="secondary-btn" type="button" aria-pressed="false">🎧 Слушать себя</button>
-        <p class="note">Звук микрофона пойдёт в наушники. Без наушников будет эхо.</p>
-      </div>
-      <div id="mic-status" class="status-line"></div>
-    </section>
+    <nav class="tabs" role="tablist" aria-label="Разделы">
+      <button id="tab-btn-counter" class="tab" type="button" role="tab" data-tab="counter" aria-controls="tab-counter">Счётчик</button>
+      <button id="tab-btn-look" class="tab" type="button" role="tab" data-tab="look" aria-controls="tab-look">Оформление</button>
+      <button id="tab-btn-settings" class="tab" type="button" role="tab" data-tab="settings" aria-controls="tab-settings">Настройки</button>
+    </nav>
 
-    <section id="words-section" class="section" hidden>
-      <label class="section-title" for="word-list">Что считать</label>
-      <div class="row">
-        <div class="select-wrap"><select id="word-list"></select></div>
-        <button id="words-refresh" class="square-btn" type="button" title="Обновить списки">⟳</button>
+    <div id="tab-counter" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-counter">
+      <div id="count" class="count">—</div>
+      <div class="buttons">
+        <button id="inc" type="button">+1 (тест)</button>
+        <button id="reset" type="button">Сбросить</button>
       </div>
-      <div class="row words-actions">
-        <button id="words-edit" class="secondary-btn" type="button">✎ Изменить список</button>
-        <button id="words-folder" class="secondary-btn" type="button">📁 Папка со списками</button>
-      </div>
-      <p class="note">Свой список — любой .txt-файл в этой папке: по одному корню на строку,
-        слово засчитывается, если начинается с корня. Правки подхватываются сами, без перезапуска.</p>
-      <div id="words-status" class="status-line"></div>
-    </section>
-
-    <section id="label-section" class="section" hidden>
-      <label class="section-title" for="label-text">Подпись к счётчику</label>
-      <div class="row">
-        <input id="label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
-               placeholder="Например: Маты за стрим: или Слова-паразиты:">
-        <div class="select-wrap label-position">
-          <select id="label-position" aria-label="Где подпись">
-            <option value="left">Слева</option>
-            <option value="right">Справа</option>
-            <option value="top">Сверху</option>
-            <option value="bottom">Снизу</option>
-          </select>
+      <div class="hint">
+        Оверлей для OBS (источник «Браузер») или любого браузера:
+        <div class="overlay-links">
+          <button id="overlay-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
+            <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
+          </button>
+          <button id="overlay-open" class="secondary-btn" type="button" title="Открыть оверлей в браузере по умолчанию">Открыть в браузере</button>
         </div>
       </div>
-      <p class="note">Подпись и число — один источник в OBS: двигаются и масштабируются вместе.
-        Пустое поле — только число. Как это выглядит — в превью оформления ниже.</p>
-      <div id="label-status" class="status-line"></div>
-    </section>
 
-    <section id="sound-section" class="section" hidden>
-      <label class="section-title" for="volume">Звук оповещения</label>
-      <div class="row volume-row">
-        <input id="volume" type="range" min="0" max="100" step="1" aria-describedby="volume-value">
-        <span id="volume-value" class="volume-value"></span>
-        <button id="sound-test" class="secondary-btn" type="button">▶ Проверить</button>
-      </div>
-      <div id="sound-list" class="sound-list" role="radiogroup" aria-label="Звук оповещения"></div>
-      <div class="row sound-actions">
-        <button id="sound-upload" class="secondary-btn" type="button">Загрузить звук…</button>
-        <input id="sound-input" type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" hidden>
-      </div>
-      <div id="sound-status" class="status-line"></div>
-    </section>
-
-    <section id="preset-section" class="section" hidden>
-      <label class="section-title" for="preset">Оформление счётчика</label>
-      <div class="preset-picker">
-        <iframe id="preset-preview" class="preset-preview" title="Превью оформления" tabindex="-1"></iframe>
-        <div class="preset-side">
-          <div class="select-wrap"><select id="preset"></select></div>
-          <p id="preset-desc" class="note"></p>
-          <p id="preset-owner" class="note preset-owner" hidden></p>
+      <section id="mic-section" class="section" hidden>
+        <label class="section-title" for="mic">Микрофон</label>
+        <div class="row">
+          <div class="select-wrap"><select id="mic"></select></div>
+          <button id="mic-refresh" class="square-btn" type="button" title="Обновить список микрофонов">⟳</button>
         </div>
-      </div>
-      <div class="row preset-actions">
-        <button id="preset-install" class="secondary-btn" type="button">Установить оформление…</button>
-        <button id="preset-link-toggle" class="secondary-btn" type="button">Установить по ссылке…</button>
-        <button id="preset-export" class="secondary-btn" type="button" hidden>📦 Сохранить архивом</button>
-        <button id="preset-remove" class="secondary-btn" type="button" hidden>🗑 Удалить оформление</button>
-        <input id="preset-input" type="file" accept=".zip,application/zip" hidden>
-      </div>
-      <form id="preset-link-form" class="row preset-link" hidden>
-        <input id="preset-link" class="text-input" type="url" required
-          placeholder="Вставьте ссылку на архив">
-        <button id="preset-link-install" class="secondary-btn" type="submit">Установить</button>
-      </form>
-      <p class="note">Личное оформление: свой шрифт, картинки, анимация и звук. Его можно сделать
-        самому <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/PRESETS.md" target="_blank"
-        rel="noopener noreferrer">по инструкции</a><span id="order-offer" hidden> или
-        <button id="order-open" class="link-btn" type="button">заказать у автора</button></span>.
-        Готовое оформление ставится из zip-архива или по ссылке на Яндекс Диск, Google Диск или Dropbox.
-        Устанавливайте только оформления из надёжных источников: анимация в них работает как
-        небольшая программа внутри оверлея.</p>
-      <div id="preset-status" class="status-line"></div>
-    </section>
+        <div class="meter" title="Громкость микрофона" aria-hidden="true"><div id="meter-mask" class="meter-mask"></div></div>
+        <div class="row monitor-row">
+          <button id="mic-monitor" class="secondary-btn" type="button" aria-pressed="false">🎧 Слушать себя</button>
+          <p class="note">Звук микрофона пойдёт в наушники. Без наушников будет эхо.</p>
+        </div>
+        <div id="mic-status" class="status-line"></div>
+      </section>
+    </div>
 
-    <section id="model-section" class="section" hidden>
-      <h2 class="section-title">Модель распознавания</h2>
-      <div id="progress" class="progress" hidden><div id="progress-bar" class="progress-bar"></div></div>
-      <div id="speech-status" class="status-line"></div>
-      <div id="speech-note" class="note" hidden>
-        Модель уже скачана, сейчас она читается с диска в оперативную память.
-        Пока загрузка не закончится, слова не считаются. Можно выбрать другую модель —
-        эта загрузка прервётся.
-      </div>
-      <div id="download-note" class="note download-note" hidden></div>
-      <div id="model-list" class="model-list"></div>
-    </section>
+    <div id="tab-look" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-look" hidden>
+      <section id="label-section" class="section" hidden>
+        <label class="section-title" for="label-text">Подпись к счётчику</label>
+        <div class="row">
+          <input id="label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
+                 placeholder="Например: Маты за стрим: или Слова-паразиты:">
+          <div class="select-wrap label-position">
+            <select id="label-position" aria-label="Где подпись">
+              <option value="left">Слева</option>
+              <option value="right">Справа</option>
+              <option value="top">Сверху</option>
+              <option value="bottom">Снизу</option>
+            </select>
+          </div>
+        </div>
+        <p class="note">Подпись и число — один источник в OBS: двигаются и масштабируются вместе.
+          Пустое поле — только число. Как это выглядит — в превью оформления ниже.</p>
+        <div id="label-status" class="status-line"></div>
+      </section>
 
-    <section id="autostart-section" class="section" hidden>
-      <h2 class="section-title">Автозапуск</h2>
-      <label class="check-row"><input id="autostart-windows" type="checkbox">
-        Запускать вместе с Windows <span class="note">(свёрнутой в трей)</span></label>
-      <div class="autostart-grid">
-        <label for="autostart-obs">Когда запускается OBS</label>
-        <div class="select-wrap"><select id="autostart-obs">
-          <option value="off">Ничего не делать</option>
-          <option value="notify">Напомнить уведомлением</option>
-          <option value="launch">Запустить счётчик</option>
-        </select></div>
-        <label for="autostart-stream">Когда начинается трансляция</label>
-        <div class="select-wrap"><select id="autostart-stream">
-          <option value="off">Ничего не делать</option>
-          <option value="notify">Напомнить уведомлением</option>
-          <option value="launch">Запустить счётчик</option>
-        </select></div>
-      </div>
-      <div id="obs-ws" class="obs-ws" hidden>
-        <p class="note">Начало трансляции программа узнаёт от OBS по WebSocket. В OBS откройте
-          «Инструменты → Настройки сервера WebSocket», включите сервер и перенесите сюда порт и пароль.</p>
-        <form id="obs-ws-form" class="row obs-ws-row">
-          <input id="obs-port" class="text-input obs-port" type="number" min="1" max="65535" required
-            aria-label="Порт сервера WebSocket" title="Порт сервера WebSocket">
-          <input id="obs-password" class="text-input" type="password" autocomplete="off"
-            aria-label="Пароль сервера WebSocket" placeholder="Пароль (если задан в OBS)">
-          <button id="obs-save" class="secondary-btn" type="submit">Сохранить</button>
-          <button id="obs-check" class="secondary-btn" type="button">Проверить</button>
+      <section id="sound-section" class="section" hidden>
+        <label class="section-title" for="volume">Звук оповещения</label>
+        <div class="row volume-row">
+          <input id="volume" type="range" min="0" max="100" step="1" aria-describedby="volume-value">
+          <span id="volume-value" class="volume-value"></span>
+          <button id="sound-test" class="secondary-btn" type="button">▶ Проверить</button>
+        </div>
+        <div id="sound-list" class="sound-list" role="radiogroup" aria-label="Звук оповещения"></div>
+        <div class="row sound-actions">
+          <button id="sound-upload" class="secondary-btn" type="button">Загрузить звук…</button>
+          <input id="sound-input" type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" hidden>
+        </div>
+        <div id="sound-status" class="status-line"></div>
+      </section>
+
+      <section id="preset-section" class="section" hidden>
+        <label class="section-title" for="preset">Оформление счётчика</label>
+        <div class="preset-picker">
+          <iframe id="preset-preview" class="preset-preview" title="Превью оформления" tabindex="-1"></iframe>
+          <div class="preset-side">
+            <div class="select-wrap"><select id="preset"></select></div>
+            <p id="preset-desc" class="note"></p>
+            <p id="preset-owner" class="note preset-owner" hidden></p>
+          </div>
+        </div>
+        <div class="row preset-actions">
+          <button id="preset-install" class="secondary-btn" type="button">Установить оформление…</button>
+          <button id="preset-link-toggle" class="secondary-btn" type="button">Установить по ссылке…</button>
+          <button id="preset-export" class="secondary-btn" type="button" hidden>📦 Сохранить архивом</button>
+          <button id="preset-remove" class="secondary-btn" type="button" hidden>🗑 Удалить оформление</button>
+          <input id="preset-input" type="file" accept=".zip,application/zip" hidden>
+        </div>
+        <form id="preset-link-form" class="row preset-link" hidden>
+          <input id="preset-link" class="text-input" type="url" required
+            placeholder="Вставьте ссылку на архив">
+          <button id="preset-link-install" class="secondary-btn" type="submit">Установить</button>
         </form>
-      </div>
-      <p class="note">Реакция на OBS работает, когда счётчик закрыт: вместо него в фоне ждёт
-        маленький процесс без окна и без микрофона. Он выходит, как только счётчик запущен,
-        а после выхода из счётчика снова ждёт OBS.</p>
-      <div id="autostart-status" class="status-line"></div>
-    </section>
+        <p class="note">Личное оформление: свой шрифт, картинки, анимация и звук. Его можно сделать
+          самому <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/PRESETS.md" target="_blank"
+          rel="noopener noreferrer">по инструкции</a><span id="order-offer" hidden> или
+          <button id="order-open" class="link-btn" type="button">заказать у автора</button></span>.
+          Готовое оформление ставится из zip-архива или по ссылке на Яндекс Диск, Google Диск или Dropbox.
+          Устанавливайте только оформления из надёжных источников: анимация в них работает как
+          небольшая программа внутри оверлея.</p>
+        <div id="preset-status" class="status-line"></div>
+      </section>
+    </div>
 
-    <section id="update-section" class="section" hidden>
-      <h2 class="section-title">Обновления</h2>
-      <div id="update-lock-note" class="update-lock-note" hidden>
-        <strong>Нужно обязательное обновление.</strong>
-        Пока оно не установлено, программа не считает слова и не меняет настройки.
-        Если скачать не получается, возьмите новую версию
-        <a id="update-manual" href="#" target="_blank" rel="noopener noreferrer">на странице релиза</a>.
-      </div>
-      <div class="row update-row">
-        <button id="update-action" class="secondary-btn" type="button"></button>
-        <button id="update-cancel" class="secondary-btn" type="button" hidden>Отменить</button>
-      </div>
-      <div id="update-progress" class="progress" hidden><div id="update-progress-bar" class="progress-bar"></div></div>
-      <div id="update-status" class="status-line"></div>
-      <details id="update-notes" class="update-notes" hidden>
-        <summary>Что нового</summary>
-        <div id="update-notes-text"></div>
-      </details>
-      <label class="note update-auto"><input id="update-auto" type="checkbox"> Проверять обновления при запуске</label>
-    </section>
+    <div id="tab-settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-settings" hidden>
+      <section id="words-section" class="section" hidden>
+        <label class="section-title" for="word-list">Что считать</label>
+        <div class="row">
+          <div class="select-wrap"><select id="word-list"></select></div>
+          <button id="words-refresh" class="square-btn" type="button" title="Обновить списки">⟳</button>
+        </div>
+        <div class="row words-actions">
+          <button id="words-edit" class="secondary-btn" type="button">✎ Изменить список</button>
+          <button id="words-folder" class="secondary-btn" type="button">📁 Папка со списками</button>
+        </div>
+        <p class="note">Свой список — любой .txt-файл в этой папке: по одному корню на строку,
+          слово засчитывается, если начинается с корня. Правки подхватываются сами, без перезапуска.</p>
+        <div id="words-status" class="status-line"></div>
+      </section>
 
-    <section class="section">
-      <h2 class="section-title">О программе</h2>
-      <p class="note">Изначально задумывалась как счётчик матов для стримов в OBS, но используйте её
-        как угодно: OBS не обязателен, а считать можно любые слова — слова-паразиты, имя друга,
-        что угодно. Список выбирается в разделе «Что считать», там же можно создать свой.</p>
-      <p class="note">Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть»,
-        без каких-либо гарантий.</p>
-      <details id="support" class="support" hidden>
-        <summary class="support-row">
-          <span class="support-btn">❤ Поддержать</span>
-          <span class="note">Программа бесплатная. Если она пригодилась — можно поддержать автора
-            или заказать у него личное оформление счётчика.</span>
-        </summary>
-        <p class="note support-hint">Нажмите на ссылку или наведите камеру телефона на QR-код.</p>
-        <div id="support-links" class="support-links"></div>
-      </details>
-    </section>
+      <section id="model-section" class="section" hidden>
+        <h2 class="section-title">Модель распознавания</h2>
+        <div id="progress" class="progress" hidden><div id="progress-bar" class="progress-bar"></div></div>
+        <div id="speech-status" class="status-line"></div>
+        <div id="speech-note" class="note" hidden>
+          Модель уже скачана, сейчас она читается с диска в оперативную память.
+          Пока загрузка не закончится, слова не считаются. Можно выбрать другую модель —
+          эта загрузка прервётся.
+        </div>
+        <div id="download-note" class="note download-note" hidden></div>
+        <div id="model-list" class="model-list"></div>
+      </section>
+
+      <section id="autostart-section" class="section" hidden>
+        <h2 class="section-title">Автозапуск</h2>
+        <label class="check-row"><input id="autostart-windows" type="checkbox">
+          Запускать вместе с Windows <span class="note">(свёрнутой в трей)</span></label>
+        <div class="autostart-grid">
+          <label for="autostart-obs">Когда запускается OBS</label>
+          <div class="select-wrap"><select id="autostart-obs">
+            <option value="off">Ничего не делать</option>
+            <option value="notify">Напомнить уведомлением</option>
+            <option value="launch">Запустить счётчик</option>
+          </select></div>
+          <label for="autostart-stream">Когда начинается трансляция</label>
+          <div class="select-wrap"><select id="autostart-stream">
+            <option value="off">Ничего не делать</option>
+            <option value="notify">Напомнить уведомлением</option>
+            <option value="launch">Запустить счётчик</option>
+          </select></div>
+        </div>
+        <div id="obs-ws" class="obs-ws" hidden>
+          <p class="note">Начало трансляции программа узнаёт от OBS по WebSocket. В OBS откройте
+            «Инструменты → Настройки сервера WebSocket», включите сервер и перенесите сюда порт и пароль.</p>
+          <form id="obs-ws-form" class="row obs-ws-row">
+            <input id="obs-port" class="text-input obs-port" type="number" min="1" max="65535" required
+              aria-label="Порт сервера WebSocket" title="Порт сервера WebSocket">
+            <input id="obs-password" class="text-input" type="password" autocomplete="off"
+              aria-label="Пароль сервера WebSocket" placeholder="Пароль (если задан в OBS)">
+            <button id="obs-save" class="secondary-btn" type="submit">Сохранить</button>
+            <button id="obs-check" class="secondary-btn" type="button">Проверить</button>
+          </form>
+        </div>
+        <p class="note">Реакция на OBS работает, когда счётчик закрыт: вместо него в фоне ждёт
+          маленький процесс без окна и без микрофона. Он выходит, как только счётчик запущен,
+          а после выхода из счётчика снова ждёт OBS.</p>
+        <div id="autostart-status" class="status-line"></div>
+      </section>
+
+      <section id="update-section" class="section" hidden>
+        <h2 class="section-title">Обновления</h2>
+        <div id="update-lock-note" class="update-lock-note" hidden>
+          <strong>Нужно обязательное обновление.</strong>
+          Пока оно не установлено, программа не считает слова и не меняет настройки.
+          Если скачать не получается, возьмите новую версию
+          <a id="update-manual" href="#" target="_blank" rel="noopener noreferrer">на странице релиза</a>.
+        </div>
+        <div class="row update-row">
+          <button id="update-action" class="secondary-btn" type="button"></button>
+          <button id="update-cancel" class="secondary-btn" type="button" hidden>Отменить</button>
+        </div>
+        <div id="update-progress" class="progress" hidden><div id="update-progress-bar" class="progress-bar"></div></div>
+        <div id="update-status" class="status-line"></div>
+        <details id="update-notes" class="update-notes" hidden>
+          <summary>Что нового</summary>
+          <div id="update-notes-text"></div>
+        </details>
+        <label class="note update-auto"><input id="update-auto" type="checkbox"> Проверять обновления при запуске</label>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">О программе</h2>
+        <p class="note">Изначально задумывалась как счётчик матов для стримов в OBS, но используйте её
+          как угодно: OBS не обязателен, а считать можно любые слова — слова-паразиты, имя друга,
+          что угодно. Список выбирается в разделе «Что считать», там же можно создать свой.</p>
+        <p class="note">Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть»,
+          без каких-либо гарантий.</p>
+        <details id="support" class="support" hidden>
+          <summary class="support-row">
+            <span class="support-btn">❤ Поддержать</span>
+            <span class="note">Программа бесплатная. Если она пригодилась — можно поддержать автора
+              или заказать у него личное оформление счётчика.</span>
+          </summary>
+          <p class="note support-hint">Нажмите на ссылку или наведите камеру телефона на QR-код.</p>
+          <div id="support-links" class="support-links"></div>
+        </details>
+      </section>
+    </div>
   </main>
 
   <dialog id="order-dialog" class="dialog" aria-labelledby="order-title">

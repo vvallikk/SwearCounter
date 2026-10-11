@@ -25,7 +25,7 @@ from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
-from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model
+from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model, remove_model
 from .updater import Updater
 from .wordlists import WordLists
 
@@ -261,7 +261,8 @@ def create_app(
                 settings.set("model", model.id)
 
     async def on_downloaded(model: ModelInfo) -> None:
-        if wanted["model"] == model.id:
+        # Без единой модели (первый запуск) включаем первую скачанную, даже если её не выбирали.
+        if wanted["model"] == model.id or recognizer.status == "no_model":
             await switch_model(model)
 
     downloader = ModelDownloader(on_downloaded)
@@ -467,12 +468,44 @@ def create_app(
             downloader.start(model)  # включится в on_downloaded
         return await get_speech()
 
+    def catalog_model(model_id: str) -> ModelInfo:
+        model = find_model(model_id)
+        if model is None:
+            raise HTTPException(404, f"Неизвестная модель {model_id}")
+        return model
+
+    @app.post("/api/speech/download/{model_id}")
+    async def post_speech_download(model_id: str):
+        """Только скачивает модель: включают её отдельно, кликом по ней."""
+        model = catalog_model(model_id)
+        if not model.installed:
+            downloader.start(model)
+        return await get_speech()
+
     @app.delete("/api/speech/download/{model_id}")
     async def delete_speech_download(model_id: str):
         if not downloader.cancel(model_id):
             raise HTTPException(404, "Эта модель не скачивается")
         if wanted["model"] == model_id:
             wanted["model"] = None
+        return await get_speech()
+
+    @app.delete("/api/speech/model/{model_id}")
+    async def delete_speech_model(model_id: str):
+        """Удаляет скачанную модель с диска; выбранную удалить нельзя."""
+        model = catalog_model(model_id)
+        async with switch_lock:  # чтобы модель не включили, пока она удаляется
+            if model.path == recognizer.model_path:
+                raise HTTPException(409, "Выбранную модель удалить нельзя: сначала выберите другую")
+            if downloader.state(model.id):
+                raise HTTPException(409, "Модель скачивается: сначала отмените скачивание")
+            if not model.installed:
+                raise HTTPException(404, "Модель не скачана")
+            try:
+                await asyncio.to_thread(remove_model, model)
+            except OSError as e:
+                raise HTTPException(500, f"Не удалось удалить модель: {e}") from None
+            log.info("Модель %s удалена", model.id)
         return await get_speech()
 
     devices_lock = threading.Lock()  # PortAudio нельзя перезапускать из двух потоков сразу

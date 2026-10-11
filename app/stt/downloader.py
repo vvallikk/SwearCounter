@@ -149,6 +149,18 @@ def _install(download: _Download) -> None:
         shutil.rmtree(unpack_dir, ignore_errors=True)
 
 
+def remove_model(model: ModelInfo) -> None:
+    """Удаляет скачанную модель с диска.
+
+    Сначала папка переименовывается: если удаление прервётся на середине,
+    недоудалённая модель не будет считаться установленной.
+    """
+    trash = model.path.parent / f".{model.id}.deleting"
+    shutil.rmtree(trash, ignore_errors=True)  # остаток прошлого неудачного удаления
+    model.path.rename(trash)
+    shutil.rmtree(trash)
+
+
 def _fetch(download: _Download, url: str, path: Path) -> None:
     # Размер одного файла берём из ответа; размер нескольких уже известен (см. _install).
     fetch_to_file(url, path, download, set_total=len(_urls(download.model)) == 1)

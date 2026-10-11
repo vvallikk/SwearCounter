@@ -142,6 +142,31 @@ body.update-locked .update-auto { display: none; }
 .overlay-links .copy-link { margin-top: 0; }
 .copy-link.copied { color: var(--ok); border-color: var(--ok); border-style: solid; }
 
+/* --- Вкладки: счётчик, оформление, настройки --- */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.tab {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 7px;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-selected="true"] { color: #fff; background: var(--accent); }
+.tab-panel > .section:first-child { border-top: 0; }
+
 /* --- Разделы настроек --- */
 .section {
   margin-top: 20px;
@@ -371,7 +396,7 @@ select {
   border-radius: 10px;
 }
 .model-card.current { border-color: var(--accent); }
-.model-card:not(.current):not(.downloading):hover { border-color: var(--muted); }
+.model-card:not(.current):not(.downloading):not(.missing):hover { border-color: var(--muted); }
 .model-head { display: flex; align-items: stretch; }
 .model-pick {
   flex: 1;
@@ -395,6 +420,11 @@ select {
 .model-pick .summary { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 /* Значок переносится целиком, а не посередине «не скачана · 24 МБ». */
 .model-pick .badge { margin-left: 0; white-space: nowrap; }
+/* «Скачать» или корзина — между названием и стрелкой «Подробнее». */
+.model-action { flex: none; display: flex; align-items: center; padding: 0 8px; }
+.model-action .icon-btn:not(.confirm) { font-size: 17px; }
+.model-action .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.model-action .icon-btn:disabled:hover { border-color: transparent; color: var(--muted); }
 .model-expand {
   flex: none;
   width: 44px;
