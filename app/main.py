@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from . import __version__
 from .counter import Counter
 from .paths import COUNTER_FILE, LOG_FILE, SETTINGS_FILE, SOUNDS_DIR, words_file
-from .profanity import count_profanity, load_words
+from .profanity import SwearTracker, load_words
 from .server import Hub, create_app
 from .settings import Settings
 from .sound import Sound
@@ -118,14 +118,11 @@ def prepare(args: argparse.Namespace) -> Prepared:
     hub = Hub(Counter(COUNTER_FILE))
     settings = Settings(SETTINGS_FILE)
 
-    async def on_text(text: str, is_final: bool) -> None:
-        if not is_final:
-            return
-        found = count_profanity(text)
-        log.info("Распознано: %r, найдено: %d", text, found)
-        if found > 0:
-            count = await hub.increment(found)
-            log.info("Счётчик: %d", count)
+    async def add_swears(found: int) -> None:
+        count = await hub.increment(found)
+        log.info("Счётчик: %d", count)
+
+    on_text = SwearTracker(add_swears).feed
 
     # Микрофон: ключ --device, иначе выбранный на странице управления, иначе системный.
     if args.device:

@@ -1,12 +1,16 @@
 """Поиск матов в распознанном тексте по списку корней из words.txt."""
 
+import asyncio
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 _WORD_RE = re.compile(r"\w+")
+# Сколько мат должен продержаться в промежуточном тексте, чтобы засчитаться до конца фразы.
+DEBOUNCE_SECONDS = 1.5
 
 # Корни, загруженные load_words(); используются count_profanity по умолчанию.
 _roots: tuple[str, ...] = ()
@@ -39,3 +43,58 @@ def count_profanity(text: str, roots: tuple[str, ...] | None = None) -> int:
         return 0
     words = _WORD_RE.findall(normalize(text))
     return sum(1 for word in words if word.startswith(roots))
+
+
+class SwearTracker:
+    """Считает маты по ходу фразы, не дожидаясь её конца.
+
+    Vosk выдаёт окончательный текст фразы только после паузы и при этом часто
+    переписывает её: при быстрой речи маты, которые были в промежуточном тексте,
+    из окончательного пропадают. Поэтому мат, продержавшийся в промежуточном
+    тексте DEBOUNCE_SECONDS, засчитывается сразу (дребезг распознавания —
+    мелькнувшие на долю секунды слова — отсеивается), а окончательный текст
+    добавляет только то, что ещё не засчитано в этой фразе.
+    """
+
+    def __init__(
+        self,
+        add: Callable[[int], Awaitable[object]],
+        count: Callable[[str], int] = count_profanity,
+        delay: float = DEBOUNCE_SECONDS,
+    ):
+        self.add = add
+        self.count = count
+        self.delay = delay
+        self.counted = 0  # уже засчитано в текущей фразе
+        self.partial = ""
+        self._timer: asyncio.Task | None = None
+
+    async def feed(self, text: str, is_final: bool) -> None:
+        if not is_final:
+            self.partial = text
+            if self._timer is None and self.count(text) > self.counted:
+                self._timer = asyncio.create_task(self._settle())
+            return
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+        found = self.count(text)
+        new = found - self.counted
+        log.info("Распознано: %r, найдено: %d, уже засчитано по ходу фразы: %d", text, found, self.counted)
+        self.counted, self.partial = 0, ""
+        if new > 0:
+            await self.add(new)
+
+    async def _settle(self) -> None:
+        await asyncio.sleep(self.delay)
+        self._timer = None  # дальше не отменяем: засчитанное уже не вернуть
+        new = self.count(self.partial) - self.counted
+        if new > 0:
+            self.counted += new
+            log.info("Засчитано по ходу фразы: %d (%r)", new, self.partial)
+            await self.add(new)
+
+    def stop(self) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None

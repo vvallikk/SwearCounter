@@ -269,7 +269,7 @@ app/updater.py        проверка, скачивание и установк
 app/settings.py       настройки (settings.json)
 app/sound.py          громкость и библиотека звуков оповещения (sounds/)
 app/counter.py        счётчик и сохранение в counter.json
-app/profanity.py      поиск корней из words.txt
+app/profanity.py      поиск корней из words.txt, счёт по ходу фразы (SwearTracker)
 app/paths.py          пути к файлам (из исходников и из exe)
 app/stt/              распознавание: VoskRecognizer, процесс vosk_worker, каталог моделей,
                       скачивание моделей (downloader), список микрофонов (audio_devices)
