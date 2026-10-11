@@ -412,8 +412,10 @@ LGPL и т. п.).
 ```
 app/main.py           точка входа, ключи запуска, логирование
 app/desktop.py        окно (pywebview), трей (pystray), сервер в потоке, один экземпляр
-app/server.py         FastAPI: /ws, /api/state, /api/increment, /api/reset, /api/speech,
-                      /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
+app/obs.py            клиент obs-websocket v5: проверка подключения, события выходов, запросы
+app/obs_link.py       постоянная связь с OBS в своём потоке: автосброс, смена сцены
+app/server.py         FastAPI: /ws, /ws/events, /api/state, /api/count, /api/increment, /api/reset,
+                      /api/speech, /api/obs, /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
                       /api/presets/custom, статика
 app/custom_presets.py личные оформления: установка zip-наборов в presets/, упаковка и экспорт
 app/preset_links.py   установка оформления по ссылке: Яндекс Диск, Google Диск, Dropbox

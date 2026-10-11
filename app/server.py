@@ -15,13 +15,14 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, goals, hotkeys, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
+from .obs_link import ObsLink
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .stats import Stats
@@ -34,12 +35,18 @@ from .wordlists import WordLists
 log = logging.getLogger(__name__)
 
 
+# Что получают клиенты /ws/events (Streamer.bot и т. п.): только изменения счёта и паузы,
+# без уровня микрофона и таймера, которые идут несколько раз в секунду.
+EVENT_TYPES = ("state", "increment", "pause")
+
+
 class Hub:
     """Счётчик плюс список подключённых WebSocket-клиентов."""
 
     def __init__(self, counter: Counter):
         self.counter = counter
         self.clients: set[WebSocket] = set()
+        self.event_clients: set[WebSocket] = set()  # подключены к /ws/events
         # Общий замок: изменение счёта и рассылка идут строго по очереди,
         # чтобы клиенты получали события в правильном порядке.
         self._lock = asyncio.Lock()
@@ -54,11 +61,19 @@ class Hub:
         self.goal = 0
         # Статистика по сессиям (app/stats.py); в тестах — только в памяти.
         self.stats = Stats()
+        # Вызываются после прибавки с (было, стало): например, смена сцены в OBS по порогу.
+        self.count_listeners: list[Callable[[int, int], None]] = []
 
-    async def connect(self, ws: WebSocket, greeting: list[dict] = ()) -> None:
-        """Подключает клиента и отправляет ему счёт и сообщения greeting."""
+    async def connect(self, ws: WebSocket, greeting: list[dict] = (), events_only: bool = False) -> None:
+        """Подключает клиента и отправляет ему счёт и сообщения greeting.
+
+        events_only: клиенту дальше идут только сообщения EVENT_TYPES, приветствие — только счёт.
+        """
         async with self._lock:
             await ws.send_json({"type": "state", "count": self.counter.value})
+            if events_only:
+                self.event_clients.add(ws)
+                return
             await ws.send_json(self.pause_message())
             await ws.send_json(self.timer.message())
             await ws.send_json(self.goals_message())
@@ -68,6 +83,7 @@ class Hub:
 
     def disconnect(self, ws: WebSocket) -> None:
         self.clients.discard(ws)
+        self.event_clients.discard(ws)
 
     async def increment(self, delta: int = 1, speech: bool = False, words: list[str] = ()) -> int:
         """speech: слова из распознавания; на паузе они не считаются. words — их корни для статистики."""
@@ -84,6 +100,8 @@ class Hub:
             await self._broadcast(message)
             self.timer.hit()
             await self._broadcast(self.timer.message())
+            for listener in self.count_listeners:
+                listener(before, count)
             return count
 
     async def reset(self) -> int:
@@ -120,13 +138,15 @@ class Hub:
 
     async def _broadcast(self, message: dict) -> None:
         clients = list(self.clients)
+        if message.get("type") in EVENT_TYPES:
+            clients += self.event_clients
         results = await asyncio.gather(
             *(ws.send_json(message) for ws in clients), return_exceptions=True
         )
         # Клиенты, которым не удалось отправить, считаются отключёнными.
         for ws, result in zip(clients, results, strict=True):
             if isinstance(result, Exception):
-                self.clients.discard(ws)
+                self.disconnect(ws)
 
 
 class GoalsChoice(BaseModel):
@@ -178,6 +198,13 @@ class AutostartChoice(BaseModel):
 class ObsCheck(BaseModel):
     obs_port: int
     obs_password: str | None = None  # None — сохранённый
+
+
+class ObsOptions(BaseModel):
+    reset_stream: bool = False
+    reset_record: bool = False
+    scene: str = ""
+    scene_at: int = 0  # 0 — сцену не переключать
 
 
 class PresetChoice(BaseModel):
@@ -269,6 +296,26 @@ def foreign_origin(request: Request) -> bool:
     parts = urlsplit(origin)
     return parts.hostname not in LOCAL_HOSTS or parts.netloc != request.headers.get("host")
 
+MAX_SCENE_NAME = 256
+
+
+def obs_options(settings: Settings) -> dict:
+    """Что делать по событиям OBS (app/obs_link.py); испорченное значение — выключено."""
+    saved = settings.get("obs_link")
+    saved = saved if isinstance(saved, dict) else {}
+    scene, scene_at = saved.get("scene"), saved.get("scene_at")
+    return {
+        "reset_stream": saved.get("reset_stream") is True,
+        "reset_record": saved.get("reset_record") is True,
+        "scene": scene if isinstance(scene, str) else "",
+        "scene_at": scene_at if isinstance(scene_at, int) and 0 <= scene_at <= goals.MAX_VALUE else 0,
+    }
+
+
+def obs_link_needed(options: dict) -> bool:
+    return options["reset_stream"] or options["reset_record"] or bool(options["scene"] and options["scene_at"])
+
+
 AUTOSTART_KEYS = ("autostart_windows", "autostart_obs", "autostart_stream", "obs_ws_port", "obs_ws_password")
 
 LOCKED_MESSAGE = "Установите обязательное обновление, чтобы продолжить"
@@ -307,6 +354,7 @@ def create_app(
     word_lists: WordLists | None = None,
     custom_presets: CustomPresets | None = None,
     hotkey_listener: hotkeys.Hotkeys | None = None,
+    obs_link: ObsLink | None = None,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -342,6 +390,48 @@ def create_app(
         hub.goal = goals.clean_goal(settings.get("goal", 0))
     except (goals.GoalsError, TypeError):
         hub.milestones, hub.goal = list(goals.DEFAULT_MILESTONES), 0
+
+    # --- Связь с OBS: автосброс при начале трансляции или записи и смена сцены по порогу ---
+    loop_holder: dict[str, asyncio.AbstractEventLoop] = {}
+    background: set[asyncio.Task] = set()
+
+    def from_link_thread(coro) -> None:
+        """Запуск корутины в цикле сервера из потока связи с OBS."""
+        loop = loop_holder.get("loop")
+        if loop is None:
+            coro.close()
+            return
+        asyncio.run_coroutine_threadsafe(coro, loop)
+
+    def on_obs_output(output: str) -> None:
+        if obs_options(settings)[f"reset_{output}"]:
+            log.info("OBS: начало %s, счёт сброшен", "трансляции" if output == "stream" else "записи")
+            from_link_thread(hub.reset())
+
+    def on_obs_status(state: dict) -> None:
+        from_link_thread(hub.broadcast({"type": "obs", **state}))
+
+    obs_link = obs_link or ObsLink(on_obs_output, on_obs_status)
+
+    def configure_obs_link() -> None:
+        needed = obs_link_needed(obs_options(settings))
+        obs_link.configure(needed, autostart.obs_port(settings), autostart.obs_password(settings))
+
+    async def switch_scene(name: str) -> None:
+        try:
+            await asyncio.to_thread(obs_link.request, "SetCurrentProgramScene", {"sceneName": name})
+            log.info("OBS: сцена переключена на %r", name)
+        except obs.ObsError as e:
+            log.warning("Не удалось переключить сцену OBS: %s", e)
+
+    def on_count(before: int, count: int) -> None:
+        options = obs_options(settings)
+        if options["scene"] and 0 < options["scene_at"] and before < options["scene_at"] <= count:
+            task = asyncio.create_task(switch_scene(options["scene"]))
+            background.add(task)
+            task.add_done_callback(background.discard)
+
+    hub.count_listeners.append(on_count)
 
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
@@ -380,6 +470,9 @@ def create_app(
     async def lifespan(app: FastAPI):
         await recognizer.start()
         updater.loop = asyncio.get_running_loop()
+        loop_holder["loop"] = updater.loop
+        configure_obs_link()
+        obs_link.start()
         check_task = asyncio.create_task(updater.auto_check()) if check_updates else None
         if hotkey_listener is not None:
             loop = asyncio.get_running_loop()
@@ -392,6 +485,8 @@ def create_app(
                 await asyncio.to_thread(hotkey_listener.stop)
             if check_task is not None:
                 check_task.cancel()
+            await asyncio.to_thread(obs_link.stop)
+            loop_holder.pop("loop", None)
             await updater.stop()
             await downloader.stop()
             await recognizer.stop()
@@ -418,6 +513,11 @@ def create_app(
     @app.get("/api/state")
     async def get_state():
         return {"count": hub.counter.value}
+
+    @app.get("/api/count")
+    async def get_count():
+        """Счёт простым текстом: для команды !маты в Streamer.bot (Fetch URL) и подобных."""
+        return PlainTextResponse(str(hub.counter.value))
 
     @app.get("/api/pause")
     async def get_pause():
@@ -562,6 +662,7 @@ def create_app(
             for key, value in old.items():
                 settings.set(key, value)
             raise HTTPException(500, f"Не удалось записать автозапуск в реестр: {e}") from None
+        configure_obs_link()  # порт и пароль общие со связью с OBS
         return autostart.state(settings)
 
     @app.post("/api/autostart/obs-check")
@@ -572,6 +673,34 @@ def create_app(
         except obs.ObsError as e:
             raise HTTPException(400, str(e)) from None
         return {"streaming": streaming}
+
+    def obs_state() -> dict:
+        return obs_options(settings) | {"status": obs_link.state()}
+
+    @app.get("/api/obs")
+    async def get_obs():
+        return obs_state()
+
+    @app.post("/api/obs")
+    async def post_obs(options: ObsOptions):
+        if not 0 <= options.scene_at <= goals.MAX_VALUE:
+            raise HTTPException(400, f"Порог — целое число от 0 до {goals.MAX_VALUE}")
+        if len(options.scene) > MAX_SCENE_NAME:
+            raise HTTPException(400, "Слишком длинное имя сцены")
+        settings.set("obs_link", options.model_dump())
+        configure_obs_link()
+        return obs_state()
+
+    @app.get("/api/obs/scenes")
+    async def get_obs_scenes():
+        """Сцены OBS для выбора: через постоянную связь, а без неё — разовым подключением."""
+        try:
+            if obs_link.connected:
+                return {"scenes": obs.scene_names(await asyncio.to_thread(obs_link.request, "GetSceneList"))}
+            port, password = autostart.obs_port(settings), autostart.obs_password(settings)
+            return {"scenes": await asyncio.to_thread(obs.scenes, port, password)}
+        except obs.ObsError as e:
+            raise HTTPException(400, str(e)) from None
 
     @app.post("/api/overlay/open")
     async def open_overlay(request: Request):
@@ -914,6 +1043,24 @@ def create_app(
         finally:
             hub.disconnect(ws)
             log.info("Клиент отключён, всего: %d", len(hub.clients))
+
+    @app.websocket("/ws/events")
+    async def events_endpoint(ws: WebSocket):
+        """Только события счёта и паузы — для Streamer.bot и других программ (docs/STREAMERBOT.md)."""
+        if foreign_host(ws.headers.get("host")) or foreign_ws_origin(ws.headers.get("origin")):
+            log.warning("Отклонено подключение WebSocket: %s", ws.headers.get("origin") or ws.headers.get("host"))
+            await ws.close(code=1008)
+            return
+        await ws.accept()
+        try:
+            await hub.connect(ws, events_only=True)
+            log.info("Подключена программа к /ws/events")
+            while True:
+                await ws.receive_text()
+        except WebSocketDisconnect:
+            pass
+        finally:
+            hub.disconnect(ws)
 
     if custom_presets is not None:
         # Файлы наборов (style.css, картинки, звуки). Раньше /overlay, иначе его перехватит тот.

@@ -1,4 +1,4 @@
-"""Клиент obs-websocket v5 (встроен в OBS 28+): узнать, идёт ли трансляция, и ждать её начала.
+"""Клиент obs-websocket v5 (встроен в OBS 28+): события трансляции и записи, запросы к OBS.
 
 В OBS сервер включается в «Инструменты → Настройки сервера WebSocket».
 Протокол: https://github.com/obsproject/obs-websocket/blob/master/docs/generated/protocol.md
@@ -7,6 +7,7 @@
 import base64
 import hashlib
 import json
+import threading
 from collections.abc import Iterator
 from contextlib import ExitStack
 
@@ -35,13 +36,28 @@ def auth_string(password: str, salt: str, challenge: str) -> str:
     return base64.b64encode(hashlib.sha256((secret + challenge).encode()).digest()).decode()
 
 
-def stream_started(message: dict) -> bool:
-    """Событие «трансляция началась»."""
+def output_started(message: dict, event_type: str) -> bool:
+    """Событие «выход запущен»: StreamStateChanged — трансляция, RecordStateChanged — запись."""
     if message.get("op") != OP_EVENT:
         return False
     data = message.get("d") or {}
     event = data.get("eventData") or {}
-    return data.get("eventType") == "StreamStateChanged" and event.get("outputState") == "OBS_WEBSOCKET_OUTPUT_STARTED"
+    return data.get("eventType") == event_type and event.get("outputState") == "OBS_WEBSOCKET_OUTPUT_STARTED"
+
+
+def stream_started(message: dict) -> bool:
+    """Событие «трансляция началась»."""
+    return output_started(message, "StreamStateChanged")
+
+
+def response_data(message: dict) -> dict:
+    """Данные ответа на запрос; OBS не выполнил запрос — ObsError с его объяснением."""
+    data = message.get("d") or {}
+    status = data.get("requestStatus") or {}
+    if not status.get("result"):
+        comment = status.get("comment") or f"код {status.get('code')}"
+        raise ObsError(f"OBS не выполнил {data.get('requestType')}: {comment}")
+    return data.get("responseData") or {}
 
 
 class ObsClient:
@@ -54,6 +70,7 @@ class ObsClient:
         self._ws: ClientConnection | None = None
         self._stack = ExitStack()
         self._request_id = 0
+        self._send_lock = threading.Lock()  # запросы шлют из разных потоков
 
     def __enter__(self) -> "ObsClient":
         try:
@@ -90,7 +107,31 @@ class ObsClient:
         return message if isinstance(message, dict) else {}
 
     def _send(self, op: int, data: dict) -> None:
-        self._ws.send(json.dumps({"op": op, "d": data}))
+        with self._send_lock:
+            self._ws.send(json.dumps({"op": op, "d": data}))
+
+    def send_request(self, request_type: str, request_data: dict | None = None) -> str:
+        """Отправляет запрос и возвращает его id; ответ придёт среди сообщений."""
+        with self._send_lock:
+            self._request_id += 1
+            request_id = str(self._request_id)
+        data = {"requestType": request_type, "requestId": request_id}
+        if request_data is not None:
+            data["requestData"] = request_data
+        self._send(OP_REQUEST, data)
+        return request_id
+
+    def request(self, request_type: str, request_data: dict | None = None) -> dict:
+        """Запрос с ожиданием ответа; только когда сообщения больше никто не читает."""
+        request_id = self.send_request(request_type, request_data)
+        while True:
+            try:
+                message = self._recv(self.timeout)
+            except TimeoutError:
+                raise ObsError("OBS не ответил на запрос") from None
+            data = message.get("d") or {}
+            if message.get("op") == OP_REQUEST_RESPONSE and data.get("requestId") == request_id:
+                return response_data(message)
 
     def _identify(self) -> None:
         hello = self._recv(self.timeout)
@@ -108,17 +149,7 @@ class ObsClient:
 
     def streaming(self) -> bool:
         """Идёт ли сейчас трансляция."""
-        self._request_id += 1
-        request_id = str(self._request_id)
-        self._send(OP_REQUEST, {"requestType": "GetStreamStatus", "requestId": request_id})
-        while True:
-            try:
-                message = self._recv(self.timeout)
-            except TimeoutError:
-                raise ObsError("OBS не ответил на запрос") from None
-            data = message.get("d") or {}
-            if message.get("op") == OP_REQUEST_RESPONSE and data.get("requestId") == request_id:
-                return bool((data.get("responseData") or {}).get("outputActive"))
+        return bool(self.request("GetStreamStatus").get("outputActive"))
 
     def messages(self, timeout: float) -> Iterator[dict | None]:
         """Сообщения от OBS; None — за timeout ничего не пришло (можно проверить, не пора ли выйти)."""
@@ -133,3 +164,15 @@ def check(port: int, password: str) -> bool:
     """Проверка подключения со страницы управления; возвращает, идёт ли трансляция."""
     with ObsClient(port, password) as client:
         return client.streaming()
+
+
+def scene_names(data: dict) -> list[str]:
+    """Имена сцен из ответа GetSceneList в порядке, как в OBS (сверху вниз)."""
+    scenes = sorted(data.get("scenes") or [], key=lambda s: -s.get("sceneIndex", 0))
+    return [s["sceneName"] for s in scenes if isinstance(s.get("sceneName"), str)]
+
+
+def scenes(port: int, password: str) -> list[str]:
+    """Список сцен разовым подключением."""
+    with ObsClient(port, password) as client:
+        return scene_names(client.request("GetSceneList"))

@@ -1186,17 +1186,17 @@
   const obsPasswordEl = $("obs-password");
 
   function showAutostart(state) {
-    if (!state.available) return; // реестр и процессы OBS есть только в Windows
-    $("autostart-section").hidden = false;
-    $("autostart-windows").checked = state.windows;
-    $("autostart-obs").value = state.obs;
-    $("autostart-stream").value = state.stream;
-    $("obs-ws").hidden = state.stream === "off";
+    // Порт и пароль OBS (раздел «OBS») нужны и без автозапуска.
     // Поле порта не трогаем, пока его редактируют.
     if (document.activeElement !== $("obs-port")) $("obs-port").value = state.obs_port;
     obsPasswordEl.placeholder = state.has_password
       ? "Пароль сохранён (пусто — не менять)"
       : "Пароль (если задан в OBS)";
+    if (!state.available) return; // реестр и процессы OBS есть только в Windows
+    $("autostart-section").hidden = false;
+    $("autostart-windows").checked = state.windows;
+    $("autostart-obs").value = state.obs;
+    $("autostart-stream").value = state.stream;
   }
 
   function autostartChoice() {
@@ -1209,35 +1209,93 @@
     };
   }
 
-  async function saveAutostart() {
+  async function saveAutostart(statusEl = autostartStatusEl) {
     try {
       showAutostart(await api("POST", "/api/autostart", autostartChoice()));
       obsPasswordEl.value = "";
-      setStatus(autostartStatusEl, "Сохранено", false, true);
+      setStatus(statusEl, "Сохранено", false, true);
     } catch (e) {
-      setStatus(autostartStatusEl, e.message, true);
+      setStatus(statusEl, e.message, true);
       api("GET", "/api/autostart").then(showAutostart, () => {});
     }
   }
 
   for (const id of ["autostart-windows", "autostart-obs", "autostart-stream"]) {
-    $(id).addEventListener("change", saveAutostart);
+    $(id).addEventListener("change", () => saveAutostart());
   }
+
+  // --- OBS: порт и пароль, сброс при начале трансляции или записи, смена сцены по порогу ---
+
+  const obsStatusEl = $("obs-status");
+  const obsSceneEl = $("obs-scene");
+
   $("obs-ws-form").addEventListener("submit", (event) => {
     event.preventDefault();
-    saveAutostart();
+    saveAutostart(obsStatusEl);
   });
   $("obs-check").addEventListener("click", async () => {
     const button = $("obs-check");
     const { obs_port, obs_password } = autostartChoice();
     button.disabled = true;
-    setStatus(autostartStatusEl, "Подключаюсь к OBS…");
+    setStatus(obsStatusEl, "Подключаюсь к OBS…");
     try {
       const result = await api("POST", "/api/autostart/obs-check", { obs_port, obs_password });
-      setStatus(autostartStatusEl, result.streaming
+      setStatus(obsStatusEl, result.streaming
         ? "OBS на связи, трансляция идёт" : "OBS на связи. Не забудьте сохранить порт и пароль", false, true);
     } catch (e) {
-      setStatus(autostartStatusEl, e.message, true);
+      setStatus(obsStatusEl, e.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  // Выбранная сцена есть в списке, даже если список из OBS ещё не загружен.
+  function setSceneOptions(names, selected) {
+    const all = selected && !names.includes(selected) ? [selected, ...names] : names;
+    obsSceneEl.replaceChildren(obsSceneEl.options[0]);
+    for (const name of all) obsSceneEl.add(new Option(name, name));
+    obsSceneEl.value = selected;
+  }
+
+  function showObsStatus(status) {
+    if (!status.enabled) setStatus(obsStatusEl, "");
+    else if (status.connected) setStatus(obsStatusEl, "OBS на связи", false);
+    else setStatus(obsStatusEl, status.error || "Подключаюсь к OBS…", Boolean(status.error));
+  }
+
+  function showObs(state) {
+    $("obs-reset-stream").checked = state.reset_stream;
+    $("obs-reset-record").checked = state.reset_record;
+    if (document.activeElement !== $("obs-scene-at")) $("obs-scene-at").value = state.scene_at || "";
+    const names = [...obsSceneEl.options].slice(1).map((o) => o.value);
+    setSceneOptions(names, state.scene);
+    showObsStatus(state.status);
+  }
+
+  async function saveObs() {
+    try {
+      showObs(await api("POST", "/api/obs", {
+        reset_stream: $("obs-reset-stream").checked,
+        reset_record: $("obs-reset-record").checked,
+        scene: obsSceneEl.value,
+        scene_at: Number($("obs-scene-at").value) || 0,
+      }));
+    } catch (e) {
+      setStatus(obsStatusEl, e.message, true);
+      api("GET", "/api/obs").then(showObs, () => {});
+    }
+  }
+
+  for (const id of ["obs-reset-stream", "obs-reset-record", "obs-scene", "obs-scene-at"]) {
+    $(id).addEventListener("change", saveObs);
+  }
+  $("obs-scenes-load").addEventListener("click", async () => {
+    const button = $("obs-scenes-load");
+    button.disabled = true;
+    try {
+      setSceneOptions((await api("GET", "/api/obs/scenes")).scenes, obsSceneEl.value);
+    } catch (e) {
+      setStatus(obsStatusEl, e.message, true);
     } finally {
       button.disabled = false;
     }
@@ -1551,6 +1609,7 @@
       api("GET", "/api/version").then(showVersion, () => {});
       api("GET", "/api/update").then(showUpdate, () => {});
       api("GET", "/api/autostart").then(showAutostart, () => {});
+      api("GET", "/api/obs").then(showObs, () => {});
       api("GET", "/api/hotkeys").then(showHotkeys, () => {});
     };
     ws.onmessage = (event) => {
@@ -1567,6 +1626,7 @@
       else if (msg.type === "pause") showPause(msg.paused);
       else if (msg.type === "timer") showTimer(msg);
       else if (msg.type === "goals") showGoals(msg);
+      else if (msg.type === "obs") showObsStatus(msg);
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

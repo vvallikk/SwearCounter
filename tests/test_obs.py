@@ -22,6 +22,34 @@ def _event(event_type: str, state: str) -> dict:
     return {"op": 5, "d": {"eventType": event_type, "eventData": {"outputActive": True, "outputState": state}}}
 
 
+def test_output_started_record():
+    started = _event("RecordStateChanged", "OBS_WEBSOCKET_OUTPUT_STARTED")
+    assert obs.output_started(started, "RecordStateChanged")
+    assert not obs.output_started(started, "StreamStateChanged")
+
+
+def test_response_data():
+    ok = {"op": 7, "d": {"requestStatus": {"result": True}, "responseData": {"a": 1}}}
+    assert obs.response_data(ok) == {"a": 1}
+    assert obs.response_data({"op": 7, "d": {"requestStatus": {"result": True}}}) == {}
+    failed = {"op": 7, "d": {"requestType": "X", "requestStatus": {"result": False, "code": 600, "comment": "нет"}}}
+    with pytest.raises(obs.ObsError, match="X: нет"):
+        obs.response_data(failed)
+    with pytest.raises(obs.ObsError, match="код 204"):
+        obs.response_data({"op": 7, "d": {"requestStatus": {"result": False, "code": 204}}})
+
+
+def test_scene_names_top_first():
+    data = {"scenes": [
+        {"sceneName": "Низ", "sceneIndex": 0},
+        {"sceneName": "Верх", "sceneIndex": 2},
+        {"sceneName": "Середина", "sceneIndex": 1},
+        {"sceneIndex": 3},
+    ]}
+    assert obs.scene_names(data) == ["Верх", "Середина", "Низ"]
+    assert obs.scene_names({}) == []
+
+
 def test_stream_started():
     assert obs.stream_started(_event("StreamStateChanged", "OBS_WEBSOCKET_OUTPUT_STARTED"))
     assert not obs.stream_started(_event("StreamStateChanged", "OBS_WEBSOCKET_OUTPUT_STARTING"))
@@ -30,13 +58,29 @@ def test_stream_started():
 
 
 class FakeObs:
-    """Сервер WebSocket, отвечающий как OBS: Hello, Identify, GetStreamStatus и события."""
+    """Сервер WebSocket, отвечающий как OBS: Hello, Identify, запросы и события.
 
-    def __init__(self, password: str | None = None, streaming: bool = False, events: list[dict] = ()):
+    responses — данные ответа по типу запроса (по умолчанию — состояние трансляции);
+    fail — типы запросов, которые OBS «не выполняет»; push — событие уже подключённому клиенту.
+    """
+
+    def __init__(
+        self,
+        password: str | None = None,
+        streaming: bool = False,
+        events: list[dict] = (),
+        responses: dict[str, dict] | None = None,
+        fail: set[str] = frozenset(),
+    ):
         self.password = password
         self.streaming = streaming
         self.events = list(events)
+        self.responses = responses or {}
+        self.fail = fail
+        self.requests: list[dict] = []
         self.identify: dict | None = None
+        self.ws = None
+        self.identified = threading.Event()
         self.server = serve(self._handle, "127.0.0.1", 0)
         self.port = self.server.socket.getsockname()[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -61,20 +105,32 @@ class FakeObs:
             ws.close(4009, "Authentication failed")
             return
         ws.send(json.dumps({"op": 2, "d": {"negotiatedRpcVersion": 1}}))
+        self.ws = ws
+        self.identified.set()
         for message in ws:
             request = json.loads(message)["d"]
+            self.requests.append(request)
+            request_type = request["requestType"]
             ws.send(json.dumps(_event("StreamStateChanged", "OBS_WEBSOCKET_OUTPUT_STARTING")))  # шум до ответа
+            if request_type in self.fail:
+                status = {"result": False, "code": 600, "comment": "No source was found"}
+            else:
+                status = {"result": True, "code": 100}
             ws.send(json.dumps({
                 "op": 7,
                 "d": {
-                    "requestType": request["requestType"],
+                    "requestType": request_type,
                     "requestId": request["requestId"],
-                    "requestStatus": {"result": True, "code": 100},
-                    "responseData": {"outputActive": self.streaming},
+                    "requestStatus": status,
+                    "responseData": self.responses.get(request_type, {"outputActive": self.streaming}),
                 },
             }))
             for event in self.events:
                 ws.send(json.dumps(event))
+
+    def push(self, message: dict) -> None:
+        assert self.identified.wait(5)
+        self.ws.send(json.dumps(message))
 
 
 def test_check_without_password():
@@ -113,3 +169,16 @@ def test_messages_yield_events_and_timeouts():
         messages = client.messages(timeout=0.2)
         assert next(messages) == started
         assert next(messages) is None
+
+
+def test_scenes_one_off():
+    scenes = {"scenes": [{"sceneName": "Игра", "sceneIndex": 1}, {"sceneName": "Чат", "sceneIndex": 0}]}
+    with FakeObs(responses={"GetSceneList": scenes}) as server:
+        assert obs.scenes(server.port, "") == ["Игра", "Чат"]
+
+
+def test_request_with_data_and_failure():
+    with FakeObs(fail={"SetCurrentProgramScene"}) as server, obs.ObsClient(server.port) as client:
+        with pytest.raises(obs.ObsError, match="No source"):
+            client.request("SetCurrentProgramScene", {"sceneName": "Нет"})
+    assert server.requests[0]["requestData"] == {"sceneName": "Нет"}
