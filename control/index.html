@@ -102,8 +102,18 @@
         <div class="preset-side">
           <div class="select-wrap"><select id="preset"></select></div>
           <p id="preset-desc" class="note"></p>
+          <p id="preset-owner" class="note preset-owner" hidden></p>
         </div>
       </div>
+      <div class="row preset-actions">
+        <button id="preset-install" class="secondary-btn" type="button">Установить оформление…</button>
+        <button id="preset-remove" class="secondary-btn" type="button" hidden>🗑 Удалить оформление</button>
+        <input id="preset-input" type="file" accept=".zip,application/zip" hidden>
+      </div>
+      <p class="note">Личное оформление — zip-архив, который автор делает на заказ: свой шрифт,
+        картинки, анимация и звук. Оно есть только у того, кому его прислали. Ставьте архивы
+        только от автора программы: в них может быть код анимации.</p>
+      <div id="preset-status" class="status-line"></div>
     </section>
 
     <section id="model-section" class="section" hidden>
@@ -141,6 +151,11 @@
         что угодно. Список выбирается в разделе «Что считать», там же можно создать свой.</p>
       <p class="note">Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть»,
         без каких-либо гарантий.</p>
+      <div id="support-row" class="support-row" hidden>
+        <a id="support" class="support-btn" href="#" target="_blank" rel="noopener noreferrer">❤ Поддержать</a>
+        <p class="note">Программа бесплатная. Если она пригодилась — можно поддержать автора
+          или заказать у него личное оформление счётчика.</p>
+      </div>
     </section>
   </main>
 

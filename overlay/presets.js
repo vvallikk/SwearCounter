@@ -6,6 +6,7 @@
 // анимации прибавления — в overlay.js (таблица INCREMENT_ANIMATIONS).
 // color — цвет цифр по умолчанию; параметр ?color= в адресе его перекрывает.
 // sound — стандартный звук пресета (overlay/sounds/<sound>.mp3, см. sound.js); без него — звон.
+// У личных оформлений sound — адрес файла из набора.
 window.OVERLAY_PRESETS = [
   {
     id: "classic",
@@ -51,3 +52,37 @@ window.OVERLAY_PRESETS = [
     sound: "ferret",
   },
 ];
+
+// --- Личные оформления (папка presets/ рядом с программой, см. docs/PRESETS.md) ---
+// Оверлей подключает /overlay/custom-presets.js: сервер вызывает там registerCustomPresets
+// со списком установленных наборов. У набора свои style.css и animation.js, а
+// animation.js регистрирует анимацию прибавления через registerOverlayAnimation.
+
+// id пресета → function (delta, api); ищется раньше встроенных анимаций (overlay.js)
+window.OVERLAY_ANIMATIONS = window.OVERLAY_ANIMATIONS || {};
+
+window.registerOverlayAnimation = function registerOverlayAnimation(id, animate) {
+  if (typeof id === "string" && typeof animate === "function") window.OVERLAY_ANIMATIONS[id] = animate;
+};
+
+// presets — [{id, title, description, color, owner, animation, sound, style, script}]
+window.registerCustomPresets = function registerCustomPresets(presets) {
+  for (const preset of presets || []) {
+    if (window.OVERLAY_PRESETS.some((p) => p.id === preset.id)) continue;
+    window.OVERLAY_PRESETS.push(preset);
+    if (preset.style) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = preset.style;
+      // Свой шрифт или размер цифр: пересчитать подгонку под окно (overlay.js слушает resize)
+      link.onload = () => window.dispatchEvent(new Event("resize"));
+      document.head.appendChild(link);
+    }
+    if (preset.script) {
+      const script = document.createElement("script");
+      script.src = preset.script;
+      script.async = false; // наборы регистрируются в порядке списка
+      document.head.appendChild(script);
+    }
+  }
+};

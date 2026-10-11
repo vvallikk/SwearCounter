@@ -28,6 +28,7 @@ OLD_WORDS_FILE = DATA_DIR / "words.txt"  # единственный список
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
 SOUNDS_DIR = DATA_DIR / "sounds"  # свой звук оповещения, загруженный со страницы управления
+PRESETS_DIR = DATA_DIR / "presets"  # личные оформления из zip-наборов (app/custom_presets.py)
 MODELS_DIR = DATA_DIR / "models"
 LOG_FILE = DATA_DIR / "swearcounter.log"
 WEBVIEW_DIR = DATA_DIR / "webview"  # данные окна приложения (localStorage страницы управления)

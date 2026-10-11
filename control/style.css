@@ -205,6 +205,7 @@ select {
 .secondary-btn:hover:not(:disabled) { border-color: var(--muted); }
 .secondary-btn:disabled { opacity: 0.6; }
 .secondary-btn[aria-pressed="true"] { color: #fff; background: var(--accent); border-color: var(--accent); }
+.secondary-btn.confirm { color: #fff; background: var(--danger); border-color: var(--danger); }
 
 /* --- Микрофон --- */
 /* Шкала — градиент на всю ширину; правую часть закрывает «маска» цвета фона. */
@@ -301,6 +302,22 @@ select {
 }
 .preset-side { flex: 1; min-width: 0; }
 .preset-side .note { margin: 6px 0 0; }
+.preset-side .preset-owner { color: var(--accent); font-weight: 600; }
+.preset-actions { margin-top: 10px; flex-wrap: wrap; }
+
+/* --- О программе: кнопка «Поддержать» --- */
+.support-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.support-row .note { margin: 0; flex: 1; min-width: 180px; }
+.support-btn {
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #e5487a;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.support-btn:hover { filter: brightness(1.1); }
 
 /* --- Модель распознавания --- */
 .progress {

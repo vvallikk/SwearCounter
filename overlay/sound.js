@@ -2,7 +2,8 @@
 //
 // Какой звук играет, по порядку: звук, выбранный в библиотеке на странице управления
 // (/api/sound/file/<id>); стандартный звук пресета — файл из overlay/sounds/
-// (ding.mp3, у хорька ferret.wav); если файла нет — его синтезированная замена.
+// (ding.mp3, у хорька ferret.wav) или из личного оформления (/overlay/custom/<id>/<файл>);
+// если файла нет — его синтезированная замена (у личного оформления — звон).
 window.createDingPlayer = function createDingPlayer() {
   "use strict";
 
@@ -36,11 +37,12 @@ window.createDingPlayer = function createDingPlayer() {
     return ctx.decodeAudioData(await resp.arrayBuffer());
   }
 
-  // Стандартный звук по имени (ding, ferret). null в ответе — играть синтезированный.
+  // Стандартный звук по имени (ding, ferret) или адресу. null в ответе — играть синтезированный.
   function loadStandard(name) {
     let promise = standards.get(name);
     if (!promise) {
-      promise = fetchBuffer(`/overlay/sounds/${STANDARD[name].file}`)
+      const url = STANDARD[name] ? `/overlay/sounds/${STANDARD[name].file}` : name;
+      promise = fetchBuffer(url)
         .catch(() => {
           standards.delete(name); // сеть недоступна — попробуем в следующий раз
           return null;
@@ -87,7 +89,8 @@ window.createDingPlayer = function createDingPlayer() {
 
   // Стандартный звук зависит от пресета оформления (поле sound в presets.js).
   function setStandard(name) {
-    standardName = STANDARD[name] ? name : "ding";
+    const own = typeof name === "string" && name.startsWith("/overlay/custom/");
+    standardName = STANDARD[name] || own ? name : "ding";
     loadStandard(standardName);
   }
 
@@ -172,7 +175,7 @@ window.createDingPlayer = function createDingPlayer() {
       src.connect(out);
       src.start();
     } else {
-      const { synth, level } = STANDARD[standardName];
+      const { synth, level } = STANDARD[standardName] || STANDARD.ding;
       out.gain.value = level * volume;
       synth(ctx, out);
     }

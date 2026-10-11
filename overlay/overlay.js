@@ -432,8 +432,35 @@
     ferret: animateFerret,
   };
 
+  // Что получает анимация личного оформления (animation.js набора, см. docs/PRESETS.md)
+  function animationApi(preset) {
+    return {
+      root,
+      counter: counterEl,
+      number: numberEl,
+      value: valueEl,
+      label: labelEl,
+      glow: glowEl,
+      size, // текущий размер цифр в пикселях
+      base: `/overlay/custom/${preset.id}/`, // адрес файлов набора: api.base + "ferret.png"
+      floatPlus,
+      builtin: Object.assign({}, INCREMENT_ANIMATIONS), // встроенные анимации по id
+    };
+  }
+
   function playIncrementAnimation(delta) {
-    (INCREMENT_ANIMATIONS[currentPreset] || animateClassic)(delta);
+    const preset = findPreset(currentPreset);
+    const own = (window.OVERLAY_ANIMATIONS || {})[preset.id];
+    if (own) {
+      try {
+        own(delta, animationApi(preset));
+        return;
+      } catch (e) {
+        console.error(`Анимация оформления ${preset.id}:`, e); // ошибка в наборе — играем встроенную
+      }
+    }
+    // У личного оформления без своей анимации — встроенная по полю animation
+    (INCREMENT_ANIMATIONS[preset.id] || INCREMENT_ANIMATIONS[preset.animation] || animateClassic)(delta);
   }
 
   // Подпись рядом с числом: text — строка (пустая — без подписи), position — left/right/top/bottom
@@ -503,6 +530,8 @@
         if (player) player.apply(msg);
       } else if (msg.type === "style") {
         handleStyle(msg);
+      } else if (msg.type === "presets") {
+        location.reload(); // поставили или удалили личное оформление: заново грузим наборы
       }
     };
     ws.onclose = () => setTimeout(connect, RECONNECT_MS);

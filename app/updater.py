@@ -5,7 +5,7 @@
 update/ рядом с exe, затем apply.cmd ждёт выхода программы, заменяет только
 программные файлы (SwearCounter.exe и _internal) и запускает новую версию.
 Данные пользователя рядом с exe (settings.json, counter.json, wordlists,
-models, sounds, webview) не трогаются.
+models, sounds, presets, webview) не трогаются.
 """
 
 import asyncio
