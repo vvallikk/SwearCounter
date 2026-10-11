@@ -119,7 +119,7 @@ Python-код требует перезапуска. Второй экземпл
 
 3. Результат:
    - `dist\SwearCounter\` — готовая папка (`SwearCounter.exe`, `_internal\`, `words.txt`,
-     `README.md`, `models\README.txt`);
+     `README.md`, `LICENSE.txt`, `THIRD_PARTY_LICENSES.txt`, `models\README.txt`);
    - `dist\SwearCounter-v<версия>-windows.zip` — тот же архив, что публикуется в релизе.
 
 Настройки сборки — в `SwearCounter.spec` (без консоли, иконка, ресурс версии из
@@ -249,6 +249,15 @@ git push origin v0.3.0
 
 **Поменять список слов по умолчанию** — `words.txt` в корне (попадает в сборку и
 кладётся рядом с exe; у пользователей их правленая копия не перезаписывается обновлением).
+Слово засчитывается, если начинается с корня, поэтому корень не должен быть началом
+обычного слова. Проверки — в `tests/test_words_file.py`: добавляя корень, допишите туда
+пару его форм и похожих обычных слов.
+
+**Добавить зависимость** — в `requirements.txt`. Её лицензия попадёт в
+`THIRD_PARTY_LICENSES.txt` сама (`scripts/licenses.py` берёт тексты из пакетов). Если
+пакет приносит библиотеки не из pip или не кладёт в себя текст лицензии, опишите их в
+`EXTRAS` там же, а текст положите в `scripts/third_party/`. Код программы — под GPL-3.0,
+поэтому зависимости должны быть с совместимой лицензией (MIT, BSD, Apache-2.0, LGPL и т. п.).
 
 **Переснять скриншоты для README** — `docs/screenshots/`. Запустите приложение с `--console`
 и снимите страницу и оверлей headless-браузером (каждый снимок — со своим `--user-data-dir`,
@@ -278,8 +287,10 @@ overlay/              оверлей для OBS; presets.js — оформлен
 control/              страница управления (index.html, style.css, control.js)
 assets/               иконка (scripts/make_icon.py)
 scripts/build.py      сборка exe и zip
+scripts/licenses.py   THIRD_PARTY_LICENSES.txt для сборки; third_party/ — тексты лицензий
 SwearCounter.spec     настройки PyInstaller
 tests/                тесты pytest
 docs/                 документация, скриншоты, заметки к релизам (releases/)
+LICENSE               лицензия программы (GNU GPL v3)
 .github/workflows/    tests.yml — тесты, release.yml — релиз по тегу
 ```

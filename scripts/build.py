@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app import __version__  # noqa: E402
+from scripts.licenses import build_notices  # noqa: E402
 
 DIST = ROOT / "dist"
 APP_DIR = DIST / "SwearCounter"
@@ -44,6 +45,9 @@ def main() -> None:
     # Файлы, которые стример меняет сам, кладём рядом с exe (см. app/paths.py).
     shutil.copy2(ROOT / "words.txt", APP_DIR / "words.txt")
     shutil.copy2(ROOT / "README.md", APP_DIR / "README.md")
+    # Лицензия программы и лицензии всего стороннего, что вошло в сборку.
+    shutil.copy2(ROOT / "LICENSE", APP_DIR / "LICENSE.txt")
+    (APP_DIR / "THIRD_PARTY_LICENSES.txt").write_text(build_notices(), encoding="utf-8")
     models = APP_DIR / "models"
     models.mkdir(exist_ok=True)
     (models / "README.txt").write_text(MODELS_README, encoding="utf-8")
