@@ -1,8 +1,8 @@
 // Звук оповещения: общий для оверлея и страницы управления (кнопка «Проверить»).
 //
 // Какой звук играет, по порядку: звук, выбранный в библиотеке на странице управления
-// (/api/sound/file/<id>); стандартный звук пресета — файл из overlay/sounds/
-// (ding.mp3, у хорька ferret.wav) или из личного оформления (/overlay/custom/<id>/<файл>);
+// (/api/sound/file/<id>); стандартный звук пресета — синтезированный звон, у хорька файл
+// overlay/sounds/ferret.wav, у личного оформления — файл из набора (/overlay/custom/<id>/<файл>);
 // если файла нет — его синтезированная замена (у личного оформления — звон).
 window.createDingPlayer = function createDingPlayer() {
   "use strict";
@@ -41,8 +41,10 @@ window.createDingPlayer = function createDingPlayer() {
   function loadStandard(name) {
     let promise = standards.get(name);
     if (!promise) {
-      const url = STANDARD[name] ? `/overlay/sounds/${STANDARD[name].file}` : name;
-      promise = fetchBuffer(url)
+      const std = STANDARD[name];
+      const url = std ? std.file && `/overlay/sounds/${std.file}` : name;
+      // Звук без файла (звон) только синтезируется: не запрашиваем то, чего нет.
+      promise = (url ? fetchBuffer(url) : Promise.resolve(null))
         .catch(() => {
           standards.delete(name); // сеть недоступна — попробуем в следующий раз
           return null;
@@ -157,9 +159,10 @@ window.createDingPlayer = function createDingPlayer() {
     }
   }
 
-  // Стандартные звуки: файл в overlay/sounds/ и синтезированная замена, если файла нет
+  // Стандартные звуки: файл в overlay/sounds/ (необязательно) и синтезированная замена,
+  // которая играет, если файла нет или он не загрузился.
   const STANDARD = {
-    ding: { file: "ding.mp3", synth: synthDing, level: 0.3 }, // без ослабления звон слишком громкий
+    ding: { file: null, synth: synthDing, level: 0.3 }, // без ослабления звон слишком громкий
     ferret: { file: "ferret.wav", synth: synthGoo, level: 1.1 }, // примерно как звон
   };
 
