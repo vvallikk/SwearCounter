@@ -78,6 +78,19 @@ body {
   pointer-events: none;
 }
 
+/* Звёзды на особом числе (10, 50, 100… или цель) */
+.spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  font-size: calc(var(--size) * 0.3);
+  color: var(--accent, var(--color));
+  -webkit-text-stroke: calc(var(--size) * 0.02) #000;
+  paint-order: stroke fill;
+  pointer-events: none;
+  opacity: 0;
+}
+
 /* Всплывающая надпись «+1» */
 .plus {
   position: absolute;

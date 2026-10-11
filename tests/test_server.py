@@ -378,7 +378,7 @@ def test_pause_is_broadcast(client):
 # --- WebSocket ---
 
 
-def receive_until(ws, kind: str, limit: int = 5) -> dict:
+def receive_until(ws, kind: str, limit: int = 10) -> dict:
     """Пропускает прочие сообщения (например, о звуке) до сообщения типа kind."""
     for _ in range(limit):
         message = ws.receive_json()
@@ -492,7 +492,7 @@ def test_sound_changes_reach_overlays(client):
 def test_ws_greeting_includes_sound_and_style(client):
     with client.websocket_connect("ws://localhost/ws") as ws:
         types_ = [ws.receive_json()["type"] for _ in GREETING]
-    assert types_ == ["state", "pause", "timer", "sound", "style"]
+    assert types_ == ["state", "pause", "timer", "goals", "sound", "style"]
 
 
 def test_preset_is_saved_and_broadcast(client, settings_path):
