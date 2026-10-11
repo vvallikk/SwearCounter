@@ -2,5 +2,17 @@
 
 __version__ = "0.2.1"
 
-# Страница «Поддержать автора» (Boosty, DonationAlerts и т. п.). Пустая строка — кнопки нет.
-SUPPORT_URL = "https://www.donationalerts.com/r/vvalikk"
+# Куда можно поддержать автора. Пустой список — кнопки «Поддержать» нет ни в окне, ни в трее.
+# qr — картинка с QR-кодом в папке control/ (необязательно).
+SUPPORT_LINKS = [
+    {
+        "name": "Boosty",
+        "url": "https://boosty.to/walikk/single-payment/donation/834276/target?share=target_link",
+        "qr": "support/boosty.png",
+    },
+    {
+        "name": "DonationAlerts",
+        "url": "https://www.donationalerts.com/r/vvalikk",
+        "qr": "support/donationalerts.png",
+    },
+]

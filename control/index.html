@@ -15,6 +15,7 @@
 <body>
   <main class="card">
     <button id="theme" class="theme-btn" type="button"></button>
+    <button id="support-open" class="theme-btn support-heart" type="button" title="Поддержать автора" hidden>❤</button>
     <div class="header">
       <h1>Счётчик матов <span id="version" class="version"></span>
         <a id="update-badge" class="update-badge" href="#update-section" hidden></a></h1>
@@ -157,11 +158,15 @@
         что угодно. Список выбирается в разделе «Что считать», там же можно создать свой.</p>
       <p class="note">Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть»,
         без каких-либо гарантий.</p>
-      <div id="support-row" class="support-row" hidden>
-        <a id="support" class="support-btn" href="#" target="_blank" rel="noopener noreferrer">❤ Поддержать</a>
-        <p class="note">Программа бесплатная. Если она пригодилась — можно поддержать автора
-          или заказать у него личное оформление счётчика.</p>
-      </div>
+      <details id="support" class="support" hidden>
+        <summary class="support-row">
+          <span class="support-btn">❤ Поддержать</span>
+          <span class="note">Программа бесплатная. Если она пригодилась — можно поддержать автора
+            или заказать у него личное оформление счётчика.</span>
+        </summary>
+        <p class="note support-hint">Нажмите на ссылку или наведите камеру телефона на QR-код.</p>
+        <div id="support-links" class="support-links"></div>
+      </details>
     </section>
   </main>
 
