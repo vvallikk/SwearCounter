@@ -20,7 +20,7 @@ DEFAULT_LIST = "swears.txt"
 _NAME_RE = re.compile(r"#\s*Название:\s*(.+)", re.IGNORECASE)
 _NAME_LINES = 5  # название ищем только в начале файла
 
-# words.txt версий до 0.3.0: один список рядом с exe (см. migrate_words_file).
+# words.txt версий до 1.0.0: один список рядом с exe (см. migrate_words_file).
 PLACEHOLDER_ROOTS = {"тестслов", "проверк"}  # тестовые корни, поставлявшиеся вместо матов
 MIGRATED_LIST = "my.txt"
 MIGRATED_NAME = "Мой список (из words.txt)"
@@ -97,7 +97,7 @@ def _count_roots(text: str) -> int:
 
 
 def migrate_words_file(old: Path, directory: Path) -> str | None:
-    """Переносит words.txt версий до 0.3.0 в папку списков.
+    """Переносит words.txt версий до 1.0.0 в папку списков.
 
     Заглушку (тестовые корни) просто удаляет. Список, который пользователь правил сам,
     становится отдельным списком my.txt; возвращает его id, чтобы сделать активным.
