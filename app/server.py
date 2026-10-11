@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import threading
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 
 from urllib.parse import unquote, urlsplit
@@ -37,6 +38,8 @@ class Hub:
         # Общий замок: изменение счёта и рассылка идут строго по очереди,
         # чтобы клиенты получали события в правильном порядке.
         self._lock = asyncio.Lock()
+        # Пока возвращает True (обязательное обновление не установлено), счёт не растёт.
+        self.locked: Callable[[], bool] = lambda: False
 
     async def connect(self, ws: WebSocket, greeting: list[dict] = ()) -> None:
         """Подключает клиента и отправляет ему счёт и сообщения greeting."""
@@ -51,6 +54,8 @@ class Hub:
 
     async def increment(self, delta: int = 1) -> int:
         async with self._lock:
+            if self.locked():
+                return self.counter.value
             count = await self.counter.add(delta)
             await self._broadcast({"type": "increment", "count": count, "delta": delta})
             return count
@@ -155,6 +160,19 @@ def foreign_origin(request: Request) -> bool:
     parts = urlsplit(origin)
     return parts.hostname not in LOCAL_HOSTS or parts.netloc != request.headers.get("host")
 
+LOCKED_MESSAGE = "Установите обязательное обновление, чтобы продолжить"
+
+
+def locked_out(request: Request) -> bool:
+    """Запрос меняет состояние, а программа ждёт обязательного обновления.
+
+    Остаются доступны чтение и /api/update/* — чтобы скачать и поставить обновление.
+    """
+    path = request.url.path
+    if request.method in SAFE_METHODS or not path.startswith("/api/"):
+        return False
+    return not (path == "/api/update" or path.startswith("/api/update/"))
+
 
 def create_app(
     hub: Hub,
@@ -191,6 +209,7 @@ def create_app(
         await hub.broadcast({"type": "update", **state})
 
     updater.on_change = on_update_change
+    hub.locked = lambda: updater.locked
 
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
@@ -226,6 +245,8 @@ def create_app(
         if foreign_origin(request):
             log.warning("Отклонён запрос %s %s: %s", request.method, request.url.path, request.headers.get("origin", "чужого сайта"))
             return JSONResponse({"detail": "Запрос с чужого сайта отклонён"}, status_code=403)
+        if updater.locked and locked_out(request):
+            return JSONResponse({"detail": LOCKED_MESSAGE}, status_code=423)
         return await call_next(request)
 
     @app.get("/")

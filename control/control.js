@@ -788,7 +788,9 @@
 
     const badge = $("update-badge");
     badge.hidden = !found;
-    badge.textContent = `Доступна ${latest}`;
+    badge.textContent = state.force ? `Обязательно ${latest}` : `Доступна ${latest}`;
+    badge.classList.toggle("force", !!state.force);
+    showLock(state);
 
     $("update-progress").hidden = !loading;
     $("update-progress-bar").style.width = `${Math.round(state.progress * 100)}%`;
@@ -812,10 +814,24 @@
     } else if (state.status === "extracting") setStatus(status, "Распаковываю…");
     else if (state.status === "ready") setStatus(status, `${latest} скачана. Программа перезапустится в новой версии.`);
     else if (found) {
+      const kind = state.force ? "обязательная версия" : "новая версия";
       setStatus(status, state.can_install
-        ? `Доступна новая версия ${latest} (у вас v${state.current}).`
-        : `Доступна ${latest}. Из исходников обновитесь через git pull.`);
+        ? `Доступна ${kind} ${latest} (у вас v${state.current}).`
+        : `Доступна ${kind} ${latest}. Из исходников обновитесь через git pull` +
+          (state.force ? " (собранная программа без неё не работает)." : "."));
     } else setStatus(status, `Версия v${state.current}`);
+  }
+
+  // Обязательное обновление в собранной программе: всё, кроме раздела обновлений,
+  // закрыто затемнением и недоступно с клавиатуры (сервер такие запросы тоже отклоняет).
+  function showLock(state) {
+    const locked = !!state.locked;
+    document.body.classList.toggle("update-locked", locked);
+    $("update-lock-note").hidden = !locked;
+    if (state.html_url && /^https:\/\//i.test(state.html_url)) $("update-manual").href = state.html_url;
+    for (const el of document.querySelector("main").children) {
+      if (el.id !== "update-section") el.inert = locked;
+    }
   }
 
   async function updateCall(method, url, body) {

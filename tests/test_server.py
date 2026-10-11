@@ -507,7 +507,7 @@ def update_client(hub, recognizer, settings, sound, fake_sd, tmp_path, monkeypat
         "body": "",
         "assets": [{"name": "SwearCounter-v9.0.0-windows.zip", "browser_download_url": "https://x/z.zip", "size": 1}],
     }
-    monkeypatch.setattr(updater_module, "fetch_latest", lambda: release)
+    monkeypatch.setattr(updater_module, "fetch_releases", lambda: [release])
     updater = updater_module.Updater(settings, install_dir=tmp_path, frozen=False)
     app = create_app(hub, recognizer, settings, sound, updater=updater)
     with TestClient(app) as client:
@@ -678,3 +678,51 @@ def test_pages_revalidated_not_cached(client, url):
     assert r.status_code == 200
     assert r.headers["cache-control"] == "no-cache"
     assert client.get(url, headers={"If-None-Match": r.headers["etag"]}).status_code == 304
+
+
+# --- обязательное обновление ---
+
+
+@pytest.fixture
+def locked_client(hub, recognizer, settings, sound, fake_sd, tmp_path):
+    from app import updater as updater_module
+
+    updater = updater_module.Updater(settings, install_dir=tmp_path, frozen=True, current="0.2.0")
+    updater.info = {"latest": "9.0.0", "url": "https://x/z.zip", "size": 1, "notes": "", "html_url": "", "force": True}
+    updater.status = "available"
+    app = create_app(hub, recognizer, settings, sound, updater=updater)
+    with TestClient(app) as client:
+        yield client, updater
+
+
+def test_forced_update_blocks_counting_and_changes(locked_client, hub):
+    client, _ = locked_client
+    assert client.get("/api/update").json()["locked"] is True
+    before = hub.counter.value
+    resp = client.post("/api/increment")
+    assert resp.status_code == 423 and "обязательное" in resp.json()["detail"]
+    assert client.post("/api/reset").status_code == 423
+    assert client.post("/api/overlay/preset", json={"preset": "neon"}).status_code == 423
+    assert client.portal.call(hub.increment, 3) == before  # распознанные слова тоже не считаются
+    assert hub.counter.value == before
+    # Читать можно, оверлей работает.
+    assert client.get("/api/state").status_code == 200
+    assert client.get("/overlay/").status_code == 200
+
+
+def test_forced_update_leaves_update_api_open(locked_client, monkeypatch):
+    from app import updater as updater_module
+
+    client, _ = locked_client
+    assert client.post("/api/update/auto", json={"enabled": False}).status_code == 200
+    assert client.delete("/api/update/download").status_code == 404
+    # Обязательный релиз сняли (или пометку убрали) — проверка снимает блокировку.
+    monkeypatch.setattr(updater_module, "fetch_releases", lambda: [])
+    assert client.post("/api/update/check").json()["locked"] is False
+    assert client.post("/api/increment").status_code == 200
+
+
+def test_unlocked_after_forced_info_cleared(locked_client, hub):
+    client, updater = locked_client
+    updater.info = None
+    assert client.post("/api/increment").status_code == 200
