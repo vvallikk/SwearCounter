@@ -467,7 +467,9 @@ select {
 .field { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--muted); }
 .field .text-input { flex: none; color: var(--text); }
 textarea.text-input { resize: vertical; min-height: 110px; font-size: 14px; line-height: 1.4; }
-.order-fallback { margin-top: 4px; }
+.order-fallback { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin-top: 8px; }
+.order-fallback .copy-link { margin-top: 0; }
+a.secondary-btn { display: inline-flex; align-items: center; text-decoration: none; }
 .order-fallback .copy-link { max-width: 100%; overflow-wrap: anywhere; }
 .dialog-actions { justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .primary-btn { color: #fff; background: var(--accent); border-color: var(--accent); }

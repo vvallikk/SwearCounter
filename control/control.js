@@ -1003,8 +1003,8 @@
   }
 
   // --- Заказ оформления у автора ---
-  // Письмо собирает сервер и открывает почтовую программу: во встроенном окне
-  // программы ссылка mailto: сама не открывается.
+  // Письмо собирает сервер. Если на компьютере есть почтовая программа, он открывает её,
+  // иначе предлагает сайт почты отправителя (Gmail, Яндекс, Mail) с уже заполненным письмом.
 
   const orderDialog = $("order-dialog");
   const orderForm = $("order-form");
@@ -1013,12 +1013,38 @@
   const orderStatusEl = $("order-status");
   const orderSendBtn = $("order-send");
   const orderFallback = $("order-fallback");
+  const orderWebmail = $("order-webmail");
   const orderCopyBtn = $("order-copy");
+  const orderCopyTextBtn = $("order-copy-text");
+  let orderLetter = null;
 
-  function showOrderAddress(email) {
-    orderCopyBtn.replaceChildren(email, el("span", "copy-label", "Скопировать"));
-    orderCopyBtn.dataset.email = email;
+  function showOrderLetter(res) {
+    orderLetter = res;
+    const web = res.webmail;
+    const webOk = web && typeof web.url === "string" && /^https:\/\//i.test(web.url);
+    orderWebmail.hidden = !webOk;
+    orderWebmail.removeAttribute("href");
+    if (webOk) {
+      orderWebmail.href = web.url;
+      orderWebmail.textContent = `Открыть в ${web.name}`;
+    }
+    orderCopyBtn.replaceChildren(res.email, el("span", "copy-label", "Скопировать"));
+    orderCopyBtn.classList.remove("copied");
+    orderCopyTextBtn.textContent = "Скопировать текст письма";
     orderFallback.hidden = false;
+
+    let text;
+    if (res.opened) {
+      text = "Письмо открылось в почтовой программе: проверьте его и отправьте.";
+      if (webOk) text += ` Если удобнее, напишите из ${web.name}.`;
+    } else if (webOk && web.filled) {
+      text = `Нажмите «Открыть в ${web.name}»: письмо автору уже заполнено, останется отправить.`;
+    } else if (webOk) {
+      text = `Нажмите «Открыть в ${web.name}» и вставьте в новое письмо адрес автора и текст: их можно скопировать.`;
+    } else {
+      text = "Напишите автору с любой почты: адрес и текст письма можно скопировать.";
+    }
+    setStatus(orderStatusEl, text, false, res.opened);
   }
 
   $("order-open").addEventListener("click", () => {
@@ -1029,11 +1055,23 @@
     (orderEmailEl.value ? orderDescriptionEl : orderEmailEl).focus();
   });
   $("order-cancel").addEventListener("click", () => orderDialog.close());
+  // Описание поменяли: прежние ссылки и текст письма устарели.
+  orderForm.addEventListener("input", () => {
+    if (orderFallback.hidden) return;
+    orderFallback.hidden = true;
+    orderSendBtn.textContent = "Отправить";
+    setStatus(orderStatusEl, "");
+  });
 
   orderCopyBtn.addEventListener("click", async () => {
-    const ok = await copyText(orderCopyBtn.dataset.email || "");
+    const ok = await copyText(orderLetter ? orderLetter.email : "");
     orderCopyBtn.classList.toggle("copied", ok);
     orderCopyBtn.lastChild.textContent = ok ? "Скопировано" : "Не скопировалось";
+  });
+  orderCopyTextBtn.addEventListener("click", async () => {
+    if (!orderLetter) return;
+    const ok = await copyText(`Тема: ${orderLetter.subject}\n\n${orderLetter.body}`);
+    orderCopyTextBtn.textContent = ok ? "✓ Текст скопирован" : "Не скопировалось";
   });
 
   orderForm.addEventListener("submit", async (event) => {
@@ -1051,18 +1089,10 @@
       return;
     }
     orderSendBtn.disabled = true;
-    setStatus(orderStatusEl, "Открываю почтовую программу…");
+    setStatus(orderStatusEl, "Готовлю письмо…");
     try {
-      const res = await api("POST", "/api/order", { email, description });
-      setStatus(
-        orderStatusEl,
-        res.opened
-          ? "Письмо открылось в почтовой программе: проверьте его и отправьте. Если ничего не открылось, напишите автору на почту:"
-          : `Почтовая программа не открылась. Напишите автору на почту, тема «${res.subject}»:`,
-        false, res.opened,
-      );
-      showOrderAddress(res.email);
-      orderSendBtn.textContent = "Открыть ещё раз";
+      showOrderLetter(await api("POST", "/api/order", { email, description }));
+      orderSendBtn.textContent = "Ещё раз";
     } catch (e) {
       setStatus(orderStatusEl, e.message, true);
     } finally {

@@ -789,25 +789,38 @@ def test_order_hidden_without_email(client, monkeypatch):
 @pytest.fixture
 def order(monkeypatch):
     monkeypatch.setattr(server, "ORDER_EMAIL", "author@example.com")
+    monkeypatch.setattr(server.mail, "has_mail_app", lambda: True)
     opened = []
     monkeypatch.setattr(server.webbrowser, "open", lambda url: opened.append(url) or True)
     return opened
 
 
-def test_order_opens_mail(client, order):
+def test_order_opens_mail_app(client, order):
     from urllib.parse import parse_qs, urlsplit
 
     res = client.post("/api/order", json={"email": " me@example.com ", "description": "Хорёк & огонь?\nИ звук"})
     assert res.status_code == 200
-    assert res.json() == {"opened": True, "email": "author@example.com", "subject": server.ORDER_SUBJECT}
+    answer = res.json()
+    assert answer["opened"] is True and answer["webmail"] is None
+    assert answer["email"] == "author@example.com" and answer["subject"] == server.ORDER_SUBJECT
     parts = urlsplit(order[0])
     assert parts.scheme == "mailto" and parts.path == "author@example.com"
     query = parse_qs(parts.query)
     assert query["subject"] == [server.ORDER_SUBJECT]
     body = query["body"][0]
+    assert body == answer["body"]
     assert "Почта для связи: me@example.com" in body
     assert "Хорёк & огонь?\nИ звук" in body
     assert server.__version__ in body
+
+
+def test_order_without_mail_app_offers_webmail(client, order, monkeypatch):
+    monkeypatch.setattr(server.mail, "has_mail_app", lambda: False)
+    res = client.post("/api/order", json={"email": "me@gmail.com", "description": "Огненные цифры"})
+    answer = res.json()
+    assert answer["opened"] is False and order == []
+    assert answer["webmail"]["name"] == "Gmail" and answer["webmail"]["filled"] is True
+    assert answer["webmail"]["url"].startswith("https://mail.google.com/")
 
 
 @pytest.mark.parametrize(
