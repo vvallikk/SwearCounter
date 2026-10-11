@@ -31,7 +31,7 @@ from .profanity import SwearTracker
 from .server import Hub, create_app
 from .settings import Settings
 from .sound import Sound
-from .stt import CATALOG, VoskRecognizer, find_model, installed_models
+from .stt import CATALOG, MicRecognizer, find_model, installed_models
 from .updater import Updater
 from .wordlists import WordLists
 
@@ -154,7 +154,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
         # Для индикатора громкости на странице управления; оверлей это сообщение пропускает.
         await hub.broadcast({"type": "mic_level", "level": round(level, 3)})
 
-    recognizer = VoskRecognizer(
+    recognizer = MicRecognizer(
         on_text, (model or CATALOG[0]).path, settings, device=device, on_level=on_level
     )
 

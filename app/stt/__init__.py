@@ -3,7 +3,7 @@
 from .base import OnText, Recognizer
 from .catalog import CATALOG, ModelInfo, find_model, installed_models
 from .downloader import ModelDownloader
-from .vosk_recognizer import VoskRecognizer
+from .recognizer import MicRecognizer
 
 __all__ = [
     "CATALOG",
@@ -11,7 +11,7 @@ __all__ = [
     "ModelInfo",
     "OnText",
     "Recognizer",
-    "VoskRecognizer",
+    "MicRecognizer",
     "find_model",
     "installed_models",
 ]

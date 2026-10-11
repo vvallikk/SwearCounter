@@ -1,4 +1,4 @@
-"""Отдельный процесс распознавания: модель Vosk, микрофон и распознавание.
+"""Отдельный процесс распознавания: модель, микрофон и распознавание.
 
 Процесс нужен, чтобы загрузку модели можно было прервать в любой момент:
 поток остановить нельзя, а процесс можно завершить, и Windows сразу вернёт
@@ -26,7 +26,6 @@
 """
 
 import array
-import json
 import multiprocessing
 import os
 import queue
@@ -69,13 +68,11 @@ class _Worker:
         threading.Thread(target=self._read_commands, args=(commands,), daemon=True).start()
 
     def run(self, model_path: str) -> None:
-        # Тяжёлые импорты здесь, чтобы основной процесс их не загружал.
-        import vosk
-
-        vosk.SetLogLevel(-1)  # иначе Kaldi засыпает консоль служебными сообщениями
+        # Импорт здесь, чтобы основной процесс не загружал библиотеки распознавания.
+        from .engines import load_engine
 
         started = time.monotonic()
-        model = vosk.Model(model_path)
+        engine = load_engine(model_path)
         self.results.send(("loaded", time.monotonic() - started))
 
         while True:
@@ -89,7 +86,7 @@ class _Worker:
                 continue
             try:
                 self.results.send(("listening", name, samplerate))
-                self._recognize(vosk.KaldiRecognizer(model, samplerate), stream, samplerate)
+                self._recognize(engine.session(samplerate), stream, samplerate)
             except MicrophoneLost:
                 lost = True
             else:
@@ -126,9 +123,8 @@ class _Worker:
         stream.start()
         return stream, samplerate, display_name(info["index"])
 
-    def _recognize(self, rec, stream, samplerate: int) -> None:
+    def _recognize(self, session, stream, samplerate: int) -> None:
         """Распознаёт звук, пока не придёт команда сменить микрофон."""
-        last_partial = ""
         while True:
             try:
                 data = self.chunks.get(timeout=SILENCE_TIMEOUT)
@@ -145,16 +141,8 @@ class _Worker:
                 continue
             self.results.send(("level", peak_level(data)))
             self.monitor.feed(data)
-            if rec.AcceptWaveform(data):
-                text = json.loads(rec.Result())["text"]
-                last_partial = ""
-                if text:
-                    self.results.send(("text", text, True))
-            else:
-                partial = json.loads(rec.PartialResult())["partial"]
-                if partial and partial != last_partial:
-                    last_partial = partial
-                    self.results.send(("text", partial, False))
+            for text, is_final in session.accept(data):
+                self.results.send(("text", text, is_final))
 
     def _apply_monitor(self, samplerate: int) -> None:
         if not self._monitor_wanted:

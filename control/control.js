@@ -658,10 +658,14 @@
       el("p", "specs", `Загрузка в память при запуске: ${m.load_time}`)
     );
     if (!m.installed) {
-      const hint = el("p", "specs", `Нажмите на модель, чтобы скачать её (${m.download_size}). Или скачайте `);
-      const link = el("a", "", "архив");
-      link.href = m.url;
-      hint.append(link, " вручную и распакуйте в папку models/ рядом с программой.");
+      const hint = el("p", "specs", `Нажмите на модель, чтобы скачать её (${m.download_size}).`);
+      // Вручную предлагаем ставить только модели из одного архива: модель из нескольких
+      // файлов проще и надёжнее скачать кнопкой.
+      if (m.url && !m.files.length) {
+        const link = el("a", "", "архив");
+        link.href = m.url;
+        hint.append(" Или скачайте ", link, " вручную и распакуйте в папку models/ рядом с программой.");
+      }
       details.append(hint);
     }
 
