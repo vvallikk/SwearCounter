@@ -149,7 +149,11 @@ def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater 
         # О найденном обновлении сообщает on_update_found.
 
     def on_update_found(version: str) -> None:
-        icon.notify(f"Доступна версия v{version}. Установить — на странице управления.", TITLE)
+        if updater.forced:
+            show()
+            icon.notify(f"Нужно обязательное обновление до v{version}: без него программа не работает.", TITLE)
+        else:
+            icon.notify(f"Доступна версия v{version}. Установить — на странице управления.", TITLE)
 
     if updater is not None:
         updater.on_found = on_update_found

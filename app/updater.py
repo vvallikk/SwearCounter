@@ -1,6 +1,18 @@
 """Обновление программы по релизам GitHub.
 
-Проверка: последний релиз репозитория через API GitHub, без токена.
+Проверка: список релизов репозитория через API GitHub, без токена.
+Предлагается самый новый релиз, а тип обновления задаёт пометка в его описании
+(docs/releases/vX.Y.Z.md), невидимый HTML-комментарий:
+
+    без пометки                       — обычное: можно пропустить;
+    <!-- update: full-force -->        — обязательное для всех версий ниже этой;
+    <!-- update: force 0.2.0 0.2.1 --> — обязательное только для перечисленных версий.
+
+Пометки смотрятся у всех релизов новее текущей версии, а не только у последнего:
+обычный релиз, вышедший после обязательного, не отменяет обязательность.
+Обязательное обновление в собранной программе блокирует её (Updater.locked),
+пока пользователь не обновится.
+
 Установка (только собранный exe): zip релиза качается и распаковывается в
 update/ рядом с exe, затем apply.cmd ждёт выхода программы, заменяет только
 программные файлы (SwearCounter.exe и _internal) и запускает новую версию.
@@ -32,7 +44,7 @@ from .stt.downloader import DownloadCancelled, fetch_to_file
 log = logging.getLogger(__name__)
 
 REPO = "vvallikk/SwearCounter"
-LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
+RELEASES_URL = f"https://api.github.com/repos/{REPO}/releases?per_page=100"
 ASSET_NAME = re.compile(r"SwearCounter-v[\w.\-]+-windows\.zip")
 APP_FOLDER = "SwearCounter"  # папка внутри zip релиза (scripts/build.py)
 EXE_NAME = "SwearCounter.exe"
@@ -57,6 +69,49 @@ def is_newer(latest: str, current: str) -> bool:
     return new + (0,) * (width - len(new)) > old + (0,) * (width - len(old))
 
 
+def same_version(a: str, b: str) -> bool:
+    return parse_version(a) is not None and not is_newer(a, b) and not is_newer(b, a)
+
+
+MARKER = re.compile(r"<!--\s*update\s*:(.*?)-->", re.IGNORECASE | re.DOTALL)
+MINOR = {"type": "minor", "versions": []}
+
+
+def update_policy(notes: str) -> dict:
+    """Тип обновления из пометки в описании релиза; ValueError, если пометка неверная."""
+    markers = MARKER.findall(notes or "")
+    if not markers:
+        return MINOR
+    if len(markers) > 1:
+        raise ValueError("в описании больше одной пометки update")
+    words = markers[0].replace(",", " ").split()
+    kind, versions = (words[0].lower() if words else ""), words[1:]
+    if kind == "minor" and not versions:
+        return MINOR
+    if kind == "full-force" and not versions:
+        return {"type": "full-force", "versions": []}
+    if kind == "force" and versions:
+        bad = [v for v in versions if parse_version(v) is None]
+        if bad:
+            raise ValueError(f"неверные версии в пометке force: {', '.join(bad)}")
+        return {"type": "force", "versions": [v.lstrip("v") for v in versions]}
+    raise ValueError(
+        "пометка должна быть <!-- update: full-force --> или <!-- update: force 0.2.0 0.2.1 -->"
+    )
+
+
+def forces(release: dict, current: str) -> bool:
+    """Обязателен ли этот релиз для версии current (сам релиз должен быть новее)."""
+    try:
+        policy = update_policy(release.get("body") or "")
+    except ValueError as e:
+        log.warning("Релиз %s: %s; считаем обновление обычным", release.get("tag_name"), e)
+        return False
+    if policy["type"] == "full-force":
+        return True
+    return any(same_version(v, current) for v in policy["versions"])
+
+
 def pick_asset(release: dict) -> dict | None:
     for asset in release.get("assets") or []:
         if ASSET_NAME.fullmatch(asset.get("name", "")):
@@ -65,7 +120,7 @@ def pick_asset(release: dict) -> dict | None:
 
 
 def release_info(release: dict, current: str = __version__) -> dict | None:
-    """Сведения об обновлении из ответа GitHub; None, если обновлять не на что."""
+    """Сведения об обновлении из одного релиза GitHub; None, если обновлять не на что."""
     tag = release.get("tag_name") or ""
     asset = pick_asset(release)
     if release.get("draft") or release.get("prerelease") or asset is None:
@@ -78,19 +133,33 @@ def release_info(release: dict, current: str = __version__) -> dict | None:
         "size": asset.get("size", 0),
         "notes": release.get("body") or "",
         "html_url": release.get("html_url") or f"https://github.com/{REPO}/releases",
+        "force": forces(release, current),
+        "for_version": current,
     }
 
 
-def fetch_latest(url: str = LATEST_URL) -> dict:
+def pick_update(releases: list, current: str = __version__) -> dict | None:
+    """Самый новый подходящий релиз; обязательный, если обязателен любой релиз новее current."""
+    newer = [r for r in releases if isinstance(r, dict) and release_info(r, current) is not None]
+    if not newer:
+        return None
+    newest = max(newer, key=lambda r: parse_version(r["tag_name"]) + (0,) * 8)
+    info = release_info(newest, current)
+    info["force"] = any(forces(r, current) for r in newer)
+    return info
+
+
+def fetch_releases(url: str = RELEASES_URL) -> list:
     request = urllib.request.Request(
         url, headers={"User-Agent": "SwearCounter", "Accept": "application/vnd.github+json"}
     )
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
-            return json.loads(response.read().decode("utf-8"))
+            releases = json.loads(response.read().decode("utf-8"))
+            return releases if isinstance(releases, list) else []
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            return {}  # релизов ещё нет
+            return []  # релизов ещё нет
         if e.code in (403, 429):
             raise RuntimeError("GitHub временно ограничил запросы, попробуйте позже") from None
         raise RuntimeError(f"GitHub ответил ошибкой {e.code}") from None
@@ -153,6 +222,15 @@ class Updater:
         self.settings.set("update_auto", enabled)
 
     @property
+    def forced(self) -> bool:
+        return bool(self.info and self.info.get("force"))
+
+    @property
+    def locked(self) -> bool:
+        """Программа заблокирована до установки обязательного обновления (только exe)."""
+        return self.frozen and self.forced
+
+    @property
     def busy(self) -> bool:
         return self.status in ("checking", "downloading", "extracting")
 
@@ -165,7 +243,9 @@ class Updater:
             "status": self.status,
             "progress": min(progress, 1.0),
             "error": self.error,
+            "force": False,
             **(self.info or {}),
+            "locked": self.locked,
         }
 
     async def _changed(self) -> None:
@@ -176,42 +256,59 @@ class Updater:
         self.status, self.error = status, error
         await self._changed()
 
-    async def check(self) -> str:
-        """Проверяет последний релиз; возвращает новый статус."""
+    async def check(self, quiet: bool = False) -> str:
+        """Проверяет релизы; возвращает новый статус.
+
+        quiet — тихая проверка при выключенной автопроверке: без «проверяем» и ошибок,
+        показывается только обязательное обновление.
+        """
         if self.busy or self.status == "ready":
             return self.status
-        await self._set("checking")
+        if not quiet:
+            await self._set("checking")
         try:
-            release = await asyncio.to_thread(fetch_latest)
+            releases = await asyncio.to_thread(fetch_releases)
         except Exception as e:
             log.warning("Проверка обновлений: %s", e)
-            await self._set("error", f"Не удалось проверить обновления: {e}")
+            if not quiet:
+                await self._set("error", f"Не удалось проверить обновления: {e}")
             return self.status
-        self.info = release_info(release, self.current)
+        info = pick_update(releases, self.current)
         self.settings.set("update_checked_at", time.time())
-        self.settings.set("update_last", self.info)
-        if self.info is None:
-            await self._set("none")
-        else:
-            log.info("Доступно обновление %s", self.info["latest"])
-            await self._set("available")
-            if self.on_found is not None:
-                self.on_found(self.info["latest"])
+        self.settings.set("update_last", info)
+        await self._show(info, quiet, notify=True)
         return self.status
 
+    async def _show(self, info: dict | None, quiet: bool, notify: bool) -> None:
+        if info is None or (quiet and not info.get("force")):
+            if not quiet:
+                self.info = None
+                await self._set("none")
+            return
+        self.info = info
+        kind = "обязательное обновление" if info.get("force") else "обновление"
+        log.info("Доступно %s %s", kind, info["latest"])
+        await self._set("available")
+        if notify and self.on_found is not None:
+            self.on_found(info["latest"])
+
     async def auto_check(self, now: float | None = None) -> None:
-        """Проверка при запуске: не чаще CHECK_INTERVAL, иначе — по прошлому результату."""
+        """Проверка при запуске: не чаще CHECK_INTERVAL, иначе — по прошлому результату.
+
+        При выключенной автопроверке всё равно проверяем, но тихо: обязательное
+        обновление нельзя обойти, сняв галочку.
+        """
         self.loop = asyncio.get_running_loop()
-        if not self.auto:
-            return
+        quiet = not self.auto
         now = time.time() if now is None else now
-        if now - float(self.settings.get("update_checked_at") or 0) >= CHECK_INTERVAL:
-            await self.check()
-            return
         last = self.settings.get("update_last")
-        if isinstance(last, dict) and is_newer(str(last.get("latest", "")), self.current):
-            self.info = last
-            await self._set("available")
+        fresh = now - float(self.settings.get("update_checked_at") or 0) < CHECK_INTERVAL
+        # Прошлый результат годится, только если он посчитан для этой же версии.
+        if fresh and (last is None or (isinstance(last, dict) and last.get("for_version") == self.current)):
+            if last is not None and is_newer(str(last.get("latest", "")), self.current):
+                await self._show(last, quiet, notify=False)
+            return
+        await self.check(quiet=quiet)
 
     def check_threadsafe(self, timeout: float = 30) -> str:
         """Проверка из другого потока (меню трея)."""

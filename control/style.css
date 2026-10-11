@@ -61,6 +61,19 @@ h1 { margin: 0 0 4px; font-size: 20px; }
 .update-notes summary { cursor: pointer; color: var(--accent); }
 .update-notes div { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
 .update-auto { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.update-badge.force { background: var(--danger); }
+.update-lock-note { margin-bottom: 10px; font-size: 13px; line-height: 1.45; }
+.update-lock-note a { color: var(--accent); }
+/* Обязательное обновление: страница под затемнением, поверх — только раздел обновлений. */
+body.update-locked::before {
+  content: ""; position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.6);
+}
+body.update-locked #update-section {
+  position: fixed; z-index: 11; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+  margin: 0; padding: 20px; background: var(--card); border: 1px solid var(--danger); border-radius: 14px;
+}
+body.update-locked .update-auto { display: none; }
 .theme-btn {
   position: absolute;
   top: 14px;
