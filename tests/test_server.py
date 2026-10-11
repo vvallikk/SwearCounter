@@ -13,7 +13,7 @@ from app.server import Hub, create_app
 from app.settings import Settings
 from app.sound import Sound
 from app.stt import CATALOG
-from conftest import HYPERX, REALTEK, STEAM
+from conftest import GREETING, HYPERX, REALTEK, STEAM, skip_greeting
 
 ROOT = Path(__file__).resolve().parent.parent
 SMALL = "vosk-model-small-ru-0.22"
@@ -344,6 +344,35 @@ def test_select_device_requires_exact_name(client):
     assert client.post("/api/speech/device", json={"device": "steam"}).status_code == 404
 
 
+# --- пауза распознавания ---
+
+
+def test_pause_is_off_by_default(client):
+    assert client.get("/api/pause").json() == {"paused": False}
+
+
+def test_pause_stops_only_speech(client, hub):
+    import asyncio
+
+    assert client.post("/api/pause", json={"paused": True}).json() == {"paused": True}
+    assert asyncio.run(hub.increment(2, speech=True)) == 0
+    # Кнопка «+1» и горячие клавиши на паузе работают.
+    assert client.post("/api/increment").json() == {"count": 1}
+    assert client.post("/api/pause", json={"paused": False}).json() == {"paused": False}
+    assert asyncio.run(hub.increment(2, speech=True)) == 3
+
+
+def test_pause_is_broadcast(client):
+    with client.websocket_connect("ws://localhost/ws") as ws:
+        greeting = skip_greeting(ws)
+        assert greeting[1] == {"type": "pause", "paused": False}
+        client.post("/api/pause", json={"paused": True})
+        assert ws.receive_json() == {"type": "pause", "paused": True}
+        client.post("/api/pause", json={"paused": True})  # уже на паузе: рассылать нечего
+        client.post("/api/pause", json={"paused": False})
+        assert ws.receive_json() == {"type": "pause", "paused": False}
+
+
 # --- WebSocket ---
 
 
@@ -449,9 +478,7 @@ def test_volume(client):
 
 def test_sound_changes_reach_overlays(client):
     with client.websocket_connect("ws://localhost/ws") as ws:
-        ws.receive_json()  # state
-        assert ws.receive_json()["type"] == "sound"
-        ws.receive_json()  # style
+        skip_greeting(ws)
         client.post("/api/sound/volume", json={"volume": 55})
         message = ws.receive_json()
         assert message["type"] == "sound" and message["volume"] == 55
@@ -462,14 +489,13 @@ def test_sound_changes_reach_overlays(client):
 
 def test_ws_greeting_includes_sound_and_style(client):
     with client.websocket_connect("ws://localhost/ws") as ws:
-        types_ = [ws.receive_json()["type"] for _ in range(3)]
-    assert types_ == ["state", "sound", "style"]
+        types_ = [ws.receive_json()["type"] for _ in GREETING]
+    assert types_ == ["state", "pause", "sound", "style"]
 
 
 def test_preset_is_saved_and_broadcast(client, settings_path):
     with client.websocket_connect("ws://localhost/ws") as ws:
-        for _ in range(3):
-            ws.receive_json()
+        skip_greeting(ws)
         assert client.post("/api/overlay/preset", json={"preset": "neon"}).json()["preset"] == "neon"
         assert ws.receive_json() == {"type": "style", "preset": "neon", "label": "", "label_position": "left"}
     assert client.get("/api/overlay").json()["preset"] == "neon"
@@ -499,8 +525,7 @@ def test_invalid_preset_rejected(client, preset):
 
 def test_label_is_saved_and_broadcast(client, settings_path):
     with client.websocket_connect("ws://localhost/ws") as ws:
-        for _ in range(3):
-            ws.receive_json()
+        skip_greeting(ws)
         response = client.post("/api/overlay/label", json={"text": "  Маты:\n ", "position": "top"})
         assert response.json() == {"preset": "classic", "label": "Маты:", "label_position": "top"}
         assert ws.receive_json() == {"type": "style", "preset": "classic", "label": "Маты:", "label_position": "top"}
@@ -577,8 +602,7 @@ def test_update_state(client):
 def test_update_check_is_broadcast(update_client):
     client, _ = update_client
     with client.websocket_connect("ws://localhost/ws") as ws:
-        for _ in range(3):
-            ws.receive_json()  # state, sound, style
+        skip_greeting(ws)
         assert client.post("/api/update/check").json()["latest"] == "9.0.0"
         assert ws.receive_json()["status"] == "checking"
         message = ws.receive_json()

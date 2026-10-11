@@ -120,6 +120,10 @@ body.update-locked .update-auto { display: none; }
 .buttons button:disabled { opacity: 0.6; }
 #inc { background: var(--accent); }
 #reset { background: var(--danger); }
+#pause { background: var(--muted); }
+#pause[aria-pressed="true"] { background: var(--ok); }
+.count.paused { opacity: 0.45; }
+.pause-note { margin: 8px 0 0; text-align: center; }
 
 .hint { margin-top: 16px; font-size: 13px; color: var(--muted); text-align: center; }
 .copy-link {

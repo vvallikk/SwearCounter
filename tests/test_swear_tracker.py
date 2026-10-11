@@ -12,16 +12,20 @@ WAIT = DELAY * 3  # заведомо дольше задержки
 
 
 def run(steps) -> list[int]:
-    """Прогоняет шаги: ("p", текст) — промежуточный, ("f", текст) — окончательный, число — пауза."""
+    """Прогоняет шаги: ("p", текст) — промежуточный, ("f", текст) — окончательный, число — пауза,
+    "pause"/"resume" — пауза распознавания."""
     added: list[int] = []
+    paused = [False]
 
     async def add(n: int) -> None:
         added.append(n)
 
     async def scenario() -> None:
-        tracker = SwearTracker(add, partial(count_profanity, roots=ROOTS), delay=DELAY)
+        tracker = SwearTracker(add, partial(count_profanity, roots=ROOTS), delay=DELAY, paused=lambda: paused[0])
         for step in steps:
-            if isinstance(step, float):
+            if step in ("pause", "resume"):
+                paused[0] = step == "pause"
+            elif isinstance(step, float):
                 await asyncio.sleep(step)
             else:
                 kind, text = step
@@ -76,3 +80,17 @@ def test_spoken_text_not_logged_at_info(caplog):
         assert run([("p", "секретная бля"), WAIT, ("f", "секретная бля фраза")]) == [1]
     assert caplog.records
     assert not any("секретная" in record.getMessage() for record in caplog.records)
+
+
+def test_paused_text_is_not_counted():
+    assert run(["pause", ("p", "бля"), WAIT, ("f", "бля хрен")]) == []
+
+
+def test_phrase_started_before_pause_is_forgotten():
+    # Мат ещё не продержался в промежуточном тексте, а распознавание уже на паузе.
+    assert run([("p", "ну бля"), "pause", ("p", "ну бля"), "resume", ("f", "ну бля")]) == [1]
+    assert run([("p", "ну бля"), "pause", ("p", "ну бля"), WAIT, "resume", ("f", "ну")]) == []
+
+
+def test_counting_resumes_after_pause():
+    assert run(["pause", ("f", "бля"), "resume", ("f", "хрен")]) == [1]

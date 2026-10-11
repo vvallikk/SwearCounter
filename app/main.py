@@ -143,10 +143,10 @@ def prepare(args: argparse.Namespace) -> Prepared:
     word_lists.prepare(OLD_WORDS_FILE)
 
     async def add_swears(found: int) -> None:
-        count = await hub.increment(found)
+        count = await hub.increment(found, speech=True)
         log.info("Счётчик: %d", count)
 
-    on_text = SwearTracker(add_swears).feed
+    on_text = SwearTracker(add_swears, paused=lambda: hub.paused).feed
 
     # Микрофон: ключ --device, иначе выбранный на странице управления, иначе системный.
     if args.device:
@@ -163,6 +163,8 @@ def prepare(args: argparse.Namespace) -> Prepared:
         model = models[0] if models else None
     async def on_level(level: float) -> None:
         # Для индикатора громкости на странице управления; оверлей это сообщение пропускает.
+        if hub.paused:
+            return
         await hub.broadcast({"type": "mic_level", "level": round(level, 3)})
 
     recognizer = MicRecognizer(

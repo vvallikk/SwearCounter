@@ -199,3 +199,14 @@ def run_key(monkeypatch):
     key = FakeRunKey()
     monkeypatch.setattr(autostart, "default_run_key", lambda: key)
     return key
+
+
+# Сообщения, которыми сервер встречает нового клиента WebSocket, по порядку.
+GREETING = ("state", "pause", "sound", "style")
+
+
+def skip_greeting(ws) -> list[dict]:
+    """Читает приветствие сервера, чтобы тест дальше видел только новые сообщения."""
+    messages = [ws.receive_json() for _ in GREETING]
+    assert tuple(m["type"] for m in messages) == GREETING
+    return messages
