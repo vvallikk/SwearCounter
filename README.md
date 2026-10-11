@@ -8,6 +8,7 @@
 
 [![Скачать](https://img.shields.io/github/v/release/vvallikk/SwearCounter?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&style=for-the-badge)](https://github.com/vvallikk/SwearCounter/releases/latest)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?style=for-the-badge)
+![macOS и Linux](https://img.shields.io/badge/macOS%20%7C%20Linux-%D0%B8%D0%B7%20%D0%B8%D1%81%D1%85%D0%BE%D0%B4%D0%BD%D0%B8%D0%BA%D0%BE%D0%B2-555555?style=for-the-badge)
 ![Офлайн](https://img.shields.io/badge/%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%B0%D0%B5%D1%82-%D0%BE%D1%84%D0%BB%D0%B0%D0%B9%D0%BD-2ea44f?style=for-the-badge)
 
 [![Поддержать на Boosty](https://img.shields.io/badge/Boosty-%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-F15F2C?style=for-the-badge&logo=boosty&logoColor=white)](https://boosty.to/walikk/single-payment/donation/834276/target?share=target_link)
@@ -63,7 +64,9 @@
   и устойчивого к шуму Whisper, и четыре для английской. Скачиваются и удаляются в один клик, переключаются без перезапуска.
 - 🇬🇧 **Английская речь.** Свои модели и готовые списки "English swear words" и "English filler words".
 - 🌍 **Интерфейс на английском.** Окно программы, трей и уведомления переключаются кнопкой
-  "EN" / "RU" в углу окна. Сначала выбирается по языку Windows.
+  "EN" / "RU" в углу окна. Сначала выбирается по языку системы.
+- 🍎 **macOS и Linux.** Запуск из исходников, страница управления открывается в браузере
+  ([как запустить](#macos-и-linux)).
 - 🔄 **Обновляется сама.** Сообщит о новой версии и установит её в один клик.
 - ✨ **Личные оформления.** Свой стиль, анимация и звук. Можно сделать самому
   [по инструкции](docs/PRESETS.md) или заказать у автора прямо из программы.
@@ -89,9 +92,7 @@
 
 ## 🛠 В планах
 
-- 🍎 **macOS и Linux**, а не только Windows.
-
-Порядок не окончательный. Если хотите что-то ещё, напишите в [Issues](https://github.com/vvallikk/SwearCounter/issues).
+Всё, что было в планах, уже сделано. Если хотите что-то ещё, напишите в [Issues](https://github.com/vvallikk/SwearCounter/issues).
 
 ## Как это выглядит
 
@@ -144,6 +145,26 @@
 > Windows может предупредить о неизвестном издателе ("Windows защитила ваш компьютер").
 > Нажмите "Подробнее", затем "Выполнить в любом случае".
 > Проверить архив можно по SHA-256 и отчёту VirusTotal в описании релиза.
+
+### macOS и Linux
+
+Готовой сборки пока нет, программа запускается из исходников. Нужны
+[Python 3.14](https://www.python.org/downloads/) и git, а в Linux ещё PortAudio
+(`sudo apt install libportaudio2` в Ubuntu и Debian).
+
+```bash
+git clone https://github.com/vvallikk/SwearCounter.git
+cd SwearCounter
+python3.14 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m app.main
+```
+
+Окна и значка в трее здесь нет: сервер работает в терминале, а страница управления
+открывается в браузере (адрес и оверлей для OBS печатаются в терминале). Остановить
+программу можно клавишами `Ctrl+C`. В macOS при первом запуске разрешите терминалу доступ
+к микрофону. Автозапуск, горячие клавиши и самообновление пока есть только в Windows;
+обновить программу можно командой `git pull`.
 
 ## Добавление в OBS
 
