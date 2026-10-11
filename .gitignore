@@ -9,6 +9,7 @@ dist/
 settings.json
 settings.json.tmp
 /sounds/
+/presets/
 .claude/
 .pytest_cache/
 swearcounter.log*

@@ -1,6 +1,7 @@
 """FastAPI-приложение: API, WebSocket для оверлеев и статика."""
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -10,12 +11,13 @@ from contextlib import asynccontextmanager
 from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import __version__
+from . import SUPPORT_URL, __version__
 from .counter import Counter
+from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
@@ -162,6 +164,7 @@ def create_app(
     updater: Updater | None = None,
     check_updates: bool = False,
     word_lists: WordLists | None = None,
+    custom_presets: CustomPresets | None = None,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -235,7 +238,7 @@ def create_app(
 
     @app.get("/api/version")
     async def get_version():
-        return {"version": __version__}
+        return {"version": __version__, "support_url": SUPPORT_URL}
 
     @app.get("/api/update")
     async def get_update():
@@ -426,6 +429,53 @@ def create_app(
         await hub.broadcast(style_message())
         return await get_overlay()
 
+    @app.get("/overlay/custom-presets.js")
+    async def get_custom_presets_js():
+        """Личные оформления для оверлея: скрипт подключается сразу после presets.js."""
+        presets = custom_presets.list() if custom_presets is not None else []
+        return Response(
+            f"window.registerCustomPresets({json.dumps(presets, ensure_ascii=False)});\n",
+            media_type="text/javascript",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    if custom_presets is not None:
+
+        async def presets_changed() -> None:
+            # Оверлеи перезагружаются и подхватывают наборы; страница управления обновляет выбор.
+            await hub.broadcast({"type": "presets"})
+            builtin = custom_presets.builtin_ids
+            current = settings.get("overlay_preset", DEFAULT_PRESET)
+            if current not in builtin and current not in custom_presets.ids():
+                settings.set("overlay_preset", DEFAULT_PRESET)  # удалили выбранное оформление
+            await hub.broadcast(style_message())
+
+        @app.get("/api/presets/custom")
+        async def get_custom_presets():
+            return custom_presets.list()
+
+        @app.put("/api/presets/custom")
+        async def put_custom_preset(request: Request):
+            """Ставит личное оформление из zip-архива (тело запроса как есть, как у звука)."""
+            if int(request.headers.get("content-length") or 0) > MAX_PACK_BYTES:
+                raise HTTPException(413, f"Архив больше {MAX_PACK_BYTES // (1024 * 1024)} МБ")
+            data = await request.body()
+            try:
+                preset = await asyncio.to_thread(custom_presets.install, data)
+            except ValueError as e:
+                raise HTTPException(400, str(e)) from None
+            await presets_changed()
+            return preset
+
+        @app.delete("/api/presets/custom/{preset_id}")
+        async def delete_custom_preset(preset_id: str):
+            try:
+                await asyncio.to_thread(custom_presets.remove, preset_id)
+            except KeyError:
+                raise HTTPException(404, "Такого оформления нет") from None
+            await presets_changed()
+            return custom_presets.list()
+
     if word_lists is not None:
 
         @app.get("/api/words")
@@ -470,6 +520,15 @@ def create_app(
             hub.disconnect(ws)
             log.info("Клиент отключён, всего: %d", len(hub.clients))
 
+    if custom_presets is not None:
+        # Файлы наборов (style.css, картинки, звуки). Раньше /overlay, иначе его перехватит тот.
+        # Папка нужна сразу: StaticFiles проверяет её при первом запросе.
+        custom_presets.directory.mkdir(parents=True, exist_ok=True)
+        app.mount(
+            "/overlay/custom",
+            PageFiles(directory=custom_presets.directory, check_dir=False),
+            name="custom-presets",
+        )
     app.mount("/overlay", PageFiles(directory=OVERLAY_DIR, html=True), name="overlay")
     app.mount("/control", PageFiles(directory=CONTROL_DIR, html=True), name="control")
     return app

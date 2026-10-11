@@ -247,6 +247,15 @@ git push origin v0.3.0
 **Добавить оформление оверлея** — новый пресет в `overlay/presets.js`:
 он сам появится в списке на странице управления.
 
+**Сделать личное оформление на заказ** — zip-набор, который не попадает в репозиторий
+и ставится пользователем из окна программы. Формат, API анимации и лицензия набора —
+в [PRESETS.md](PRESETS.md). Для проверки положите папку набора в `presets/<id>/` в корне
+репозитория (она в `.gitignore`).
+
+**Кнопка «Поддержать»** — адрес страницы (Boosty, DonationAlerts и т. п.) в `SUPPORT_URL`
+в `app/__init__.py`. Пустая строка — кнопки нет ни в окне, ни в трее. Окно показывает
+только адреса `https://`.
+
 **Поменять или добавить встроенный список слов** — `.txt` в папке `wordlists/`
 (`swears.txt` — «Маты (18+)», он включён по умолчанию; `parasites.txt` — «Слова-паразиты»).
 Первая строка — `# Название: ...`, его показывает окно программы. Папка попадает в сборку,
@@ -279,7 +288,8 @@ app/main.py           точка входа, ключи запуска, логи
 app/desktop.py        окно (pywebview), трей (pystray), сервер в потоке, один экземпляр
 app/server.py         FastAPI: /ws, /api/state, /api/increment, /api/reset, /api/speech,
                       /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
-                      статика
+                      /api/presets/custom, статика
+app/custom_presets.py личные оформления: установка zip-наборов в presets/ (docs/PRESETS.md)
 app/updater.py        проверка, скачивание и установка обновлений из GitHub Releases
 app/settings.py       настройки (settings.json)
 app/sound.py          громкость и библиотека звуков оповещения (sounds/)

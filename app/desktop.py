@@ -19,7 +19,7 @@ from socket import socket
 import uvicorn
 from fastapi import FastAPI
 
-from . import __version__
+from . import SUPPORT_URL, __version__
 from .paths import ICON_FILE, WEBVIEW_DIR
 from .updater import Updater
 
@@ -165,6 +165,9 @@ def run(app: FastAPI, sock: socket, notice: str | None = None, updater: Updater 
             pystray.MenuItem("Скопировать адрес оверлея", copy_overlay),
             pystray.MenuItem("Открыть в браузере", lambda: webbrowser.open(urls.control)),
             pystray.MenuItem("Проверить обновления", check_updates, visible=updater is not None),
+            pystray.MenuItem(
+                "Поддержать автора", lambda: webbrowser.open(SUPPORT_URL), visible=bool(SUPPORT_URL)
+            ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Выход", quit_app),
         ),

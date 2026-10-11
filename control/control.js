@@ -273,6 +273,7 @@
   let renderedSoundsKey = "";
   let soundState = null; // последний ответ /api/sound: список перерисовывается и при смене пресета
   let standardSound = "ding"; // стандартный звук выбранного пресета (поле sound в presets.js)
+  let standardSoundName = "Стандартный звон";
   const STANDARD_NAMES = { ding: "Стандартный звон", ferret: "Стандартный: гуканье хорька" };
 
   function showVolume(volume) {
@@ -313,11 +314,11 @@
     // Ползунок не трогаем, пока его двигают: иначе он прыгал бы назад.
     if (volumeTimer === null && document.activeElement !== volumeEl) showVolume(state.volume);
     soundState = state;
-    const key = JSON.stringify([state.sounds, state.active, standardSound]);
+    const key = JSON.stringify([state.sounds, state.active, standardSound, standardSoundName]);
     if (key !== renderedSoundsKey) {
       renderedSoundsKey = key;
       soundListEl.replaceChildren(
-        soundItem(null, STANDARD_NAMES[standardSound], state.active === null),
+        soundItem(null, standardSoundName, state.active === null),
         ...state.sounds.map((s) => soundItem(s.id, s.name, s.id === state.active))
       );
     }
@@ -397,14 +398,51 @@
 
   // --- Оформление счётчика (пресеты описаны в /overlay/presets.js) ---
 
-  const presets = window.OVERLAY_PRESETS || [];
+  // Встроенные пресеты и личные оформления из /api/presets/custom (папка presets/ рядом с программой)
+  const builtinPresets = (window.OVERLAY_PRESETS || []).slice();
+  let presets = builtinPresets;
   const presetEl = $("preset");
   const presetPreviewEl = $("preset-preview");
   const presetDescEl = $("preset-desc");
+  const presetOwnerEl = $("preset-owner");
+  const presetStatusEl = $("preset-status");
+  const presetInput = $("preset-input");
+  const presetInstallBtn = $("preset-install");
+  const presetRemoveBtn = $("preset-remove");
+  const MAX_PACK_MB = 20;
   let shownPreset = null;
+  let wantedPreset = null; // id, который просили показать: личное оформление могло ещё не загрузиться
   let presetRequests = 0; // сколько выборов ещё не подтвердил сервер
 
-  presetEl.replaceChildren(...presets.map((p) => new Option(p.title, p.id)));
+  function renderPresetOptions() {
+    const custom = presets.filter((p) => p.custom);
+    const options = builtinPresets.map((p) => new Option(p.title, p.id));
+    if (custom.length) {
+      const group = el("optgroup");
+      group.label = "Личные оформления";
+      group.append(...custom.map((p) => new Option(p.title, p.id)));
+      options.push(group);
+    }
+    presetEl.replaceChildren(...options);
+    if (shownPreset) presetEl.value = shownPreset;
+  }
+  renderPresetOptions();
+
+  async function loadCustomPresets() {
+    let custom;
+    try {
+      custom = await api("GET", "/api/presets/custom");
+    } catch (e) {
+      return; // сервер старее страницы или недоступен: остаются встроенные
+    }
+    const changed = JSON.stringify(custom) !== JSON.stringify(presets.filter((p) => p.custom));
+    presets = builtinPresets.concat(custom);
+    renderPresetOptions();
+    if (wantedPreset !== null) showPreset(wantedPreset);
+    // В превью наборы подключаются при загрузке страницы оверлея: после изменений перезагружаем его,
+    // выбранное оформление превью получит заново по событию load (sendPreviewStyle).
+    if (changed && presetPreviewEl.contentWindow && presetPreviewEl.src) presetPreviewEl.contentWindow.location.reload();
+  }
 
   // Превью загружается один раз, а стиль в нём меняется сообщением. Если бы iframe
   // перезагружался на каждую смену, при быстром переключении превью могло пропасть.
@@ -417,12 +455,22 @@
   presetPreviewEl.addEventListener("load", sendPreviewStyle);
 
   function showPreset(id) {
+    wantedPreset = id;
     const preset = presets.find((p) => p.id === id) || presets[0];
     if (!preset) return;
     $("preset-section").hidden = false;
     presetEl.value = preset.id;
     presetDescEl.textContent = preset.description;
-    standardSound = STANDARD_NAMES[preset.sound] ? preset.sound : "ding";
+    presetOwnerEl.textContent = preset.owner ? `Личное оформление для: ${preset.owner}` : "";
+    presetOwnerEl.hidden = !preset.owner;
+    presetRemoveBtn.hidden = !preset.custom;
+    if (preset.custom && preset.sound) {
+      standardSound = preset.sound; // адрес звука из набора
+      standardSoundName = `Звук оформления «${preset.title}»`;
+    } else {
+      standardSound = STANDARD_NAMES[preset.sound] ? preset.sound : "ding";
+      standardSoundName = STANDARD_NAMES[standardSound];
+    }
     player.setStandard(standardSound);
     if (soundState) showSound(soundState);
     if (shownPreset === preset.id) return;
@@ -432,6 +480,57 @@
     if (first) presetPreviewEl.src = `/overlay/?preview=1&preset=${encodeURIComponent(preset.id)}`;
     else sendPreviewStyle();
   }
+
+  presetInstallBtn.addEventListener("click", () => presetInput.click());
+  presetInput.addEventListener("change", async () => {
+    const file = presetInput.files[0];
+    presetInput.value = ""; // чтобы тот же архив можно было выбрать ещё раз
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      return setStatus(presetStatusEl, "Оформление ставится из zip-архива", true);
+    }
+    if (file.size > MAX_PACK_MB * 1024 * 1024) {
+      return setStatus(presetStatusEl, `Архив больше ${MAX_PACK_MB} МБ`, true);
+    }
+    presetInstallBtn.disabled = true;
+    setStatus(presetStatusEl, "Установка…");
+    try {
+      const resp = await fetch("/api/presets/custom", {
+        method: "PUT",
+        headers: { "Content-Type": "application/zip" },
+        body: file,
+      });
+      const body = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        return setStatus(presetStatusEl, (body && body.detail) || `Ошибка сервера (${resp.status})`, true);
+      }
+      await loadCustomPresets();
+      // Сразу включаем установленное: ради него архив и ставили.
+      showPreset(body.id);
+      presetRequests += 1;
+      try {
+        await api("POST", "/api/overlay/preset", { preset: body.id });
+      } finally {
+        presetRequests -= 1;
+      }
+      setStatus(presetStatusEl, `Оформление «${body.title}» установлено и включено`, false, true);
+    } catch (e) {
+      setStatus(presetStatusEl, "Не удалось установить оформление", true);
+    } finally {
+      presetInstallBtn.disabled = false;
+    }
+  });
+
+  confirmByTwoClicks(presetRemoveBtn, "Точно удалить?", async () => {
+    const id = presetEl.value;
+    try {
+      await api("DELETE", `/api/presets/custom/${encodeURIComponent(id)}`);
+      setStatus(presetStatusEl, "Оформление удалено");
+      await loadCustomPresets(); // выбранное сервер сам сменит на «Классику»
+    } catch (e) {
+      setStatus(presetStatusEl, e.message, true);
+    }
+  });
 
   presetEl.addEventListener("change", async () => {
     const id = presetEl.value;
@@ -797,6 +896,16 @@
   $("words-edit").addEventListener("click", () => openWords(wordListEl.value));
   $("words-folder").addEventListener("click", () => openWords(null));
 
+  // --- Версия и кнопка «Поддержать» (адрес задаёт SUPPORT_URL в app/__init__.py) ---
+
+  function showVersion({ version, support_url: supportUrl }) {
+    $("version").textContent = `v${version}`;
+    // Только https: в ссылку не должен попасть javascript: или другой протокол.
+    const valid = typeof supportUrl === "string" && /^https:\/\//i.test(supportUrl);
+    if (valid) $("support").href = supportUrl;
+    $("support-row").hidden = !valid;
+  }
+
   // --- WebSocket: счёт, звук, оформление и уровень микрофона ---
 
   function connect() {
@@ -807,7 +916,8 @@
       refreshSpeech();
       loadDevices();
       loadWords();
-      api("GET", "/api/version").then(({ version }) => ($("version").textContent = `v${version}`), () => {});
+      loadCustomPresets();
+      api("GET", "/api/version").then(showVersion, () => {});
       api("GET", "/api/update").then(showUpdate, () => {});
     };
     ws.onmessage = (event) => {
@@ -820,6 +930,7 @@
       if (msg.type === "mic_level") targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
       else if (msg.type === "sound") showSound(msg);
       else if (msg.type === "update") showUpdate(msg);
+      else if (msg.type === "presets") loadCustomPresets();
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

@@ -15,11 +15,14 @@ from fastapi import FastAPI
 
 from . import __version__
 from .counter import Counter
+from .custom_presets import CustomPresets, builtin_preset_ids
 from .paths import (
     BUNDLED_WORDLISTS_DIR,
     COUNTER_FILE,
     LOG_FILE,
     OLD_WORDS_FILE,
+    OVERLAY_DIR,
+    PRESETS_DIR,
     SETTINGS_FILE,
     SOUNDS_DIR,
     WORDLISTS_DIR,
@@ -164,6 +167,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
         updater=updater,
         check_updates=True,
         word_lists=word_lists,
+        custom_presets=CustomPresets(PRESETS_DIR, builtin_preset_ids(OVERLAY_DIR)),
     )
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.
