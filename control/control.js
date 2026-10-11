@@ -280,6 +280,70 @@
   milestonesEl.addEventListener("change", saveGoals);
   goalEl.addEventListener("change", saveGoals);
 
+  // --- Статистика по сессиям ---
+
+  const statsStatusEl = $("stats-status");
+  let statsTimer = null;
+
+  function pluralize(n, one, few, many) {
+    const d = n % 10, dd = n % 100;
+    if (d === 1 && dd !== 11) return one;
+    if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return few;
+    return many;
+  }
+
+  function showStats(state) {
+    $("stats-section").hidden = false;
+    const chart = $("stats-chart");
+    chart.replaceChildren();
+    const max = Math.max(1, ...state.sessions.map((s) => s.count));
+    for (const s of state.sessions) {
+      const bar = el("div", "stats-bar");
+      bar.style.height = `${(s.count / max) * 100}%`;
+      const start = new Date(s.start * 1000);
+      const date = start.toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      bar.title = `${date} · ${formatDuration(s.end - s.start)} · ${s.count} ${pluralize(s.count, "слово", "слова", "слов")}`;
+      chart.append(bar);
+    }
+    const n = state.session_count;
+    let text = n
+      ? `${n} ${pluralize(n, "сессия", "сессии", "сессий")} · всего ${state.total} ${pluralize(state.total, "слово", "слова", "слов")}`
+      : "Пока пусто: сессия начинается с первого слова после запуска или сброса.";
+    if (state.top.length) text += ` · чаще всего: ${state.top.slice(0, 5).map(([w, c]) => `${w} ${c}`).join(", ")}`;
+    $("stats-summary").textContent = text;
+    $("stats-export").disabled = $("stats-clear").disabled = !n;
+  }
+
+  async function loadStats() {
+    try {
+      showStats(await api("GET", "/api/stats"));
+    } catch (e) {
+      // Старый сервер без статистики — раздел просто не показываем.
+    }
+  }
+
+  // Счёт меняется часто: статистику перечитываем не чаще раза в пару секунд.
+  function refreshStatsSoon() {
+    if (statsTimer === null) statsTimer = setTimeout(() => { statsTimer = null; loadStats(); }, 2000);
+  }
+
+  $("stats-export").addEventListener("click", async () => {
+    try {
+      const { path } = await api("POST", "/api/stats/export");
+      setStatus(statsStatusEl, `Сохранено: ${path}`, false, true);
+    } catch (e) {
+      setStatus(statsStatusEl, e.message, true);
+    }
+  });
+  confirmByTwoClicks($("stats-clear"), "Точно очистить?", async () => {
+    try {
+      showStats(await api("DELETE", "/api/stats"));
+      setStatus(statsStatusEl, "");
+    } catch (e) {
+      setStatus(statsStatusEl, e.message, true);
+    }
+  });
+
   // --- Таймер «без мата»: сервер присылает состояние, секунды отсчитываем здесь ---
 
   let timerState = { elapsed: 0, record: 0, running: false, at: performance.now() };
@@ -1483,6 +1547,7 @@
       loadDevices();
       loadWords();
       loadCustomPresets();
+      loadStats();
       api("GET", "/api/version").then(showVersion, () => {});
       api("GET", "/api/update").then(showUpdate, () => {});
       api("GET", "/api/autostart").then(showAutostart, () => {});
@@ -1510,6 +1575,7 @@
         countEl.textContent = msg.count;
         currentCount = msg.count;
         renderGoalLeft();
+        refreshStatsSoon();
       }
     };
     ws.onclose = () => {

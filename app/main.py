@@ -26,10 +26,12 @@ from .paths import (
     PRESETS_DIR,
     SETTINGS_FILE,
     SOUNDS_DIR,
+    STATS_FILE,
     WATCH_LOG_FILE,
     WORDLISTS_DIR,
 )
 from .profanity import SwearTracker
+from .stats import Stats
 from .hotkeys import Hotkeys
 from .server import Hub, create_app
 from .settings import Settings
@@ -143,8 +145,10 @@ def prepare(args: argparse.Namespace) -> Prepared:
     word_lists = WordLists(settings, WORDLISTS_DIR, BUNDLED_WORDLISTS_DIR)
     word_lists.prepare(OLD_WORDS_FILE)
 
-    async def add_swears(found: int) -> None:
-        count = await hub.increment(found, speech=True)
+    hub.stats = Stats(STATS_FILE)
+
+    async def add_swears(words: list[str]) -> None:
+        count = await hub.increment(len(words), speech=True, words=words)
         log.info("Счётчик: %d", count)
 
     on_text = SwearTracker(add_swears, paused=lambda: hub.paused).feed

@@ -95,3 +95,9 @@ def test_deleted_words_file_keeps_old_list(tmp_path, monkeypatch):
     load_words(path)
     path.unlink()
     assert count_profanity("бля") == 1
+
+
+def test_find_profanity_returns_roots():
+    from app.profanity import find_profanity
+
+    assert find_profanity("Бляха, хреново! ну, бля", ROOTS) == ["бля", "хрен", "бля"]

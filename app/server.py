@@ -24,6 +24,7 @@ from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
+from .stats import Stats
 from .sound import MAX_SOUND_BYTES, Sound
 from .timer import NoSwearTimer
 from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model, remove_model
@@ -51,6 +52,8 @@ class Hub:
         # Особые числа и цель (app/goals.py): на них оверлей празднует.
         self.milestones: list[int] = []
         self.goal = 0
+        # Статистика по сессиям (app/stats.py); в тестах — только в памяти.
+        self.stats = Stats()
 
     async def connect(self, ws: WebSocket, greeting: list[dict] = ()) -> None:
         """Подключает клиента и отправляет ему счёт и сообщения greeting."""
@@ -66,13 +69,14 @@ class Hub:
     def disconnect(self, ws: WebSocket) -> None:
         self.clients.discard(ws)
 
-    async def increment(self, delta: int = 1, speech: bool = False) -> int:
-        """speech: слова из распознавания; на паузе они не считаются."""
+    async def increment(self, delta: int = 1, speech: bool = False, words: list[str] = ()) -> int:
+        """speech: слова из распознавания; на паузе они не считаются. words — их корни для статистики."""
         async with self._lock:
             if self.locked() or (speech and self.paused):
                 return self.counter.value
             before = self.counter.value
             count = await self.counter.add(delta)
+            self.stats.add(delta, words)
             message = {"type": "increment", "count": count, "delta": delta}
             milestone = goals.reached(self.milestones, self.goal, before, count)
             if milestone is not None:
@@ -85,6 +89,7 @@ class Hub:
     async def reset(self) -> int:
         async with self._lock:
             count = await self.counter.reset()
+            self.stats.new_session()
             await self._broadcast({"type": "state", "count": count})
             self.timer.reset()
             await self._broadcast(self.timer.message())
@@ -582,6 +587,31 @@ def create_app(
     @app.post("/api/reset")
     async def post_reset():
         return {"count": await hub.reset()}
+
+    @app.get("/api/stats")
+    async def get_stats():
+        return hub.stats.state()
+
+    @app.post("/api/stats/export")
+    async def export_stats():
+        """Сохраняет историю сессий таблицей CSV в «Загрузки» и показывает её в Проводнике."""
+        path = downloads_dir() / "swearcounter-stats.csv"
+        try:
+            # utf-8-sig: с BOM Excel открывает кириллицу без кракозябр.
+            await asyncio.to_thread(path.write_text, hub.stats.csv(), encoding="utf-8-sig", newline="")
+        except OSError as e:
+            raise HTTPException(500, f"Не удалось сохранить таблицу: {e}") from None
+        log.info("Статистика сохранена в %s", path)
+        try:
+            reveal(path)
+        except OSError:
+            pass  # таблица сохранена, путь есть в ответе
+        return {"path": str(path)}
+
+    @app.delete("/api/stats")
+    async def clear_stats():
+        hub.stats.clear()
+        return hub.stats.state()
 
     @app.get("/api/speech")
     async def get_speech():

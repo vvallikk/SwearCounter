@@ -4,6 +4,8 @@ __pycache__/
 models/
 counter.json
 counter.json.tmp
+stats.json
+stats.json.tmp
 build/
 dist/
 settings.json
