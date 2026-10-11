@@ -5,7 +5,7 @@
 // Шрифт, обводка и тени описаны в style.css (селектор [data-preset="<id>"]),
 // анимации прибавления — в overlay.js (таблица INCREMENT_ANIMATIONS).
 // color — цвет цифр по умолчанию; параметр ?color= в адресе его перекрывает.
-// sound — стандартный звук пресета (overlay/sounds/<sound>.mp3, см. sound.js); без него — звон.
+// sound — стандартный звук пресета (имя из STANDARD в sound.js); без него — звон.
 // У личных оформлений sound — адрес файла из набора.
 window.OVERLAY_PRESETS = [
   {
