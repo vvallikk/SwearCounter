@@ -13,7 +13,7 @@ import types
 
 import pytest
 
-from app.stt import vosk_worker
+from app.stt import worker as worker_module
 from conftest import HYPERX, REALTEK
 
 TIMEOUT = 2.0  # сколько ждать сообщения от воркера
@@ -92,9 +92,9 @@ class WorkerHarness:
         cmd_recv, self.commands = multiprocessing.Pipe(duplex=False)
         self._threads_before = set(threading.enumerate())
         if via_run_worker:
-            target = lambda: vosk_worker.run_worker(results_send, cmd_recv, "models/fake", device)  # noqa: E731
+            target = lambda: worker_module.run_worker(results_send, cmd_recv, "models/fake", device)  # noqa: E731
         else:
-            worker = vosk_worker._Worker(results_send, cmd_recv, device)
+            worker = worker_module._Worker(results_send, cmd_recv, device)
             target = lambda: worker.run("models/fake")  # noqa: E731
         self.thread = threading.Thread(target=self._guard, args=(target,), daemon=True)
         self.thread.start()
@@ -160,7 +160,7 @@ def fake_vosk(monkeypatch):
 
 @pytest.fixture
 def worker(fake_sd, fake_vosk, monkeypatch):
-    monkeypatch.setattr(vosk_worker, "os", types.SimpleNamespace(_exit=_exit_thread))
+    monkeypatch.setattr(worker_module, "os", types.SimpleNamespace(_exit=_exit_thread))
     previous_hook = threading.excepthook
 
     def excepthook(args):
@@ -236,7 +236,7 @@ def test_unknown_device_reports_mic_error_and_recovers(worker, fake_sd, fake_vos
 
 
 def test_inactive_stream_reports_lost_microphone(worker, monkeypatch):
-    monkeypatch.setattr(vosk_worker, "SILENCE_TIMEOUT", 0.05)
+    monkeypatch.setattr(worker_module, "SILENCE_TIMEOUT", 0.05)
     start_listening(worker)
     lost = worker.stream
 
@@ -252,7 +252,7 @@ def test_inactive_stream_reports_lost_microphone(worker, monkeypatch):
 
 
 def test_silence_on_active_stream_is_not_an_error(worker, monkeypatch):
-    monkeypatch.setattr(vosk_worker, "SILENCE_TIMEOUT", 0.05)
+    monkeypatch.setattr(worker_module, "SILENCE_TIMEOUT", 0.05)
     start_listening(worker)
 
     worker.assert_silent(0.3)  # несколько таймаутов тишины подряд
@@ -371,7 +371,7 @@ def test_microphone_switch_turns_monitor_off(worker, speakers):
 
 
 def test_lost_microphone_is_closed_right_away(worker, monkeypatch):
-    monkeypatch.setattr(vosk_worker, "SILENCE_TIMEOUT", 0.05)
+    monkeypatch.setattr(worker_module, "SILENCE_TIMEOUT", 0.05)
     start_listening(worker)
     lost = worker.stream
     lost.active = False

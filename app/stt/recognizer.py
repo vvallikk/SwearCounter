@@ -1,6 +1,6 @@
 """Распознавание речи с микрофона через Vosk (офлайн).
 
-Сама модель работает в отдельном процессе (vosk_worker.py): так её загрузку
+Сама модель работает в отдельном процессе (worker.py): так её загрузку
 можно прервать мгновенно, а память освобождается сразу после завершения процесса.
 """
 
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ..settings import Settings
 from .base import OnText, Recognizer
-from .vosk_worker import run_worker
+from .worker import run_worker
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ LOAD_BYTES_PER_SECOND = 40_000_000
 _mp = multiprocessing.get_context("spawn")
 
 
-class VoskRecognizer(Recognizer):
+class MicRecognizer(Recognizer):
     def __init__(
         self,
         on_text: OnText,

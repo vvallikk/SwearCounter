@@ -2,7 +2,7 @@
 
 Пакеты Python — зависимости из requirements.txt со всеми их зависимостями:
 тексты лицензий берутся из их dist-info. Компоненты, которые ставятся не через pip
-или не кладут лицензию в пакет (сам Python, Vosk, PortAudio и др.), описаны в EXTRAS,
+или не кладут лицензию в пакет (сам Python, Vosk, onnxruntime, PortAudio и др.), описаны в EXTRAS,
 нужные тексты лежат в scripts/third_party/.
 """
 
@@ -30,10 +30,24 @@ It includes third-party components; their licenses follow.
 EXTRAS = [
     (
         "Vosk (vosk, libvosk.dll, включает Kaldi)",
-        "Copyright Alpha Cephei Inc. Apache License 2.0. https://github.com/alphacep/vosk-api\n"
-        "Модели распознавания в программу не входят: их скачивают с alphacephei.com,\n"
-        "они распространяются Alpha Cephei Inc. по той же лицензии Apache 2.0.",
+        "Copyright Alpha Cephei Inc. Apache License 2.0. https://github.com/alphacep/vosk-api",
         ["Apache-2.0.txt"],
+    ),
+    (
+        "ONNX Runtime (onnxruntime.dll из пакета sherpa-onnx-core)",
+        "Copyright Microsoft Corporation. MIT License. https://github.com/microsoft/onnxruntime",
+        ["onnxruntime-MIT.txt"],
+    ),
+    (
+        "Модели распознавания речи",
+        "В программу не входят: их скачивают по кнопке на странице управления.\n"
+        "Vosk small-ru, Vosk ru, Vosk Streaming: Alpha Cephei Inc., Apache License 2.0.\n"
+        "  https://alphacephei.com/vosk/models, https://huggingface.co/alphacep\n"
+        "T-one: T-Software DC, Apache License 2.0. https://github.com/voicekit-team/T-one\n"
+        "GigaAM v3: GigaChat Team, MIT License. https://github.com/salute-developers/GigaAM\n"
+        "Silero VAD: Silero Team, MIT License. https://github.com/snakers4/silero-vad\n"
+        "Модели T-one и GigaAM переведены в формат ONNX проектом sherpa-onnx (k2-fsa, Apache 2.0).",
+        [],
     ),
     (
         "PyInstaller (загрузчик SwearCounter.exe)",

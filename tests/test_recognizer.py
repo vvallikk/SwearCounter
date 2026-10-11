@@ -1,12 +1,12 @@
-"""VoskRecognizer без запуска процесса: прогресс загрузки, сообщения воркера, смена микрофона."""
+"""MicRecognizer без запуска процесса: прогресс загрузки, сообщения воркера, смена микрофона."""
 
 import asyncio
 import types
 
 import pytest
 
-from app.stt import vosk_recognizer
-from app.stt.vosk_recognizer import VoskRecognizer
+from app.stt import recognizer as recognizer_module
+from app.stt.recognizer import MicRecognizer
 
 MODEL = "vosk-model-small-ru-0.22"
 
@@ -35,7 +35,7 @@ class FakeCommands:
 @pytest.fixture
 def clock(monkeypatch):
     clock = FakeClock()
-    monkeypatch.setattr(vosk_recognizer, "time", types.SimpleNamespace(monotonic=clock.monotonic))
+    monkeypatch.setattr(recognizer_module, "time", types.SimpleNamespace(monotonic=clock.monotonic))
     return clock
 
 
@@ -51,7 +51,7 @@ def recognizer(tmp_path, settings, texts):
 
     model = tmp_path / "models" / MODEL
     model.mkdir(parents=True)
-    return VoskRecognizer(on_text, model, settings)
+    return MicRecognizer(on_text, model, settings)
 
 
 # --- load_progress ---
@@ -94,7 +94,7 @@ def test_expected_load_seconds_uses_saved_time(recognizer, settings):
 
 
 def test_expected_load_seconds_estimates_from_model_size(recognizer, monkeypatch):
-    monkeypatch.setattr(vosk_recognizer, "LOAD_BYTES_PER_SECOND", 1000)
+    monkeypatch.setattr(recognizer_module, "LOAD_BYTES_PER_SECOND", 1000)
     (recognizer.model_path / "am").mkdir()
     (recognizer.model_path / "am" / "final.mdl").write_bytes(b"\0" * 3000)
     (recognizer.model_path / "conf.txt").write_bytes(b"\0" * 2000)
@@ -211,7 +211,7 @@ def test_set_model_restarts_with_new_model(recognizer, monkeypatch, tmp_path):
         runs.append(self.model_path.name)
         await asyncio.Event().wait()  # «грузится», пока задачу не отменят
 
-    monkeypatch.setattr(VoskRecognizer, "run", fake_run)
+    monkeypatch.setattr(MicRecognizer, "run", fake_run)
     other = tmp_path / "models" / "vosk-model-ru-0.42"
     other.mkdir()
 
@@ -240,7 +240,7 @@ def test_start_without_downloaded_model_waits(recognizer, monkeypatch, tmp_path)
     async def fake_run(self):
         runs.append(self.model_path.name)
 
-    monkeypatch.setattr(VoskRecognizer, "run", fake_run)
+    monkeypatch.setattr(MicRecognizer, "run", fake_run)
     recognizer.model_path = tmp_path / "models" / "vosk-model-ru-0.42"  # папки нет
 
     asyncio.run(recognizer.start())
@@ -288,7 +288,7 @@ def test_set_monitor_without_worker_does_nothing(recognizer):
 
 @pytest.mark.parametrize("broken", ["строка", 5, None, {MODEL: "много"}, {MODEL: -1}])
 def test_corrupted_saved_load_time_falls_back_to_estimate(recognizer, settings, monkeypatch, broken):
-    monkeypatch.setattr(vosk_recognizer, "LOAD_BYTES_PER_SECOND", 1)
+    monkeypatch.setattr(recognizer_module, "LOAD_BYTES_PER_SECOND", 1)
     (recognizer.model_path / "data").write_bytes(b"x" * 5)
     settings.set("load_seconds", broken)
     assert recognizer._expected_load_seconds() == 5

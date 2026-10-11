@@ -22,7 +22,7 @@ from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .sound import MAX_SOUND_BYTES, Sound
-from .stt import CATALOG, ModelDownloader, ModelInfo, VoskRecognizer, audio_devices, find_model
+from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model
 from .updater import Updater
 from .wordlists import WordLists
 
@@ -176,7 +176,7 @@ def locked_out(request: Request) -> bool:
 
 def create_app(
     hub: Hub,
-    recognizer: VoskRecognizer,
+    recognizer: MicRecognizer,
     settings: Settings,
     sound: Sound,
     updater: Updater | None = None,

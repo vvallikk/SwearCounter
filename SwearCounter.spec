@@ -41,8 +41,9 @@ version_info = VSVersionInfo(
 a = Analysis(
     ["swearcounter.py"],
     pathex=[],
-    # libvosk.dll и её зависимости лежат в пакете vosk; PyInstaller сам их не находит.
-    binaries=collect_dynamic_libs("vosk"),
+    # libvosk.dll, onnxruntime.dll и библиотеки sherpa-onnx лежат внутри пакетов;
+    # PyInstaller сам их не находит.
+    binaries=collect_dynamic_libs("vosk") + collect_dynamic_libs("sherpa_onnx"),
     # Ресурсы только для чтения; изменяемые файлы (wordlists, models, sounds, настройки)
     # лежат рядом с exe — см. app/paths.py.
     datas=[("overlay", "overlay"), ("control", "control"), ("assets", "assets"), ("wordlists", "wordlists")],

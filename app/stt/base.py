@@ -17,14 +17,14 @@ class Recognizer(ABC):
     Наследник реализует run(): бесконечный цикл, который получает текст
     и вызывает `await self.on_text(text, is_final)`.
 
-    Реализация: VoskRecognizer (микрофон, модель в отдельном процессе).
+    Реализация: MicRecognizer (микрофон, модель в отдельном процессе).
     """
 
     def __init__(self, on_text: OnText):
         self.on_text = on_text
         self._task: asyncio.Task | None = None
         # Для страницы управления: stopped, loading, listening, mic_error, error
-        # или no_model (у VoskRecognizer: модель ещё не скачана).
+        # или no_model (у MicRecognizer: модель ещё не скачана).
         self.status = "stopped"
 
     async def start(self) -> None:

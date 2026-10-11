@@ -1,6 +1,16 @@
 """Каталог моделей: поиск по id и признак «установлена»."""
 
-from app.stt.catalog import CATALOG, find_model, installed_models
+import json
+
+from app.stt.catalog import (
+    CATALOG,
+    SHERPA_NEMO_CTC,
+    SHERPA_T_ONE,
+    SHERPA_TRANSDUCER,
+    VOSK,
+    find_model,
+    installed_models,
+)
 
 SMALL = "vosk-model-small-ru-0.22"
 LARGE = "vosk-model-ru-0.42"
@@ -42,3 +52,27 @@ def test_to_dict_reports_installed_flag(models_dir):
     assert data["installed"] is True
     assert find_model(LARGE).to_dict()["installed"] is False
     assert {"title", "name", "summary", "description", "disk", "download_size", "memory", "load_time", "url"} <= data.keys()
+    assert {"engine", "files", "model_files"} <= data.keys()
+    json.dumps(data)  # уходит на страницу управления как есть
+
+
+# Какие файлы нужны каждому движку sherpa-onnx (см. engines.py).
+REQUIRED_FILES = {
+    SHERPA_TRANSDUCER: {"encoder", "decoder", "joiner", "tokens"},
+    SHERPA_T_ONE: {"model", "tokens"},
+    SHERPA_NEMO_CTC: {"model", "tokens", "vad"},
+}
+
+
+def test_every_model_has_known_engine_and_files():
+    for model in CATALOG:
+        if model.engine == VOSK:
+            assert model.model_files == {}, model.id
+        else:
+            assert set(model.model_files) == REQUIRED_FILES[model.engine], model.id
+
+
+def test_default_model_is_still_small_vosk():
+    """Первая модель — модель по умолчанию; у тех, кто обновился, она не должна смениться."""
+    assert CATALOG[0].id == SMALL
+    assert CATALOG[-1].id == LARGE

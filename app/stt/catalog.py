@@ -1,29 +1,47 @@
 """Каталог моделей распознавания, которые можно выбрать на странице управления.
 
 Модель доступна, если её папка `id` распакована в models/. Нескачанную
-модель приложение скачивает само по ссылке url (см. downloader.py). Порядок списка —
-порядок в выпадающем списке; первая установленная модель — модель по умолчанию.
+модель приложение скачивает само (см. downloader.py): архив url и/или отдельные
+файлы files. Порядок списка — порядок на странице, от лёгких моделей к тяжёлым;
+первая установленная модель — модель по умолчанию.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from ..paths import MODELS_DIR
+
+# Движки распознавания (см. engines.py). sherpa-* — разные виды моделей sherpa-onnx.
+VOSK = "vosk"
+SHERPA_TRANSDUCER = "sherpa-transducer"  # потоковая Zipformer: encoder, decoder, joiner
+SHERPA_T_ONE = "sherpa-t-one"  # потоковая CTC-модель T-one
+SHERPA_NEMO_CTC = "sherpa-nemo-ctc"  # распознаёт фразу целиком; фразы выделяет VAD
+
+SHERPA_RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
+# Ссылки на Hugging Face закреплены за коммитом: файлы модели не поменяются без нашего ведома.
+VOSK_STREAMING_RU = (
+    "https://huggingface.co/alphacep/vosk-model-streaming-ru/resolve/83bbf6f40059480e96251be8aed3d32bc7c80c33"
+)
 
 
 @dataclass(frozen=True)
 class ModelInfo:
     id: str  # имя папки в models/
-    engine: str  # движок распознавания; пока только "vosk"
+    engine: str  # движок распознавания: VOSK или один из SHERPA_*
     title: str  # название в списке
     name: str  # техническое название (движок и версия), показывается в скобках
     summary: str  # короткая подпись рядом с названием
     description: str  # подробности, показываются по кнопке «Подробнее»
     disk: str  # размер распакованной модели
-    download_size: str  # размер архива, который скачивается
+    download_size: str  # сколько скачивается
     memory: str
     load_time: str
-    url: str  # откуда скачать архив
+    # Архив (.zip или .tar.bz2) с папкой id внутри; пусто, если модель качается по файлам.
+    url: str
+    # Отдельные файлы: кладутся в папку модели под своими именами (после распаковки url).
+    files: tuple[str, ...] = ()
+    # Файлы модели для sherpa-onnx: роль (encoder, model, tokens, vad...) → путь в папке модели.
+    model_files: dict[str, str] = field(default_factory=dict, hash=False)
 
     @property
     def path(self) -> Path:
@@ -40,7 +58,7 @@ class ModelInfo:
 CATALOG = [
     ModelInfo(
         id="vosk-model-small-ru-0.22",
-        engine="vosk",
+        engine=VOSK,
         title="Маленькая",
         name="Vosk small-ru 0.22",
         summary="быстрая, мало памяти",
@@ -56,8 +74,98 @@ CATALOG = [
         url="https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip",
     ),
     ModelInfo(
+        id="sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16",
+        engine=SHERPA_TRANSDUCER,
+        title="Компактная",
+        name="Vosk Streaming small, Zipformer",
+        summary="точнее маленькой, мало памяти",
+        description=(
+            "Новая модель от авторов Vosk на современной архитектуре. Скачивается быстрее всех "
+            "и занимает меньше памяти, чем маленькая, а слова обычно распознаёт точнее. "
+            "Почти не нагружает компьютер."
+        ),
+        disk="30 МБ",
+        download_size="24 МБ",
+        memory="~0,15 ГБ",
+        load_time="~1 с",
+        url=f"{SHERPA_RELEASES}/sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16.tar.bz2",
+        model_files={
+            "encoder": "encoder.int8.onnx",
+            "decoder": "decoder.onnx",
+            "joiner": "joiner.int8.onnx",
+            "tokens": "tokens.txt",
+        },
+    ),
+    ModelInfo(
+        id="vosk-model-streaming-ru-0.56",
+        engine=SHERPA_TRANSDUCER,
+        title="Средняя",
+        name="Vosk Streaming 0.56, Zipformer",
+        summary="точнее, памяти по-прежнему мало",
+        description=(
+            "Старшая версия компактной модели от авторов Vosk: крупнее и точнее, особенно на "
+            "разговорной речи. Памяти занимает всё ещё немного, поэтому подойдёт, если большая "
+            "модель слишком тяжела для компьютера."
+        ),
+        disk="70 МБ",
+        download_size="72 МБ",
+        memory="~0,2 ГБ",
+        load_time="~2 с",
+        url="",
+        files=(
+            f"{VOSK_STREAMING_RU}/am-onnx/encoder.int8.onnx",
+            f"{VOSK_STREAMING_RU}/am-onnx/decoder.int8.onnx",
+            f"{VOSK_STREAMING_RU}/am-onnx/joiner.int8.onnx",
+            f"{VOSK_STREAMING_RU}/lang/tokens.txt",
+        ),
+        model_files={
+            "encoder": "encoder.int8.onnx",
+            "decoder": "decoder.int8.onnx",
+            "joiner": "joiner.int8.onnx",
+            "tokens": "tokens.txt",
+        },
+    ),
+    ModelInfo(
+        id="sherpa-onnx-streaming-t-one-russian-2025-09-08",
+        engine=SHERPA_T_ONE,
+        title="Разговорная",
+        name="T-one, Т-Банк",
+        summary="для живой быстрой речи",
+        description=(
+            "Модель Т-Банка, обученная на живой разговорной речи, в том числе на звонках. "
+            "Хорошо понимает быструю и не очень чёткую речь. Процессор нагружает немного "
+            "сильнее компактных моделей, но для игр и стримов это незаметно."
+        ),
+        disk="140 МБ",
+        download_size="128 МБ",
+        memory="~0,5 ГБ",
+        load_time="~1 с",
+        url=f"{SHERPA_RELEASES}/sherpa-onnx-streaming-t-one-russian-2025-09-08.tar.bz2",
+        model_files={"model": "model.onnx", "tokens": "tokens.txt"},
+    ),
+    ModelInfo(
+        id="sherpa-onnx-nemo-ctc-giga-am-v3-russian-2025-12-16",
+        engine=SHERPA_NEMO_CTC,
+        title="Точная",
+        name="GigaAM v3, Сбер",
+        summary="очень точная, средняя по памяти",
+        description=(
+            "Модель Сбера, одна из самых точных для русского языка, а памяти занимает в разы "
+            "меньше большой. Распознаёт речь целыми фразами, поэтому текст обновляется "
+            "примерно раз в секунду, а не после каждого слова."
+        ),
+        disk="215 МБ",
+        download_size="164 МБ",
+        memory="~0,4 ГБ",
+        load_time="~1 с",
+        url=f"{SHERPA_RELEASES}/sherpa-onnx-nemo-ctc-giga-am-v3-russian-2025-12-16.tar.bz2",
+        # Детектор речи (Silero VAD) выделяет фразы, которые потом распознаёт модель.
+        files=(f"{SHERPA_RELEASES}/silero_vad.onnx",),
+        model_files={"model": "model.int8.onnx", "tokens": "tokens.txt", "vad": "silero_vad.onnx"},
+    ),
+    ModelInfo(
         id="vosk-model-ru-0.42",
-        engine="vosk",
+        engine=VOSK,
         title="Большая",
         name="Vosk ru 0.42",
         summary="точная, много памяти",

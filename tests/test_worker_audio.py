@@ -4,7 +4,7 @@ import array
 
 import pytest
 
-from app.stt.vosk_worker import _Monitor, peak_level
+from app.stt.worker import _Monitor, peak_level
 
 
 def pcm(*samples: int) -> bytes:

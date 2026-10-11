@@ -19,20 +19,26 @@ DIST = ROOT / "dist"
 APP_DIR = DIST / "SwearCounter"
 ARCHIVE = DIST / f"SwearCounter-v{__version__}-windows"
 
-MODELS_README = """Здесь хранятся модели распознавания речи Vosk.
+MODELS_README = """Здесь хранятся модели распознавания речи.
 
 Обычно ничего делать не нужно: нажмите на модель на странице управления,
-и программа сама скачает её сюда.
+и программа сама скачает её сюда. Можно скачать несколько моделей
+и переключаться между ними там же.
 
-Вручную: распакуйте архив так, чтобы получилось
-  models/vosk-model-small-ru-0.22/am, conf, graph, ...
+Модели из одного архива можно поставить и вручную: распакуйте архив так,
+чтобы получилось, например, models/vosk-model-small-ru-0.22/am, conf, graph, ...
 
-Маленькая модель (45 МБ, быстрая):
+Маленькая, Vosk (45 МБ, ~0.3 ГБ памяти):
   https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip
-Большая модель (1.8 ГБ, точнее, нужно ~5.5 ГБ памяти):
+Компактная, Vosk Streaming small (24 МБ, ~0.15 ГБ памяти):
+  https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-ru-vosk-int8-2025-08-16.tar.bz2
+Разговорная, T-one (128 МБ, ~0.5 ГБ памяти):
+  https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-t-one-russian-2025-09-08.tar.bz2
+Большая, Vosk (1.8 ГБ, ~5.5 ГБ памяти):
   https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip
 
-Можно положить обе и переключаться между ними на странице управления.
+Средняя (Vosk Streaming) и Точная (GigaAM) состоят из нескольких файлов:
+их проще скачать кнопкой на странице управления.
 """
 
 

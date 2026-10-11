@@ -20,7 +20,7 @@ LARGE = "vosk-model-ru-0.42"
 
 
 class FakeRecognizer:
-    """Те же поля и методы, что использует сервер у VoskRecognizer."""
+    """Те же поля и методы, что использует сервер у MicRecognizer."""
 
     def __init__(self, model_path: Path):
         self.model_path = model_path
@@ -122,7 +122,7 @@ def test_speech_state(client, recognizer):
     assert data["mic_error"] is None
     assert data["mic_pending"] is False
     models = {m["id"]: m["installed"] for m in data["models"]}
-    assert models == {SMALL: True, LARGE: False}
+    assert models == {m.id: m.id == SMALL for m in CATALOG}
 
 
 def test_switch_model_unknown(client, recognizer):
