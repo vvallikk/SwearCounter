@@ -427,7 +427,7 @@
       const bar = el("div", "stats-bar");
       bar.style.height = `${(s.count / max) * 100}%`;
       const start = new Date(s.start * 1000);
-      const date = start.toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      const date = start.toLocaleString(document.documentElement.lang, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
       bar.title = `${date} · ${formatDuration(s.end - s.start)} · ${s.count} ${pluralize(s.count, "слово", "слова", "слов")}`;
       chart.append(bar);
     }

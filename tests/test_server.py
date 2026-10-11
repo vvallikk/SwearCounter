@@ -1007,3 +1007,25 @@ def test_timer_broadcast_after_increment_and_reset(client):
         client.post("/api/reset")
         assert ws.receive_json()["type"] == "state"
         assert ws.receive_json() == {"type": "timer", "elapsed": 0.0, "record": 0.0, "running": True}
+
+
+# --- язык интерфейса ---
+
+
+def test_ui_language(client, settings, monkeypatch):
+    from app import i18n
+
+    monkeypatch.setattr(i18n, "system_language", lambda: i18n.EN)
+    assert client.get("/api/ui-language").json() == {"language": "en"}
+    calls = []
+    client.app.state.on_ui_language = lambda: calls.append(i18n.language(settings))
+    assert client.post("/api/ui-language", json={"language": "ru"}).json() == {"language": "ru"}
+    assert settings.get(i18n.SETTING) == "ru"
+    assert calls == ["ru"]  # трей и заголовок окна переводятся сразу
+    assert client.get("/api/ui-language").json() == {"language": "ru"}
+    assert client.post("/api/ui-language", json={"language": "de"}).status_code == 400
+
+
+def test_ui_language_open_during_forced_update(locked_client):
+    client, _ = locked_client
+    assert client.post("/api/ui-language", json={"language": "en"}).status_code == 200

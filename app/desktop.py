@@ -12,7 +12,7 @@ import threading
 import time
 import urllib.request
 import webbrowser
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from ctypes import wintypes
 from dataclasses import dataclass
@@ -21,11 +21,11 @@ from socket import socket
 import uvicorn
 from fastapi import FastAPI
 
-from . import SUPPORT_LINKS, __version__
+from . import SUPPORT_LINKS, __version__, i18n
 from .paths import ICON_FILE, WEBVIEW_DIR
 from .updater import Updater
 
-TITLE = "Счётчик матов"
+TITLE = i18n.TITLES[i18n.RU]
 MUTEX_NAME = "Local\\SwearCounter"
 ERROR_ALREADY_EXISTS = 183
 MB_ICONERROR = 0x10
@@ -55,8 +55,8 @@ def single_instance(name: str = MUTEX_NAME) -> Iterator[bool]:
             kernel32.CloseHandle(handle)
 
 
-def message_box(text: str, icon: int = MB_ICONINFORMATION) -> None:
-    ctypes.windll.user32.MessageBoxW(None, text, TITLE, icon)
+def message_box(text: str, icon: int = MB_ICONINFORMATION, title: str = TITLE) -> None:
+    ctypes.windll.user32.MessageBoxW(None, text, title, icon)
 
 
 @dataclass(frozen=True)
@@ -125,8 +125,10 @@ def run(
     notice: str | None = None,
     updater: Updater | None = None,
     hidden: bool = False,
+    language: Callable[[], str] = lambda: i18n.RU,
 ) -> None:
-    """hidden: окно не показывать (запуск с Windows), программа ждёт в трее."""
+    """hidden: окно не показывать (запуск с Windows), программа ждёт в трее.
+    language: текущий язык интерфейса (см. i18n.py) — для трея и уведомлений."""
     import pystray
     import webview
     from PIL import Image
@@ -137,7 +139,17 @@ def run(
         server.stop()
         raise SystemExit("Сервер не запустился, подробности — в swearcounter.log.")
 
-    title = f"{TITLE} v{__version__}"
+    def tr(text: str) -> str:
+        return i18n.tr(text, language())
+
+    def label(text: str) -> Callable:
+        # pystray вызывает функцию при каждой перестройке меню: пункты следуют за языком.
+        return lambda item: tr(text)
+
+    def notify(text: str) -> None:
+        icon.notify(text, i18n.title(language()))
+
+    title = f"{i18n.title(language())} v{__version__}"
     window = webview.create_window(
         title, urls.control, width=960, height=860, min_size=(480, 480), hidden=hidden
     )
@@ -161,7 +173,7 @@ def run(
 
     def copy_overlay() -> None:
         copy_to_clipboard(urls.overlay)
-        icon.notify(f"Адрес оверлея скопирован: {urls.overlay}", TITLE)
+        notify(tr("Адрес оверлея скопирован: {}").format(urls.overlay))
 
     def is_paused(item=None) -> bool:
         return app.state.hub.paused
@@ -180,17 +192,17 @@ def run(
     def check_updates() -> None:
         status = updater.check_threadsafe()
         if status == "none":
-            icon.notify(f"У вас последняя версия: v{__version__}", TITLE)
+            notify(tr("У вас последняя версия: v{}").format(__version__))
         elif status == "error":
-            icon.notify(updater.error or "Не удалось проверить обновления", TITLE)
+            notify(updater.error or tr("Не удалось проверить обновления"))
         # О найденном обновлении сообщает on_update_found.
 
     def on_update_found(version: str) -> None:
         if updater.forced:
             show()
-            icon.notify(f"Нужно обязательное обновление до v{version}: без него программа не работает.", TITLE)
+            notify(tr("Нужно обязательное обновление до v{}: без него программа не работает.").format(version))
         else:
-            icon.notify(f"Доступна версия v{version}. Установить — на странице управления.", TITLE)
+            notify(tr("Доступна версия v{}. Установить — на странице управления.").format(version))
 
     if updater is not None:
         updater.on_found = on_update_found
@@ -202,23 +214,35 @@ def run(
         Image.open(ICON_FILE),
         title,
         menu=pystray.Menu(
-            pystray.MenuItem("Открыть", show, default=True),
-            pystray.MenuItem("Пауза распознавания", toggle_pause, checked=is_paused),
-            pystray.MenuItem("Скопировать адрес оверлея", copy_overlay),
-            pystray.MenuItem("Открыть в браузере", lambda: webbrowser.open(urls.control)),
-            pystray.MenuItem("Проверить обновления", check_updates, visible=updater is not None),
-            pystray.MenuItem("Поддержать автора", open_support, visible=bool(SUPPORT_LINKS)),
+            pystray.MenuItem(label("Открыть"), show, default=True),
+            pystray.MenuItem(label("Пауза распознавания"), toggle_pause, checked=is_paused),
+            pystray.MenuItem(label("Скопировать адрес оверлея"), copy_overlay),
+            pystray.MenuItem(label("Открыть в браузере"), lambda: webbrowser.open(urls.control)),
+            pystray.MenuItem(label("Проверить обновления"), check_updates, visible=updater is not None),
+            pystray.MenuItem(label("Поддержать автора"), open_support, visible=bool(SUPPORT_LINKS)),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Выход", quit_app),
+            pystray.MenuItem(label("Выход"), quit_app),
         ),
     )
     icon.run_detached()
 
+    def on_language_changed() -> None:
+        # Вызывается сервером, когда язык переключили на странице управления.
+        title = f"{i18n.title(language())} v{__version__}"
+        try:
+            icon.title = title
+            icon.update_menu()
+            window.set_title(title)
+        except Exception as e:  # окно могло уже закрыться при выходе
+            log.warning("Не удалось сменить язык окна и трея: %s", e)
+
+    app.state.on_ui_language = on_language_changed
+
     def on_started() -> None:
         if notice:
-            icon.notify(notice, TITLE)
+            notify(notice)
         elif hidden:
-            icon.notify("Счётчик матов запущен и работает в трее. Нажмите на значок, чтобы открыть окно.", TITLE)
+            notify(tr("Счётчик матов запущен и работает в трее. Нажмите на значок, чтобы открыть окно."))
 
     try:
         # private_mode=False и свой storage_path: тема и выборы страницы управления сохраняются.

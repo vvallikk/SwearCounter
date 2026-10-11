@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, goals, hotkeys, mail, obs, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .extra_counters import CounterError, ExtraCounters
@@ -205,6 +205,10 @@ class PauseChoice(BaseModel):
     paused: bool
 
 
+class LanguageChoice(BaseModel):
+    language: str
+
+
 class HotkeyChoice(BaseModel):
     action: str
     combo: str
@@ -351,10 +355,11 @@ LOCKED_MESSAGE = "Установите обязательное обновлен
 def locked_out(request: Request) -> bool:
     """Запрос меняет состояние, а программа ждёт обязательного обновления.
 
-    Остаются доступны чтение и /api/update/* — чтобы скачать и поставить обновление.
+    Остаются доступны чтение, /api/update/* — чтобы скачать и поставить обновление —
+    и язык интерфейса, чтобы прочитать, что случилось.
     """
     path = request.url.path
-    if request.method in SAFE_METHODS or not path.startswith("/api/"):
+    if request.method in SAFE_METHODS or not path.startswith("/api/") or path == "/api/ui-language":
         return False
     return not (path == "/api/update" or path.startswith("/api/update/"))
 
@@ -601,6 +606,21 @@ def create_app(
         if hotkey_listener is not None:
             await asyncio.to_thread(hotkey_listener.apply, combos)
         return hotkeys_state()
+
+    @app.get("/api/ui-language")
+    async def get_ui_language():
+        return {"language": i18n.language(settings)}
+
+    @app.post("/api/ui-language")
+    async def post_ui_language(choice: LanguageChoice):
+        if choice.language not in i18n.LANGUAGES:
+            raise HTTPException(400, "Неизвестный язык")
+        settings.set(i18n.SETTING, choice.language)
+        # Оконный режим подписывается, чтобы перевести трей и заголовок окна (desktop.py).
+        on_change = getattr(app.state, "on_ui_language", None)
+        if on_change is not None:
+            await asyncio.to_thread(on_change)
+        return {"language": choice.language}
 
     @app.get("/api/version")
     async def get_version():
