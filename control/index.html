@@ -158,6 +158,18 @@
         <div id="model-list" class="model-list"></div>
       </section>
 
+      <section id="hotkeys-section" class="section" hidden>
+        <h2 class="section-title">Горячие клавиши</h2>
+        <p class="note">Работают, даже когда окно свёрнуто и вы в игре. Нажмите на кнопку, затем
+          нужное сочетание. Backspace — убрать, Esc — отмена.</p>
+        <div class="autostart-grid">
+          <span>+1</span><button class="secondary-btn hotkey" type="button" data-action="increment"></button>
+          <span>Пауза</span><button class="secondary-btn hotkey" type="button" data-action="pause"></button>
+          <span>Сбросить</span><button class="secondary-btn hotkey" type="button" data-action="reset"></button>
+        </div>
+        <div id="hotkeys-status" class="status-line"></div>
+      </section>
+
       <section id="autostart-section" class="section" hidden>
         <h2 class="section-title">Автозапуск</h2>
         <label class="check-row"><input id="autostart-windows" type="checkbox">
