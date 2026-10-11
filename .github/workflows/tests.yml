@@ -14,7 +14,54 @@ env:
   PYTHONUTF8: "1"
 
 jobs:
+  # Если менялась только документация, тесты не нужны. Workflow всё равно запускается:
+  # проверка pytest обязательна для слияния в main, а пропущенная засчитывается как пройденная
+  # (с paths-ignore PR только с документацией ждал бы её вечно).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        name: Detect code changes
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            range="$PR_BASE...$PR_HEAD"
+          else
+            range="$BEFORE..$AFTER"
+          fi
+          # Новая ветка, force-push или недоступный коммит: проверяем всё.
+          if ! changed=$(git diff --name-only "$range" 2>/dev/null) || [ -z "$changed" ]; then
+            echo "Не удалось определить изменения ($range), тесты запускаются"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Изменённые файлы:"
+          echo "$changed"
+          # Только документация. Заметки к релизам (docs/releases) проверяет тест, они считаются кодом.
+          docs='^(.*\.md|docs/screenshots/.*|LICENSE|\.gitignore|\.github/(ISSUE_TEMPLATE/.*|FUNDING\.yml|dependabot\.yml))$'
+          code_files=$(echo "$changed" | grep -Ev "$docs" || true)
+          releases=$(echo "$changed" | grep -E '^docs/releases/' || true)
+          if [ -n "$code_files$releases" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Менялась только документация, тесты пропускаются"
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   pytest:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     # Приложение работает только на Windows (MME, sounddevice с встроенным PortAudio).
     runs-on: windows-latest
     steps:
