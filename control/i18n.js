@@ -193,6 +193,8 @@
     "Для мощных ПК": "For powerful PCs",
     "Современная": "Modern",
     "Точная": "Accurate",
+    "Устойчивая к шуму": "Noise-resistant",
+    "понимает речь сквозь шум и музыку": "understands speech through noise and music",
     "классическая Vosk, работает везде": "classic Vosk, runs anywhere",
     "самая лёгкая, для слабых ПК": "the lightest, for weak PCs",
     "хорошая точность при малой памяти": "good accuracy with little memory",
@@ -219,6 +221,10 @@
       "Loads in a second and barely loads the computer during a game or stream. Recognizes worse than the others: with fast speech and noise some words may not count.",
     "Новая потоковая модель на современной архитектуре: слова распознаёт точнее базовой, особенно в разговорной речи, а памяти занимает немного.":
       "A new streaming model on a modern architecture: recognizes words more accurately than basic, especially in conversational speech, and takes little memory.",
+    "Модель Whisper от OpenAI, обученная на сотнях тысяч часов речи со всего интернета. Хорошо понимает речь сквозь шум, музыку и акценты. Распознаёт фразами, как самая точная, но процессор нагружает заметно сильнее: на слабом компьютере может мешать игре.":
+      "OpenAI's Whisper model, trained on hundreds of thousands of hours of speech from across the internet. Understands speech well through noise, music and accents. Recognizes in phrases, like the most accurate one, but loads the CPU noticeably more: on a weak computer it may get in the way of the game.",
+    "Английская модель Whisper от OpenAI, обученная на сотнях тысяч часов речи. Обычно точнее остальных английских моделей и лучше понимает речь сквозь шум, музыку и акценты. Распознаёт фразами и заметно сильнее нагружает процессор: на слабом компьютере может мешать игре.":
+      "OpenAI's English Whisper model, trained on hundreds of thousands of hours of speech. Usually more accurate than the other English models and better at understanding speech through noise, music and accents. Recognizes in phrases and loads the CPU noticeably more: on a weak computer it may get in the way of the game.",
     "Старшая модель Vosk с большим словарём: реже путает похожие слова и лучше узнаёт редкие. Памяти и процессора нужно чуть больше, чем базовой.":
       "The bigger Vosk model with a large vocabulary: confuses similar words less often and recognizes rare ones better. Needs slightly more memory and CPU than basic.",
 

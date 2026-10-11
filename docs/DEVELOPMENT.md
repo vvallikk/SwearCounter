@@ -31,8 +31,8 @@
 - **Распознавание:** в отдельном процессе (`app/stt/worker.py`), чтобы загрузку
   модели можно было прервать мгновенно, просто завершив процесс. Движки (`app/stt/engines.py`):
   Vosk для моделей Vosk и [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) для остальных
-  (Vosk Streaming, T-one, GigaAM). Потоковые модели выдают текст по ходу речи, GigaAM
-  распознаёт фразы целиком, их выделяет детектор речи Silero VAD.
+  (Vosk Streaming, T-one, GigaAM, Whisper). Потоковые модели выдают текст по ходу речи, GigaAM
+  и Whisper распознают фразы целиком, их выделяет детектор речи Silero VAD.
 - **Данные пользователя** (`counter.json`, `settings.json`, `wordlists/`, `models/`, `sounds/`,
   `webview/`, `swearcounter.log`) лежат рядом с exe, а при запуске из исходников в корне
   репозитория (`app/paths.py`). Встроенные ресурсы (`overlay/`, `control/`, `assets/`)
