@@ -23,6 +23,27 @@ def test_language_defaults_to_system(settings, monkeypatch, system):
     assert i18n.language(settings) == system
 
 
+@pytest.mark.parametrize(
+    "env, expected",
+    [
+        ({"LANG": "ru_RU.UTF-8"}, i18n.RU),
+        ({"LANG": "uk_UA.UTF-8"}, i18n.RU),
+        ({"LANG": "en_US.UTF-8"}, i18n.EN),
+        ({"LANG": "de_DE"}, i18n.EN),
+        ({"LANG": "en_US.UTF-8", "LC_ALL": "ru_RU.UTF-8"}, i18n.RU),
+        ({"LANG": "C.UTF-8"}, i18n.RU),
+        ({}, i18n.RU),
+    ],
+)
+def test_system_language_on_unix(monkeypatch, env, expected):
+    monkeypatch.setattr(i18n.sys, "platform", "linux")
+    for name in ("LC_ALL", "LC_MESSAGES", "LANG"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    assert i18n.system_language() == expected
+
+
 def test_language_from_settings(settings, monkeypatch):
     monkeypatch.setattr(i18n, "system_language", lambda: i18n.RU)
     settings.set(i18n.SETTING, i18n.EN)

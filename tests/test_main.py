@@ -6,6 +6,7 @@ from contextlib import ExitStack
 
 import pytest
 
+from app import main
 from app.main import PORT, PORT_ATTEMPTS, bind_socket, setup_logging
 
 HOST = "127.0.0.1"
@@ -112,3 +113,14 @@ def test_spoken_text_stays_out_of_log_file(tmp_path, restore_logging):
 def test_console_mode_shows_spoken_text(restore_logging):
     setup_logging(None)
     assert logging.getLogger("app.profanity").isEnabledFor(logging.DEBUG)
+
+
+def test_unix_runs_without_window_and_opens_browser(monkeypatch):
+    """В macOS и Linux нет окна и трея: сервер в терминале, страница управления в браузере."""
+    calls = []
+    monkeypatch.setattr(main.sys, "platform", "darwin")
+    monkeypatch.setattr(main, "setup_logging", lambda path: None)
+    monkeypatch.setattr(main, "prepare", lambda args: "prepared")
+    monkeypatch.setattr(main, "run_console", lambda prepared, open_browser=False: calls.append((prepared, open_browser)))
+    main.main([])
+    assert calls == [("prepared", True)]

@@ -350,7 +350,6 @@
     "Модель не скачана": "The model isn't downloaded",
     "Такого звука нет": "No such sound",
     "Такого оформления нет": "No such look",
-    "Открыть файл можно только в Windows": "Files can only be opened on Windows",
     "Обновление не скачивается": "The update isn't downloading",
     "Обновление ставится только в собранной программе (exe)": "Updates can only be installed in the built program (exe)",
     "Нет доступного обновления": "No update available",
