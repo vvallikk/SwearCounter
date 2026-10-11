@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
@@ -12,8 +13,14 @@ _WORD_RE = re.compile(r"\w+")
 # Сколько мат должен продержаться в промежуточном тексте, чтобы засчитаться до конца фразы.
 DEBOUNCE_SECONDS = 1.5
 
+# Как часто проверять, не изменили ли words.txt (его правят, не закрывая приложение).
+RELOAD_CHECK_SECONDS = 1.0
+
 # Корни, загруженные load_words(); используются count_profanity по умолчанию.
 _roots: tuple[str, ...] = ()
+_source: Path | None = None  # файл, из которого они загружены
+_stamp: tuple[int, int] | None = None  # его время изменения и размер при загрузке
+_checked_at = 0.0
 
 
 def normalize(text: str) -> str:
@@ -22,10 +29,12 @@ def normalize(text: str) -> str:
 
 def load_words(path: Path) -> tuple[str, ...]:
     """Читает корни из файла: по одному на строку, пустые строки и # пропускаются."""
-    global _roots
+    global _roots, _source, _stamp, _checked_at
+    path = Path(path)
+    _source, _stamp, _checked_at = path, _file_stamp(path), time.monotonic()
     roots = []
     try:
-        for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+        for line in path.read_text(encoding="utf-8-sig").splitlines():
             line = line.strip()
             if line and not line.startswith("#"):
                 roots.append(normalize(line))
@@ -36,9 +45,31 @@ def load_words(path: Path) -> tuple[str, ...]:
     return _roots
 
 
+def current_roots() -> tuple[str, ...]:
+    """Загруженные корни; если файл с ними изменился, сначала перечитывает его."""
+    global _checked_at
+    if _source is None or time.monotonic() - _checked_at < RELOAD_CHECK_SECONDS:
+        return _roots
+    _checked_at = time.monotonic()
+    stamp = _file_stamp(_source)
+    # Удалённый (или как раз пересохраняемый) файл не трогаем: работаем со старым списком.
+    if stamp is not None and stamp != _stamp:
+        log.info("Список слов изменился, перечитываю")
+        load_words(_source)
+    return _roots
+
+
+def _file_stamp(path: Path) -> tuple[int, int] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size
+
+
 def count_profanity(text: str, roots: tuple[str, ...] | None = None) -> int:
     """Количество слов в тексте, начинающихся с одного из корней."""
-    roots = _roots if roots is None else tuple(roots)
+    roots = current_roots() if roots is None else tuple(roots)
     if not roots:
         return 0
     words = _WORD_RE.findall(normalize(text))
