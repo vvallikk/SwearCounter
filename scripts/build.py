@@ -2,6 +2,9 @@
 
 Запуск из корня проекта:  .venv\\Scripts\\python.exe scripts/build.py
 Нужен PyInstaller:         .venv\\Scripts\\python.exe -m pip install -r requirements-build.txt
+
+С ключом --archive-only собирается только zip из готовой папки dist/SwearCounter:
+release.yml так перепаковывает архив, когда SignPath вернул подписанный exe.
 """
 
 import shutil
@@ -58,11 +61,17 @@ def main() -> None:
     models = APP_DIR / "models"
     models.mkdir(exist_ok=True)
     (models / "README.txt").write_text(MODELS_README, encoding="utf-8")
+    pack()
 
+
+def pack() -> None:
     archive = shutil.make_archive(str(ARCHIVE), "zip", root_dir=DIST, base_dir=APP_DIR.name)
     size_mb = Path(archive).stat().st_size / 1024 / 1024
     print(f"Готово: {APP_DIR}\nАрхив:  {archive} ({size_mb:.1f} МБ)")
 
 
 if __name__ == "__main__":
-    main()
+    if "--archive-only" in sys.argv[1:]:
+        pack()
+    else:
+        main()

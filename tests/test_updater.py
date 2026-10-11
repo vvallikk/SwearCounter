@@ -19,6 +19,7 @@ from app.updater import (
     parse_version,
     pick_update,
     release_info,
+    release_notes,
     update_policy,
 )
 
@@ -152,6 +153,18 @@ def test_release_info_picks_zip_asset():
         "force": False,
         "for_version": "0.2.0",
     }
+
+
+def test_release_info_hides_checks_section():
+    # Раздел "Проверка файла" (scripts/release_checks.py) нужен на GitHub, а не в окне программы.
+    body = "Что нового\n\n<!-- checks -->\n## Проверка файла · File check\n\n- SHA-256: `abc`\n"
+    info = release_info(make_release(body=body), current="0.2.0")
+    assert info["notes"] == "Что нового"
+
+
+def test_release_notes_without_checks_section():
+    assert release_notes("Что нового\n") == "Что нового"
+    assert release_notes("") == ""
 
 
 @pytest.mark.parametrize(

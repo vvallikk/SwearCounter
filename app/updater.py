@@ -13,6 +13,10 @@
 Обязательное обновление в собранной программе блокирует её (Updater.locked),
 пока пользователь не обновится.
 
+В конце описания релиз сам дописывает раздел с SHA-256 архива, отчётом VirusTotal
+и подписью (scripts/release_checks.py). Он начинается с пометки CHECKS_MARKER,
+и в окне программы заметки показываются без него.
+
 Установка (только собранный exe): zip релиза качается и распаковывается в
 update/ рядом с exe, затем apply.cmd ждёт выхода программы, заменяет только
 программные файлы (SwearCounter.exe и _internal) и запускает новую версию.
@@ -74,6 +78,7 @@ def same_version(a: str, b: str) -> bool:
     return parse_version(a) is not None and not is_newer(a, b) and not is_newer(b, a)
 
 
+CHECKS_MARKER = "<!-- checks -->"
 MARKER = re.compile(r"<!--\s*update\s*:(.*?)-->", re.IGNORECASE | re.DOTALL)
 MINOR = {"type": "minor", "versions": []}
 
@@ -99,6 +104,11 @@ def update_policy(notes: str) -> dict:
     raise ValueError(
         "пометка должна быть <!-- update: full-force --> или <!-- update: force 0.2.0 0.2.1 -->"
     )
+
+
+def release_notes(body: str) -> str:
+    """Заметки для окна программы: описание релиза без раздела "Проверка файла"."""
+    return (body or "").split(CHECKS_MARKER, 1)[0].rstrip()
 
 
 def forces(release: dict, current: str) -> bool:
@@ -150,7 +160,7 @@ def release_info(release: dict, current: str = __version__) -> dict | None:
         # GitHub считает SHA-256 каждого файла релиза: им проверяем, что архив скачался целым.
         "sha256": sha256_of(asset),
         "size": asset.get("size", 0),
-        "notes": release.get("body") or "",
+        "notes": release_notes(release.get("body") or ""),
         "html_url": release.get("html_url") or f"https://github.com/{REPO}/releases",
         "force": forces(release, current),
         "for_version": current,

@@ -50,10 +50,57 @@ jobs:
       - name: Build
         run: python scripts/build.py
 
+      # Подпись exe сертификатом SignPath Foundation (docs/CODE_SIGNING.md). Шаги включаются,
+      # когда в настройках репозитория заданы переменные SIGNPATH_* и секрет SIGNPATH_API_TOKEN;
+      # без них релиз выходит неподписанным, как раньше.
+      - name: Upload exe for signing
+        id: unsigned
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: SwearCounter-unsigned
+          path: dist/SwearCounter/SwearCounter.exe
+          if-no-files-found: error
+
+      - name: Sign exe with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2.3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          # Запрос подписи подтверждает человек в SignPath: ждём до часа.
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist/signed
+
+      - name: Repack archive with signed exe
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          Copy-Item dist/signed/SwearCounter.exe dist/SwearCounter/SwearCounter.exe -Force
+          $signature = Get-AuthenticodeSignature dist/SwearCounter/SwearCounter.exe
+          if ($signature.Status -ne "Valid") { throw "Подпись exe недействительна: $($signature.Status)" }
+          Write-Output "Подписано: $($signature.SignerCertificate.Subject)"
+          python scripts/build.py --archive-only
+          "SIGNED=--signed" >> $env:GITHUB_ENV
+
+      # SHA-256, отчёт VirusTotal (если задан секрет VT_API_KEY) и подпись в конце описания релиза.
+      - name: Check archive
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          cp "docs/releases/v${VERSION}.md" dist/release-notes.md
+          python scripts/release_checks.py "dist/SwearCounter-v${VERSION}-windows.zip" dist/release-notes.md ${SIGNED}
+
       - name: Publish release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" "dist/SwearCounter-v${VERSION}-windows.zip" \
-            --title "${GITHUB_REF_NAME}" --notes-file "docs/releases/v${VERSION}.md" --verify-tag
+            --title "${GITHUB_REF_NAME}" --notes-file dist/release-notes.md --verify-tag

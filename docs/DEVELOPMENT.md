@@ -221,6 +221,68 @@ Python-код требует перезапуска. Второй экземпл
    gh release edit v0.3.0 --notes-file docs/releases/v0.3.0.md
    ```
 
+   Так из описания пропадёт раздел "Проверка файла" (см. ниже). Чтобы его сохранить,
+   скопируйте текущее описание (`gh release view v0.3.0 --json body -q .body`), поправьте
+   и передайте его в `--notes-file`.
+
+### Подпись и проверка VirusTotal
+
+После сборки workflow дописывает в конец описания релиза раздел "Проверка файла":
+SHA-256 архива, результат VirusTotal и пометку о подписи. Раздел начинается с
+`<!-- checks -->`, программа показывает заметки к обновлению без него. Оба шага
+необязательные: без настроек ниже релиз выходит неподписанным и только с SHA-256,
+а сбой VirusTotal даёт предупреждение в логе, но не останавливает релиз.
+
+**VirusTotal.** Зарегистрируйтесь на [virustotal.com](https://www.virustotal.com/),
+скопируйте API key из профиля и добавьте его в секреты репозитория:
+
+```powershell
+gh secret set VT_API_KEY
+```
+
+Скрипт [scripts/release_checks.py](../scripts/release_checks.py) отправляет архив на
+проверку (если такого файла там ещё нет) и ждёт результат до 15 минут. Если не дождался,
+в описании будет просто ссылка на отчёт. Бесплатного ключа хватает: 4 запроса в минуту.
+
+**SignPath Foundation.** Бесплатный сертификат для open source, exe подписывается на их
+стороне, ключ в репозиторий не попадает. Политика подписи описана в
+[CODE_SIGNING.md](CODE_SIGNING.md).
+
+1. Подайте заявку на [signpath.org](https://signpath.org/apply). Требования: открытая
+   лицензия, проект уже выпущен и поддерживается, на сайте или в README есть ссылка на
+   политику подписи.
+2. После одобрения в SignPath создайте проект (репозиторий GitHub как источник),
+   подключите GitHub-интеграцию, политику подписи `release-signing` с ручным
+   подтверждением и конфигурацию артефакта: workflow отправляет zip-артефакт, в котором
+   лежит один `SwearCounter.exe`.
+
+   ```xml
+   <?xml version="1.0" encoding="utf-8" ?>
+   <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+     <zip-file>
+       <pe-file path="SwearCounter.exe">
+         <authenticode-sign />
+       </pe-file>
+     </zip-file>
+   </artifact-configuration>
+   ```
+
+3. Создайте в SignPath API token (пользователь CI с правом Submitter) и добавьте настройки
+   в репозиторий:
+
+   ```powershell
+   gh secret set SIGNPATH_API_TOKEN
+   gh variable set SIGNPATH_ORGANIZATION_ID --body "<id организации>"
+   gh variable set SIGNPATH_PROJECT_SLUG --body "SwearCounter"
+   gh variable set SIGNPATH_SIGNING_POLICY_SLUG --body "release-signing"
+   gh variable set SIGNPATH_ARTIFACT_CONFIGURATION_SLUG --body "<slug конфигурации>"
+   ```
+
+Когда задана переменная `SIGNPATH_ORGANIZATION_ID`, workflow после сборки отправляет exe
+на подпись и ждёт до часа, пока запрос подтвердят в SignPath. Потом проверяет подпись
+(`Get-AuthenticodeSignature`) и перепаковывает архив командой
+`python scripts/build.py --archive-only`.
+
 ### Типы обновлений
 
 Тег всегда `vX.Y.Z` (его проверяет workflow), а тип обновления задаёт пометка в заметках
@@ -371,6 +433,7 @@ control/              страница управления (index.html, style.c
 wordlists/            встроенные списки слов
 assets/               иконка (scripts/make_icon.py)
 scripts/build.py      сборка exe и zip
+scripts/release_checks.py раздел "Проверка файла" в описании релиза: SHA-256, VirusTotal, подпись
 scripts/pack_preset.py упаковка папки личного оформления в zip
 scripts/licenses.py   THIRD_PARTY_LICENSES.txt для сборки; third_party/ с текстами лицензий
 SwearCounter.spec     настройки PyInstaller
