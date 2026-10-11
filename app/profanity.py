@@ -98,15 +98,21 @@ class SwearTracker:
         add: Callable[[int], Awaitable[object]],
         count: Callable[[str], int] = count_profanity,
         delay: float = DEBOUNCE_SECONDS,
+        paused: Callable[[], bool] = lambda: False,
     ):
         self.add = add
         self.count = count
         self.delay = delay
+        self.paused = paused  # на паузе текст пропускается
         self.counted = 0  # уже засчитано в текущей фразе
         self.partial = ""
         self._timer: asyncio.Task | None = None
 
     async def feed(self, text: str, is_final: bool) -> None:
+        if self.paused():
+            # Фразу, начатую до паузы или во время неё, после паузы не досчитываем.
+            self.reset()
+            return
         if not is_final:
             self.partial = text
             if self._timer is None and self.count(text) > self.counted:
@@ -138,3 +144,8 @@ class SwearTracker:
         if self._timer is not None:
             self._timer.cancel()
             self._timer = None
+
+    def reset(self) -> None:
+        """Забывает текущую фразу: незасчитанное в ней уже не засчитается."""
+        self.stop()
+        self.counted, self.partial = 0, ""

@@ -5,10 +5,12 @@
 """
 
 import ctypes
+import json
 import logging
 import subprocess
 import threading
 import time
+import urllib.request
 import webbrowser
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -31,6 +33,7 @@ MB_ICONINFORMATION = 0x40
 CREATE_NO_WINDOW = 0x08000000
 SERVER_START_TIMEOUT = 30.0
 SERVER_STOP_TIMEOUT = 10.0
+API_TIMEOUT = 5.0
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +70,17 @@ class Urls:
     @property
     def overlay(self) -> str:
         return f"http://localhost:{self.port}/overlay/"
+
+    def api(self, path: str) -> str:
+        return f"http://localhost:{self.port}{path}"
+
+
+def post_api(url: str, body: dict | None = None) -> dict:
+    """Команда своему серверу из трея: так она проходит те же проверки, что и из окна."""
+    data = json.dumps(body or {}).encode()
+    request = urllib.request.Request(url, data, {"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(request, timeout=API_TIMEOUT) as response:  # noqa: S310 только localhost
+        return json.loads(response.read())
 
 
 class ServerThread:
@@ -149,6 +163,15 @@ def run(
         copy_to_clipboard(urls.overlay)
         icon.notify(f"Адрес оверлея скопирован: {urls.overlay}", TITLE)
 
+    def is_paused(item=None) -> bool:
+        return app.state.hub.paused
+
+    def toggle_pause() -> None:
+        try:
+            post_api(urls.api("/api/pause"), {"paused": not is_paused()})
+        except OSError as e:
+            log.error("Не удалось переключить паузу: %s", e)
+
     def quit_app() -> None:
         quitting.set()
         icon.stop()
@@ -180,6 +203,7 @@ def run(
         title,
         menu=pystray.Menu(
             pystray.MenuItem("Открыть", show, default=True),
+            pystray.MenuItem("Пауза распознавания", toggle_pause, checked=is_paused),
             pystray.MenuItem("Скопировать адрес оверлея", copy_overlay),
             pystray.MenuItem("Открыть в браузере", lambda: webbrowser.open(urls.control)),
             pystray.MenuItem("Проверить обновления", check_updates, visible=updater is not None),

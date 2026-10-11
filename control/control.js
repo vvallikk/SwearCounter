@@ -166,6 +166,30 @@
   }
 
   incBtn.addEventListener("click", () => post("/api/increment", incBtn));
+
+  const pauseBtn = $("pause");
+  let paused = false;
+
+  function showPause(on) {
+    paused = on;
+    pauseBtn.setAttribute("aria-pressed", String(on));
+    pauseBtn.textContent = on ? "▶ Продолжить" : "⏸ Пауза";
+    pauseBtn.title = on ? "Снова считать сказанное" : "Не считать сказанное: на перерыв, катсцену или чужой голос";
+    countEl.classList.toggle("paused", on);
+    $("pause-note").hidden = !on;
+    if (on) targetLevel = 0;
+  }
+
+  pauseBtn.addEventListener("click", async () => {
+    pauseBtn.disabled = true;
+    try {
+      showPause((await api("POST", "/api/pause", { paused: !paused })).paused);
+    } catch (e) {
+      setOnline(false);
+    } finally {
+      pauseBtn.disabled = false;
+    }
+  });
   confirmByTwoClicks(resetBtn, "Точно сбросить?", () => post("/api/reset", resetBtn));
 
   // --- Адрес оверлея копируется по клику ---
@@ -1297,6 +1321,7 @@
       else if (msg.type === "sound") showSound(msg);
       else if (msg.type === "update") showUpdate(msg);
       else if (msg.type === "presets") loadCustomPresets();
+      else if (msg.type === "pause") showPause(msg.paused);
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

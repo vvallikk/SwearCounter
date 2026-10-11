@@ -12,6 +12,7 @@ from app import custom_presets as module
 from app.custom_presets import CustomPresets, builtin_preset_ids, pack_folder
 from app.server import Hub, create_app
 from app.settings import Settings
+from conftest import skip_greeting
 from app.sound import Sound
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -274,11 +275,6 @@ def recognizer_stub(models_dir):
 
 def install(client, data: bytes):
     return client.put("/api/presets/custom", content=data, headers={"Content-Type": "application/zip"})
-
-
-def skip_greeting(ws):
-    for _ in range(3):
-        ws.receive_json()
 
 
 def test_api_install_serves_files_and_script(presets_client):

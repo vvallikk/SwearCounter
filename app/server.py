@@ -43,11 +43,15 @@ class Hub:
         self._lock = asyncio.Lock()
         # Пока возвращает True (обязательное обновление не установлено), счёт не растёт.
         self.locked: Callable[[], bool] = lambda: False
+        # Пауза распознавания: сказанное не считается, кнопки и горячие клавиши работают.
+        # Не сохраняется: после перезапуска программа снова слушает.
+        self.paused = False
 
     async def connect(self, ws: WebSocket, greeting: list[dict] = ()) -> None:
         """Подключает клиента и отправляет ему счёт и сообщения greeting."""
         async with self._lock:
             await ws.send_json({"type": "state", "count": self.counter.value})
+            await ws.send_json(self.pause_message())
             for message in greeting:
                 await ws.send_json(message)
             self.clients.add(ws)
@@ -55,9 +59,10 @@ class Hub:
     def disconnect(self, ws: WebSocket) -> None:
         self.clients.discard(ws)
 
-    async def increment(self, delta: int = 1) -> int:
+    async def increment(self, delta: int = 1, speech: bool = False) -> int:
+        """speech: слова из распознавания; на паузе они не считаются."""
         async with self._lock:
-            if self.locked():
+            if self.locked() or (speech and self.paused):
                 return self.counter.value
             count = await self.counter.add(delta)
             await self._broadcast({"type": "increment", "count": count, "delta": delta})
@@ -68,6 +73,17 @@ class Hub:
             count = await self.counter.reset()
             await self._broadcast({"type": "state", "count": count})
             return count
+
+    def pause_message(self) -> dict:
+        return {"type": "pause", "paused": self.paused}
+
+    async def set_paused(self, paused: bool) -> bool:
+        async with self._lock:
+            if self.paused != paused:
+                self.paused = paused
+                log.info("Распознавание %s", "на паузе" if paused else "снова считает")
+                await self._broadcast(self.pause_message())
+            return self.paused
 
     async def broadcast(self, message: dict) -> None:
         async with self._lock:
@@ -102,6 +118,10 @@ class SoundChoice(BaseModel):
 
 class MonitorChoice(BaseModel):
     enabled: bool
+
+
+class PauseChoice(BaseModel):
+    paused: bool
 
 
 class AutoUpdateChoice(BaseModel):
@@ -304,6 +324,7 @@ def create_app(
             await recognizer.stop()
 
     app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
+    app.state.hub = hub  # трей читает отсюда, стоит ли пауза
 
     @app.middleware("http")
     async def reject_foreign_origin(request: Request, call_next):
@@ -324,6 +345,14 @@ def create_app(
     @app.get("/api/state")
     async def get_state():
         return {"count": hub.counter.value}
+
+    @app.get("/api/pause")
+    async def get_pause():
+        return {"paused": hub.paused}
+
+    @app.post("/api/pause")
+    async def post_pause(choice: PauseChoice):
+        return {"paused": await hub.set_paused(choice.paused)}
 
     @app.get("/api/version")
     async def get_version():
