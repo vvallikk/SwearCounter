@@ -15,8 +15,8 @@ from fastapi import FastAPI
 
 from . import __version__
 from .counter import Counter
-from .paths import COUNTER_FILE, LOG_FILE, SETTINGS_FILE, SOUNDS_DIR, words_file
-from .profanity import SwearTracker, load_words
+from .paths import COUNTER_FILE, DATA_DIR, LOG_FILE, RESOURCE_DIR, SETTINGS_FILE, SOUNDS_DIR, words_file
+from .profanity import SwearTracker, load_words, replace_placeholder_words
 from .server import Hub, create_app
 from .settings import Settings
 from .sound import Sound
@@ -114,6 +114,7 @@ class Prepared:
 
 def prepare(args: argparse.Namespace) -> Prepared:
     """Собирает приложение и занимает порт; сервер ещё не запущен."""
+    replace_placeholder_words(DATA_DIR / "words.txt", RESOURCE_DIR / "words.txt")
     load_words(words_file())
     hub = Hub(Counter(COUNTER_FILE))
     settings = Settings(SETTINGS_FILE)

@@ -22,6 +22,9 @@ _source: Path | None = None  # файл, из которого они загру
 _stamp: tuple[int, int] | None = None  # его время изменения и размер при загрузке
 _checked_at = 0.0
 
+# Тестовые корни из words.txt версий до 0.2.2 (см. replace_placeholder_words).
+PLACEHOLDER_ROOTS = {"тестслов", "проверк"}
+
 
 def normalize(text: str) -> str:
     return text.lower().replace("ё", "е")
@@ -32,17 +35,41 @@ def load_words(path: Path) -> tuple[str, ...]:
     global _roots, _source, _stamp, _checked_at
     path = Path(path)
     _source, _stamp, _checked_at = path, _file_stamp(path), time.monotonic()
-    roots = []
     try:
-        for line in path.read_text(encoding="utf-8-sig").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#"):
-                roots.append(normalize(line))
+        _roots = _read_roots(path)
     except OSError as e:
         log.error("Не удалось прочитать список слов %s: %s", path, e)
-    _roots = tuple(dict.fromkeys(roots))  # без повторов, порядок сохраняем
+        _roots = ()
     log.info("Загружено корней: %d (%s)", len(_roots), path)
     return _roots
+
+
+def _read_roots(path: Path) -> tuple[str, ...]:
+    roots = []
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            roots.append(normalize(line))
+    return tuple(dict.fromkeys(roots))  # без повторов, порядок сохраняем
+
+
+def replace_placeholder_words(user_file: Path, bundled_file: Path) -> bool:
+    """Заменяет words.txt пользователя встроенным, если там ещё корни-заглушки.
+
+    До версии 0.2.2 вместо списка матов поставлялись тестовые корни, а обновление
+    не трогает words.txt пользователя: без замены у обновившихся счётчик бы молчал.
+    Файл, который стример уже правил сам, не трогаем.
+    """
+    if user_file.resolve() == bundled_file.resolve():
+        return False
+    try:
+        if set(_read_roots(user_file)) != PLACEHOLDER_ROOTS:
+            return False
+        user_file.write_bytes(bundled_file.read_bytes())
+    except OSError:
+        return False
+    log.info("Список слов-заглушка заменён настоящим (%s)", user_file)
+    return True
 
 
 def current_roots() -> tuple[str, ...]:
