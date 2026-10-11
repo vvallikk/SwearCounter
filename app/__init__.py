@@ -3,4 +3,4 @@
 __version__ = "0.2.1"
 
 # Страница «Поддержать автора» (Boosty, DonationAlerts и т. п.). Пустая строка — кнопки нет.
-SUPPORT_URL = ""
+SUPPORT_URL = "https://www.donationalerts.com/r/vvalikk"
