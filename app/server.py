@@ -12,14 +12,14 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import unquote, urlsplit
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, mail, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -176,14 +176,13 @@ def foreign_ws_origin(origin: str | None) -> bool:
     return origin is not None and urlsplit(origin).hostname not in LOCAL_HOSTS
 
 
-def order_mailto(email: str, description: str) -> str:
-    """Письмо автору с заказом оформления: почтовая программа откроет его готовым."""
-    body = (
+def order_body(email: str, description: str) -> str:
+    """Текст письма автору с заказом оформления."""
+    return (
         f"Почта для связи: {email}\n\n"
         f"Каким должно быть оформление:\n{description}\n\n"
         f"Версия программы: {__version__}"
     )
-    return f"mailto:{ORDER_EMAIL}?subject={quote(ORDER_SUBJECT)}&body={quote(body)}"
 
 
 def foreign_origin(request: Request) -> bool:
@@ -316,7 +315,7 @@ def create_app(
 
     @app.post("/api/order")
     async def post_order(order: PresetOrder):
-        """Открывает письмо автору в почтовой программе: сама программа ничего не отправляет."""
+        """Письмо автору: почтовая программа или сайт почты; сама программа ничего не отправляет."""
         if not ORDER_EMAIL:
             raise HTTPException(404, "Заказ оформления недоступен")
         email, description = order.email.strip(), order.description.strip()
@@ -326,9 +325,17 @@ def create_app(
             raise HTTPException(400, "Опишите, каким должно быть оформление")
         if len(description) > ORDER_DESCRIPTION_MAX:
             raise HTTPException(400, f"Описание длиннее {ORDER_DESCRIPTION_MAX} символов: сократите его")
-        url = order_mailto(email, description)
-        opened = await asyncio.to_thread(webbrowser.open, url)
-        return {"opened": bool(opened), "email": ORDER_EMAIL, "subject": ORDER_SUBJECT}
+        body = order_body(email, description)
+        # Windows «открывает» mailto: и без почтовой программы, поэтому сначала проверяем её.
+        mail_app = await asyncio.to_thread(mail.has_mail_app)
+        opened = mail_app and await asyncio.to_thread(webbrowser.open, mail.mailto(ORDER_EMAIL, ORDER_SUBJECT, body))
+        return {
+            "email": ORDER_EMAIL,
+            "subject": ORDER_SUBJECT,
+            "body": body,
+            "opened": bool(opened),
+            "webmail": mail.webmail(email, ORDER_EMAIL, ORDER_SUBJECT, body),
+        }
 
     @app.get("/api/update")
     async def get_update():
