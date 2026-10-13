@@ -25,8 +25,13 @@ MAX_PHRASE_SECONDS = 15  # длиннее фразу детектор речи �
 Result = tuple[str, bool]
 
 
-def load_engine(model_path: str):
+def load_engine(model_path: str, api_key: str | None = None):
     model = find_model(Path(model_path).name)
+    if model is not None and model.cloud:
+        if not api_key:
+            raise ValueError(f"Для модели {model.id} нужен API-ключ")
+        files = {role: str(Path(model_path) / name) for role, name in model.model_files.items()}
+        return _VadEngine.cloud(files, model, api_key)
     if model is None or model.engine not in _SHERPA:
         return VoskEngine(model_path)  # модели Vosk, положенные вручную, тоже работают
     files = {role: str(Path(model_path) / name) for role, name in model.model_files.items()}
@@ -160,6 +165,14 @@ class _VadEngine:
             num_threads=NUM_THREADS,
         )
         return cls(rec, files["vad"], WHISPER_PARTIAL_SECONDS)
+
+    @classmethod
+    def cloud(cls, files: dict[str, str], model: ModelInfo, api_key: str) -> "_VadEngine":
+        from .cloud import PROVIDERS, CloudRecognizer
+
+        rec = CloudRecognizer(PROVIDERS[model.provider], model.api_model, model.language, api_key)
+        # Промежуточных результатов нет: каждый запрос в облако платный.
+        return cls(rec, files["vad"], float("inf"))
 
     def session(self, samplerate: int) -> "_VadSession":
         import sherpa_onnx

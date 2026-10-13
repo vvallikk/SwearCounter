@@ -303,3 +303,69 @@ def test_set_device_turns_monitor_off(recognizer):
     recognizer.monitor_error = "старая ошибка"
     recognizer.set_device(None)
     assert recognizer.monitor is False and recognizer.monitor_error is None
+
+
+# --- облачные модели: ключ сервиса ---
+
+CLOUD_MODEL = "cloud-deepgram-nova-2-ru"
+
+
+@pytest.fixture
+def cloud_recognizer(recognizer, tmp_path):
+    folder = tmp_path / "models" / CLOUD_MODEL
+    folder.mkdir()
+    recognizer.model_path = folder
+    return recognizer
+
+
+def test_local_model_has_no_cloud_provider_or_key(recognizer, settings):
+    settings.set("cloud_keys", {"deepgram": "KEY"})
+    assert recognizer.cloud_provider() is None
+    assert recognizer.api_key() is None
+
+
+def test_cloud_model_uses_key_of_its_provider(cloud_recognizer, settings):
+    settings.set("cloud_keys", {"deepgram": " KEY ", "openai": "OTHER"})
+    assert cloud_recognizer.cloud_provider() == "deepgram"
+    assert cloud_recognizer.api_key() == "KEY"
+
+
+@pytest.mark.parametrize("keys", [None, {}, {"openai": "k"}, {"deepgram": ""}, {"deepgram": "русский"}, "мусор"])
+def test_cloud_model_without_valid_key(cloud_recognizer, settings, keys):
+    if keys is not None:
+        settings.set("cloud_keys", keys)
+    assert cloud_recognizer.api_key() is None
+
+
+def test_start_without_key_waits_for_it(cloud_recognizer, monkeypatch):
+    runs = []
+
+    async def fake_run(self):
+        runs.append(self.model_path.name)
+
+    monkeypatch.setattr(MicRecognizer, "run", fake_run)
+    asyncio.run(cloud_recognizer.start())
+    assert cloud_recognizer.status == "no_key"
+    assert runs == []
+
+
+def test_key_is_passed_to_worker_process(cloud_recognizer, settings, monkeypatch):
+    settings.set("cloud_keys", {"deepgram": "KEY"})
+    started = []
+
+    class FakeProcess:
+        def __init__(self, target, args, name, daemon):
+            started.append(args)
+            self.name = name
+            self.exitcode = 0
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return False
+
+    monkeypatch.setattr(recognizer_module._mp, "Process", FakeProcess)
+    with pytest.raises(RuntimeError):  # процесс «умер» сразу: нам важны только его аргументы
+        asyncio.run(cloud_recognizer.run())
+    assert started[0][2:] == (str(cloud_recognizer.model_path), None, "KEY")

@@ -17,6 +17,7 @@ SHERPA_TRANSDUCER = "sherpa-transducer"  # потоковая Zipformer: encoder
 SHERPA_T_ONE = "sherpa-t-one"  # потоковая CTC-модель T-one
 SHERPA_NEMO_CTC = "sherpa-nemo-ctc"  # распознаёт фразу целиком; фразы выделяет VAD
 SHERPA_WHISPER = "sherpa-whisper"  # Whisper: тоже фразами через VAD, язык речи из language
+CLOUD = "cloud"  # облачный сервис по API (cloud.py); локально лежит только детектор речи
 
 RU = "ru"
 EN = "en"
@@ -54,6 +55,12 @@ class ModelInfo:
     # Файлы модели для sherpa-onnx: роль (encoder, model, tokens, vad...) → путь в папке модели.
     model_files: dict[str, str] = field(default_factory=dict, hash=False)
     language: str = "ru"  # язык речи: RU или EN
+    provider: str = ""  # облачные модели: сервис из cloud.PROVIDERS
+    api_model: str = ""  # облачные модели: имя модели у сервиса
+
+    @property
+    def cloud(self) -> bool:
+        return self.engine == CLOUD
 
     @property
     def path(self) -> Path:
@@ -64,7 +71,7 @@ class ModelInfo:
         return self.path.is_dir()
 
     def to_dict(self) -> dict:
-        return asdict(self) | {"installed": self.installed}
+        return asdict(self) | {"installed": self.installed, "cloud": self.cloud}
 
 
 CATALOG = [
@@ -311,6 +318,88 @@ CATALOG = [
         },
     ),
 ]
+
+
+# Облачные модели: (сервис, имя у сервиса, название, подпись, описание).
+_CLOUD_MODELS = [
+    (
+        "deepgram", "nova-2", "Nova-2", "быстрая и недорогая, от Deepgram",
+        "Проверенная модель Deepgram: распознаёт быстро, цена за минуту невысокая. "
+        "Подходит, если нужна скорость и недорого.",
+    ),
+    (
+        "deepgram", "nova-3", "Nova-3", "новая модель Deepgram, точнее Nova-2",
+        "Новая модель Deepgram: точнее Nova-2, лучше справляется с шумом и разговорной речью.",
+    ),
+    (
+        "openai", "gpt-4o-mini-transcribe", "GPT-4o mini Transcribe", "экономная модель OpenAI",
+        "Облегчённая модель OpenAI: точнее исходного Whisper и дешевле GPT-4o Transcribe.",
+    ),
+    (
+        "openai", "gpt-4o-transcribe", "GPT-4o Transcribe", "самая точная у OpenAI",
+        "Самая точная модель распознавания OpenAI. Стоит дороже остальных у этого сервиса.",
+    ),
+    (
+        "openai", "whisper-1", "Whisper", "классический Whisper через API OpenAI",
+        "Whisper large-v2, работающий на серверах OpenAI: нагрузки на компьютер нет совсем.",
+    ),
+    (
+        "groq", "whisper-large-v3-turbo", "Whisper large-v3 turbo", "Whisper на Groq, очень быстро и дёшево",
+        "Whisper large-v3 turbo на серверах Groq: самый дешёвый способ получить Whisper, "
+        "работает быстро. Сервис округляет каждый запрос до 10 секунд, поэтому короткие "
+        "фразы обходятся как десятисекундные.",
+    ),
+    (
+        "groq", "whisper-large-v3", "Whisper large-v3", "самый точный Whisper на Groq",
+        "Полная Whisper large-v3 на серверах Groq: точнее turbo-версии. Сервис округляет "
+        "каждый запрос до 10 секунд.",
+    ),
+    (
+        "elevenlabs", "scribe_v2", "Scribe v2", "модель ElevenLabs",
+        "Модель распознавания речи ElevenLabs, точная на многих языках, в том числе на русском.",
+    ),
+]
+
+
+def _cloud_catalog() -> list[ModelInfo]:
+    from .cloud import PROVIDERS
+
+    models = []
+    for language in (RU, EN):
+        for provider_id, api_model, name, summary, description in _CLOUD_MODELS:
+            provider = PROVIDERS[provider_id]
+            models.append(
+                ModelInfo(
+                    id=f"cloud-{provider_id}-{api_model}-{language}",
+                    engine=CLOUD,
+                    language=language,
+                    title=f"Облако: {provider.title}",
+                    name=name,
+                    summary=summary,
+                    description=(
+                        f"{description} Звук ваших фраз отправляется в {provider.title} и оплачивается "
+                        "по вашему API-ключу. Остальное распознавание остаётся на компьютере: "
+                        "в облако уходят только законченные фразы. Нужен интернет."
+                    ),
+                    disk="2 МБ",
+                    download_size="2 МБ",
+                    memory="—",
+                    load_time="—",
+                    url="",
+                    # Локально нужен только детектор речи, который выделяет фразы.
+                    files=(SILERO_VAD,),
+                    model_files={"vad": "silero_vad.onnx"},
+                    provider=provider_id,
+                    api_model=api_model,
+                )
+            )
+    return models
+
+
+# Облачные модели — в конце своего языка: страница группирует модели по языку.
+for _model in _cloud_catalog():
+    _last = max(i for i, m in enumerate(CATALOG) if m.language == _model.language)
+    CATALOG.insert(_last + 1, _model)
 
 
 def find_model(model_id: str) -> ModelInfo | None:

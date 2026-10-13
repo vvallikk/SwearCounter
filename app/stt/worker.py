@@ -44,11 +44,15 @@ class MicrophoneLost(Exception):
 
 
 def run_worker(
-    results: Connection, commands: Connection, model_path: str, device: int | str | None
+    results: Connection,
+    commands: Connection,
+    model_path: str,
+    device: int | str | None,
+    api_key: str | None = None,
 ) -> None:
     _exit_with_parent()
     try:
-        _Worker(results, commands, device).run(model_path)
+        _Worker(results, commands, device).run(model_path, api_key)
     except (BrokenPipeError, EOFError):
         pass  # основной процесс закрыл канал: распознавание больше не нужно
     except Exception:
@@ -67,12 +71,13 @@ class _Worker:
         self.monitor = _Monitor()
         threading.Thread(target=self._read_commands, args=(commands,), daemon=True).start()
 
-    def run(self, model_path: str) -> None:
+    def run(self, model_path: str, api_key: str | None = None) -> None:
         # Импорт здесь, чтобы основной процесс не загружал библиотеки распознавания.
         from .engines import load_engine
 
         started = time.monotonic()
-        engine = load_engine(model_path)
+        # Ключ нужен только облачным моделям; остальным он не передаётся.
+        engine = load_engine(model_path) if api_key is None else load_engine(model_path, api_key=api_key)
         self.results.send(("loaded", time.monotonic() - started))
 
         while True:
