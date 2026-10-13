@@ -257,3 +257,49 @@ body {
   pointer-events: none;
   opacity: 0;
 }
+
+/* --- Цензура: фирменный стиль. Красная плашка с белым «#!» — как значок программы --- */
+:root[data-preset="swearcounter"] {
+  --brand-red: #e0282a;
+  --brand-red-dark: #a81618;
+}
+
+:root[data-preset="swearcounter"] .value {
+  /* Почти квадрат, как значок: поля больше по вертикали, а у одной цифры плашка ровно квадратная */
+  min-width: 1.32em;
+  box-sizing: border-box;
+  padding: 0.14em 0.14em 0.18em;
+  text-align: center;
+  border-radius: 0.3em;
+  background: linear-gradient(180deg, var(--brand-red) 0%, var(--brand-red-dark) 100%);
+  box-shadow:
+    inset 0 0.04em 0 rgba(255, 255, 255, 0.28),
+    0 0.05em 0 rgba(0, 0, 0, 0.35),
+    0 0.1em 0.22em rgba(0, 0, 0, 0.45);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 0.03em 0 rgba(0, 0, 0, 0.3);
+}
+
+:root[data-preset="swearcounter"] .label {
+  -webkit-text-stroke: calc(var(--size) * 0.07) var(--brand-red-dark);
+  text-shadow: 0 calc(var(--size) * 0.04) calc(var(--size) * 0.1) rgba(0, 0, 0, 0.5);
+}
+
+:root[data-preset="swearcounter"] .glow {
+  background: radial-gradient(circle, var(--brand-red) 0%, transparent 65%);
+}
+
+/* «Пузырь» комикса с руганью над плашкой */
+:root[data-preset="swearcounter"] .plus.censor-bubble {
+  top: -0.1em;
+  padding: 0.08em 0.4em 0.14em;
+  border-radius: 0.5em 0.5em 0.5em 0.12em;
+  font-size: calc(var(--size) * 0.42);
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: var(--brand-red-dark);
+  border: calc(var(--size) * 0.025) solid #fff;
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  box-shadow: 0 0.06em 0.18em rgba(0, 0, 0, 0.5);
+}

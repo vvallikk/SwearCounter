@@ -152,6 +152,9 @@
     "Моноширинный шрифт и пошаговая анимация, как в старых играх.": "A monospace font and step animation, like in old games.",
     "Минимализм": "Minimal",
     "Аккуратный тонкий шрифт без обводки, мягкое появление.": "A neat thin font without an outline, a soft fade-in.",
+    "Цензура": "Censored",
+    "Фирменный: красная плашка как значок программы, при каждом мате вылетает «#!@%».":
+      "Signature style: a red plaque like the app icon; every swear pops out a comic “#!@%”.",
     "Взрыв": "Explosion",
     "Огненные цифры, резкое увеличение и разлетающиеся искры.": "Fiery digits, a sharp zoom and flying sparks.",
 

@@ -289,7 +289,7 @@ class WordListOpen(BaseModel):
     id: str | None = None  # файл списка; None — папка со списками
 
 
-DEFAULT_PRESET = "classic"
+DEFAULT_PRESET = "swearcounter"
 # Список пресетов знает только оверлей (overlay/presets.js); сервер проверяет форму id.
 PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
 # Подпись рядом с числом («Маты:»): где она стоит относительно числа.

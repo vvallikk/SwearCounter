@@ -18,7 +18,9 @@ log = logging.getLogger(__name__)
 
 MAX_COUNTERS = 5
 NAME_MAX_LENGTH = 40
-DEFAULT_PRESET = "classic"
+DEFAULT_PRESET = "swearcounter"
+# Счётчик из файла без оформления был создан, когда по умолчанию было «Классика»: оставляем его таким.
+LEGACY_PRESET = "classic"
 
 
 class CounterError(ValueError):
@@ -142,7 +144,7 @@ class ExtraCounters:
                     "id": str(item["id"]),
                     "name": str(item["name"])[:NAME_MAX_LENGTH],
                     "list": str(item["list"]),
-                    "preset": str(item.get("preset") or DEFAULT_PRESET),
+                    "preset": str(item.get("preset") or LEGACY_PRESET),
                     "label": str(item.get("label") or ""),
                     "count": max(0, int(item.get("count", 0))),
                 })

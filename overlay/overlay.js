@@ -226,6 +226,45 @@
     ], { duration: 1000, easing: "ease-out" });
   }
 
+  // Цензура (фирменный): плашка вздрагивает, а над ней вылетает ругань комиксов — «#!@%».
+  const CENSOR_GLYPHS = ["#", "!", "@", "%", "&", "*", "$", "?"];
+  let censorLast = "";
+
+  function animateCensor(delta) {
+    const tilt = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 2);
+    valueEl.animate(
+      [
+        { transform: "translate(0, 0) rotate(0) scale(1)" },
+        { transform: `translate(-3%, -6%) rotate(${-tilt}deg) scale(1.14)`, offset: 0.18 },
+        { transform: `translate(3%, 2%) rotate(${tilt}deg) scale(1.08)`, offset: 0.4 },
+        { transform: `translate(-2%, 0) rotate(${-tilt / 2}deg) scale(1.03)`, offset: 0.65 },
+        { transform: "translate(0, 0) rotate(0) scale(1)" },
+      ],
+      { duration: 420, easing: "cubic-bezier(.3, 1.4, .5, 1)" }
+    );
+    // Четыре символа, без повтора предыдущей «ругани»
+    let text;
+    do {
+      text = Array.from({ length: 4 }, () => CENSOR_GLYPHS[Math.floor(Math.random() * CENSOR_GLYPHS.length)]).join("");
+    } while (text === censorLast);
+    censorLast = text;
+    const bubble = document.createElement("span");
+    bubble.className = "plus censor-bubble";
+    bubble.textContent = delta < 0 ? "−" + -delta : text;
+    numberEl.appendChild(bubble);
+    const drift = (Math.random() - 0.5) * 30;
+    const anim = bubble.animate(
+      [
+        { transform: "translate(-50%, 10%) rotate(-8deg) scale(0.4)", opacity: 0 },
+        { transform: `translate(calc(-50% + ${drift / 2}%), -70%) rotate(5deg) scale(1.15)`, opacity: 1, offset: 0.25 },
+        { transform: `translate(calc(-50% + ${drift}%), -110%) rotate(-3deg) scale(1)`, opacity: 1, offset: 0.75 },
+        { transform: `translate(calc(-50% + ${drift}%), -150%) rotate(0) scale(0.9)`, opacity: 0 },
+      ],
+      { duration: 1100, easing: "ease-out" }
+    );
+    anim.onfinish = () => bubble.remove();
+  }
+
   // Взрыв: резкое увеличение, вспышка и разлетающиеся искры
   const SPARK_COUNT = 12;
 
@@ -279,6 +318,7 @@
 
   // id пресета → анимация прибавления
   const INCREMENT_ANIMATIONS = {
+    swearcounter: animateCensor,
     classic: animateClassic,
     impact: animateImpact,
     neon: animateNeon,
