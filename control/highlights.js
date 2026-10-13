@@ -65,9 +65,12 @@
       const time = document.createElement("span");
       time.className = "highlight-time";
       time.textContent = formatTime(m.time);
-      const text = document.createElement("span");
-      text.textContent = "Слово" + (m.count > 1 ? ` ×${m.count}` : "") + (m.words.length ? `: ${m.words.slice(0, 5).join(", ")}` : "");
-      item.append(time, text);
+      const label = document.createElement("span");
+      label.textContent = "Слово";
+      const details = document.createElement("span");
+      details.textContent = (m.count > 1 ? `×${m.count}` : "") + (m.words.length ? `${m.count > 1 ? " " : ""}${m.words.slice(0, 5).join(", ")}` : "");
+      details.setAttribute("translate", "no");
+      item.append(time, label, details);
       if (m.clips.length) {
         const clip = document.createElement("span");
         clip.className = "highlight-clip";

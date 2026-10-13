@@ -89,6 +89,7 @@
 
     // Хайлайты
     "Хайлайты": "Highlights",
+    "Слово": "Word",
     "Каждое засчитанное слово оставляет метку времени. Из меток собираются таймкоды для описания видео на YouTube.":
       "Every counted word leaves a time mark. The marks are turned into timestamps for a YouTube video description.",
     "Считать время от начала трансляции или записи в OBS": "Count time from the start of the OBS stream or recording",
