@@ -462,6 +462,7 @@
     ["Загрузка в память при запуске: {}", "Loading into memory at startup: {}"],
     ["Скачивается кнопкой «Скачать» ({}).", "Downloaded with the “Download” button ({})."],
     ["{}. Нажмите «Скачать», чтобы попробовать ещё раз", "{}. Click “Download” to try again"],
+    ["{}. Нажмите «Подготовить», чтобы попробовать ещё раз", "{}. Click “Prepare” to try again"],
     ["Скачать модель ({})", "Download the model ({})"],
     ["Скачать детектор речи ({}), модель остаётся в облаке", "Download the speech detector ({}); the model stays in the cloud"],
     ["Нажмите «⬇ Подготовить»: скачается детектор речи ({}). Он находит в звуке фразы, текст не распознаёт.", "Press “⬇ Prepare”: the speech detector ({}) is downloaded. It finds phrases in the audio and does not recognize text."],

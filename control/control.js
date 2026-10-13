@@ -1189,7 +1189,7 @@
       card.append(box);
       downloadBars.set(m.id, { bar, text });
     } else if (download && download.status === "error") {
-      card.append(el("div", "model-download status-line error", `${download.error}. Нажмите «Скачать», чтобы попробовать ещё раз`));
+      card.append(el("div", "model-download status-line error", `${download.error}. Нажмите «${m.cloud ? "Подготовить" : "Скачать"}», чтобы попробовать ещё раз`));
     }
     if (m.cloud && !grouped) card.append(cloudKeyRow(m));
     card.append(details);
