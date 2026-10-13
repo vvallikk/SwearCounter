@@ -47,6 +47,9 @@
     "Пауза: сказанное не считается. Кнопки работают.": "Paused: what's said isn't counted. The buttons still work.",
     "Оверлей для OBS (источник «Браузер») или любого браузера:": "Overlay for OBS (a “Browser” source) or any browser:",
     "Нажмите, чтобы скопировать": "Click to copy",
+    "Где распознавать": "Where to recognize",
+    "ключ сохранён": "key saved",
+    "нужен ключ": "key needed",
     "Источники для OBS": "Sources for OBS",
     "Вставьте ссылку в источник «Браузер»": "Paste the link into a “Browser” source",
     "Таймер «без мата»": "“Clean for” timer",
@@ -419,6 +422,8 @@
   // Строки с переменной частью: {} — любой текст (тоже переводится), {1}, {2} в
   // переводе — части по номеру, если порядок другой.
   const PATTERNS = [
+    ["На компьютере · {}", "On this PC · {}"],
+    ["Облако (по API-ключу) · {}", "Cloud (API key) · {}"],
     ["Ошибка сервера ({})", "Server error ({})"],
     ["{} (нет файла)", "{} (no file)"],
     ["{} (не найден)", "{} (not found)"],

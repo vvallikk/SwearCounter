@@ -1107,7 +1107,8 @@
     return `Скачано ${done} из ${formatMB(download.total_bytes)} · ${Math.round(download.progress * 100)}%`;
   }
 
-  function modelCard(m, current, failed) {
+  // grouped — карточка внутри группы провайдера: заголовок и ключ показаны один раз у группы.
+  function modelCard(m, current, failed, grouped = false) {
     const card = el("div", "model-card");
     const download = m.download;
     const active = download && download.status !== "error"; // качается или распаковывается
@@ -1119,9 +1120,9 @@
 
     const pick = el("button", "model-pick");
     pick.type = "button";
-    const title = el("span", "title", m.title);
-    title.append(el("span", "model-name", `(${m.name})`));
-    if (m.cloud) title.append(el("span", "badge cloud", "облако"));
+    const title = el("span", "title", grouped ? m.name : m.title);
+    if (!grouped) title.append(el("span", "model-name", `(${m.name})`));
+    if (m.cloud && !grouped) title.append(el("span", "badge cloud", "облако"));
     if (selected) title.append(el("span", "badge", "выбрана"));
     else if (active) title.append(el("span", "badge", "скачивается"));
     else if (!m.installed) title.append(el("span", "badge", `не скачана · ${m.download_size}`));
@@ -1190,7 +1191,7 @@
     } else if (download && download.status === "error") {
       card.append(el("div", "model-download status-line error", `${download.error}. Нажмите «Скачать», чтобы попробовать ещё раз`));
     }
-    if (m.cloud) card.append(cloudKeyRow(m));
+    if (m.cloud && !grouped) card.append(cloudKeyRow(m));
     card.append(details);
     return card;
   }
@@ -1233,6 +1234,22 @@
       box.append(link);
     }
     return box;
+  }
+
+  // Группа облачных моделей одного сервиса: ключ вводится один раз, под ним — его модели.
+  function providerGroup(provider, models, current, failed) {
+    const info = (shownSpeech && shownSpeech[0].providers[provider]) || { title: provider };
+    const group = el("section", "provider-group");
+    const hasKey = models.some((m) => m.has_key);
+    const head = el("div", "provider-head");
+    head.append(el("span", "provider-name", info.title));
+    head.append(el("span", `badge${hasKey ? " ok" : ""}`, hasKey ? "ключ сохранён" : "нужен ключ"));
+    group.append(head);
+    group.append(cloudKeyRow(models[0]));
+    const list = el("div", "model-list");
+    list.append(...models.map((m) => modelCard(m, current, failed, true)));
+    group.append(list);
+    return group;
   }
 
   async function keyCall(method, url, body, button) {
@@ -1280,6 +1297,32 @@
     }
   }
 
+  // Вкладки «На компьютере» / «Облако»: пятнадцать карточек в одном списке не обозреть.
+  let modelGroup = null; // "local" | "cloud"; пока null — берётся группа выбранной модели
+  const modelTabsEl = el("div", "model-tabs");
+  modelTabsEl.setAttribute("role", "group");
+  modelTabsEl.setAttribute("aria-label", "Где распознавать");
+  modelListEl.before(modelTabsEl);
+
+  function renderModelTabs(models, current) {
+    const counts = { local: 0, cloud: 0 };
+    for (const m of models) counts[m.cloud ? "cloud" : "local"] += 1;
+    const labels = { local: "На компьютере", cloud: "Облако (по API-ключу)" };
+    const buttons = ["local", "cloud"].map((group) => {
+      const button = el("button", "model-tab", `${labels[group]} · ${counts[group]}`);
+      button.type = "button";
+      button.setAttribute("aria-pressed", String(modelGroup === group));
+      if (current && Boolean(current.cloud) === (group === "cloud")) button.append(el("span", "model-tab-dot"));
+      button.addEventListener("click", () => {
+        modelGroup = group;
+        renderedModelsKey = null;
+        if (shownSpeech) showModels(...shownSpeech);
+      });
+      return button;
+    });
+    modelTabsEl.replaceChildren(...buttons);
+  }
+
   function showModels(state, loading) {
     $("model-section").hidden = false;
     shownSpeech = [state, loading];
@@ -1289,7 +1332,10 @@
       speechLanguageEl.value = speechLanguage;
     }
     $("speech-language-note").hidden = speechLanguage === "ru";
-    const models = state.models.filter((m) => m.language === speechLanguage);
+    const inLanguage = state.models.filter((m) => m.language === speechLanguage);
+    const currentModel = state.models.find((m) => m.id === state.model && m.installed);
+    if (modelGroup === null) modelGroup = currentModel && currentModel.cloud ? "cloud" : "local";
+    const models = inLanguage.filter((m) => Boolean(m.cloud) === (modelGroup === "cloud"));
     // Перерисовываем только при изменениях: опрос идёт раз в секунду.
     const failed = state.status === "error";
     // Байты скачивания в ключ не входят: полосы обновляются на месте, без перерисовки карточек.
@@ -1298,11 +1344,20 @@
       state.model,
       failed,
       speechLanguage,
+      modelGroup,
     ]);
     if (key !== renderedModelsKey) {
       renderedModelsKey = key;
       downloadBars.clear();
-      modelListEl.replaceChildren(...models.map((m) => modelCard(m, state.model, failed)));
+      renderModelTabs(inLanguage, currentModel);
+      if (modelGroup === "cloud") {
+        const providers = [...new Set(models.map((m) => m.provider))];
+        modelListEl.replaceChildren(
+          ...providers.map((p) => providerGroup(p, models.filter((m) => m.provider === p), state.model, failed))
+        );
+      } else {
+        modelListEl.replaceChildren(...models.map((m) => modelCard(m, state.model, failed)));
+      }
     }
     for (const m of state.models) {
       const shown = downloadBars.get(m.id);

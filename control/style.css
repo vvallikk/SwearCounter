@@ -719,3 +719,54 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 }
 body.offline .count { opacity: 0.45; }
 @media (prefers-reduced-motion: reduce) { .count.bump { animation: none; } }
+
+/* --- Счётчик на главной: оверлей в выбранном оформлении --- */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; white-space: nowrap; }
+.live-count { position: relative; margin: 12px 0; }
+.live-count-frame {
+  display: block;
+  width: 100%;
+  height: 170px;
+  border: 0;
+  background: transparent;
+  color-scheme: normal;
+  transition: opacity 0.25s;
+}
+.live-count:has(.count.paused) .live-count-frame { opacity: 0.45; }
+body.offline .live-count-frame { opacity: 0.35; }
+
+/* --- Облачные модели: сервисы группами, ключ один раз --- */
+.model-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.model-tab {
+  flex: 1;
+  position: relative;
+  min-height: 34px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.model-tab:hover { color: var(--text); }
+.model-tab[aria-pressed="true"] { color: #fff; background: var(--accent); }
+.model-tab-dot { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--ok); vertical-align: middle; }
+.provider-group { margin-top: 10px; padding: 10px 0 0; border: 1px solid var(--border); border-radius: 12px; }
+.provider-group + .provider-group { margin-top: 8px; }
+.provider-head { display: flex; align-items: center; gap: 8px; padding: 0 12px 6px; }
+.provider-name { flex: 1; font-size: 14px; font-weight: 700; }
+.provider-group .cloud-key { padding-top: 0; }
+.provider-group .model-list { margin: 0; padding: 0 8px 8px; }
+.provider-group .model-card { border-radius: 10px; }
+.badge.ok { color: var(--ok); border-color: var(--ok); }

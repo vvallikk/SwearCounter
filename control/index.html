@@ -31,7 +31,11 @@
     </nav>
 
     <div id="tab-counter" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-counter">
-      <div id="count" class="count">—</div>
+      <div class="live-count">
+        <!-- Тот же оверлей, что в OBS (без звука): оформление, подпись и анимации выбранного стиля -->
+        <iframe id="live-count" class="live-count-frame" src="/overlay/?mute=1" title="Счётчик" tabindex="-1"></iframe>
+        <div id="count" class="count sr-only">—</div>
+      </div>
       <div class="timer-line" title="Сколько удалось продержаться без нужных слов. Рекорд — с запуска программы или сброса счёта; на паузе таймер стоит.">
         Без мата: <b id="timer-now">0:00</b> · рекорд <b id="timer-record">0:00</b></div>
       <div id="goal-line" class="timer-line" hidden>До цели: <b id="goal-left"></b></div>
