@@ -770,3 +770,6 @@ body.offline .live-count-frame { opacity: 0.35; }
 .provider-group .model-list { margin: 0; padding: 0 8px 8px; }
 .provider-group .model-card { border-radius: 10px; }
 .badge.ok { color: var(--ok); border-color: var(--ok); }
+
+.cloud-steps { margin: 0 0 10px; padding-left: 1.4em; font-size: 0.85em; color: var(--muted, inherit); }
+.cloud-steps li { margin: 2px 0; }

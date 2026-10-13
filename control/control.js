@@ -1142,7 +1142,7 @@
       );
     }
     if (!m.installed && m.cloud) {
-      details.append(el("p", "specs", `Скачивается только небольшая вспомогательная часть (${m.download_size}): она находит в звуке фразы и отправляет их в облако. Сама модель в облаке, её скачивать не нужно.`));
+      details.append(el("p", "specs", `Кнопка «Подготовить» скачивает детектор речи (${m.download_size}): он находит в звуке фразы. Распознаёт их модель в облаке, её скачивать не нужно.`));
     } else if (!m.installed) {
       const hint = el("p", "specs", `Скачивается кнопкой «Скачать» (${m.download_size}).`);
       // Вручную предлагаем ставить только модели из одного архива: модель из нескольких
@@ -1246,6 +1246,16 @@
     head.append(el("span", `badge${hasKey ? " ok" : ""}`, hasKey ? "ключ сохранён" : "нужен ключ"));
     group.append(head);
     group.append(cloudKeyRow(models[0]));
+    if (!models.every((m) => m.installed)) {
+      // Что произойдёт по шагам: кнопка качает только вспомогательный детектор, не модель.
+      const steps = el("ol", "cloud-steps");
+      steps.append(
+        el("li", "", "Сохраните API-ключ."),
+        el("li", "", `Нажмите «⬇ Подготовить»: скачается детектор речи (${models[0].download_size}). Он находит в звуке фразы, текст не распознаёт.`),
+        el("li", "", `Распознаёт фразы сам ${info.title} в облаке, по вашему ключу.`)
+      );
+      group.append(steps);
+    }
     const list = el("div", "model-list");
     list.append(...models.map((m) => modelCard(m, current, failed, true)));
     group.append(list);
@@ -1268,8 +1278,10 @@
     const box = el("div", "model-action");
     let button;
     if (!m.installed) {
-      button = el("button", "secondary-btn small-btn", "⬇ Скачать");
-      button.title = `Скачать модель (${m.download_size})`;
+      button = el("button", "secondary-btn small-btn", m.cloud ? "⬇ Подготовить" : "⬇ Скачать");
+      button.title = m.cloud
+        ? `Скачать детектор речи (${m.download_size}), модель остаётся в облаке`
+        : `Скачать модель (${m.download_size})`;
       button.addEventListener("click", () => modelCall("POST", `/api/speech/download/${encodeURIComponent(m.id)}`, button));
     } else {
       button = el("button", "icon-btn", "🗑");
