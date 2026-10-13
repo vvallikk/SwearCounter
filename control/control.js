@@ -1777,6 +1777,7 @@
       else if (msg.type === "timer") showTimer(msg);
       else if (msg.type === "goals") showGoals(msg);
       else if (msg.type === "obs") showObsStatus(msg);
+      else if (msg.type === "streaming" && window.streamingUpdate) window.streamingUpdate(msg);
       else if (msg.type === "counters") showCounters(msg.counters);
       else if (msg.type === "extra_increment") showExtraCount(msg);
       else if (msg.type === "style") {

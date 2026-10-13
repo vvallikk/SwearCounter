@@ -12,6 +12,7 @@
   </script>
   <script src="i18n.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="streaming.css">
 </head>
 <body>
   <main class="card">
@@ -292,6 +293,86 @@
         <div id="obs-status" class="status-line"></div>
       </section>
 
+      <section id="streaming-section" class="section">
+        <h2 class="section-title">Трансляции</h2>
+        <p class="note">Программа читает чат Twitch и YouTube: зрители спрашивают счёт командой, модераторы
+          меняют его. Пока интеграция включена, программа подключается к Twitch или YouTube.
+          Токены и ключи хранятся только на этом компьютере.
+          Подробнее — в <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/STREAMING.md"
+          target="_blank" rel="noopener noreferrer">инструкции</a>.</p>
+        <form id="streaming-form">
+          <div class="streaming-platform">
+            <h3>Twitch</h3>
+            <label class="check-row"><input id="twitch-enabled" type="checkbox"> Включить чат Twitch</label>
+            <div class="streaming-row">
+              <input id="twitch-channel" class="text-input" type="text" autocomplete="off"
+                aria-label="Канал Twitch" placeholder="Канал (имя или ссылка)">
+              <input id="twitch-token" class="text-input" type="password" autocomplete="off"
+                aria-label="Токен доступа Twitch" placeholder="Токен доступа Twitch">
+            </div>
+            <div class="streaming-row">
+              <input id="twitch-command" class="text-input" type="text" autocomplete="off"
+                aria-label="Команда в чате" placeholder="!маты">
+              <input id="twitch-reply" class="text-input streaming-wide" type="text" autocomplete="off"
+                aria-label="Ответ в чате" placeholder="Маты: {count}">
+            </div>
+            <div class="streaming-row">
+              <label for="twitch-cooldown">Пауза между ответами, с</label>
+              <input id="twitch-cooldown" class="text-input streaming-num" type="number" min="0" max="3600">
+            </div>
+            <label class="check-row"><input id="twitch-mod-commands" type="checkbox">
+              Модераторы меняют счёт: «!маты +3», «!маты сброс»</label>
+            <label class="check-row"><input id="twitch-announce-milestones" type="checkbox">
+              Объявлять в чате особые числа и цель</label>
+            <div class="streaming-row">
+              <input id="twitch-announce-text" class="text-input streaming-wide" type="text" autocomplete="off"
+                aria-label="Текст объявления" placeholder="Счёт достиг {milestone}! Сейчас: {count}">
+            </div>
+            <div class="streaming-row">
+              <label for="twitch-announce-every">Объявлять каждые</label>
+              <input id="twitch-announce-every" class="text-input streaming-num" type="number" min="0" placeholder="—">
+              <label for="twitch-announce-every">слов</label>
+            </div>
+            <div class="streaming-row">
+              <label for="twitch-bits">Слово за каждые</label>
+              <input id="twitch-bits" class="text-input streaming-num" type="number" min="0" placeholder="—">
+              <label for="twitch-bits">битов (штраф от зрителей)</label>
+            </div>
+            <label class="check-row"><input id="twitch-markers" type="checkbox">
+              Ставить маркер на трансляции при каждом слове (нужен токен владельца канала)</label>
+            <div id="twitch-status" class="status-line"></div>
+          </div>
+          <div class="streaming-platform">
+            <h3>YouTube</h3>
+            <label class="check-row"><input id="youtube-enabled" type="checkbox"> Включить чат YouTube</label>
+            <div class="streaming-row">
+              <input id="youtube-video" class="text-input" type="text" autocomplete="off"
+                aria-label="Ссылка на трансляцию" placeholder="Ссылка на трансляцию или её код">
+              <input id="youtube-key" class="text-input" type="password" autocomplete="off"
+                aria-label="Ключ API YouTube" placeholder="Ключ API YouTube">
+            </div>
+            <div class="streaming-row">
+              <input id="youtube-command" class="text-input" type="text" autocomplete="off"
+                aria-label="Команда в чате" placeholder="!маты">
+            </div>
+            <label class="check-row"><input id="youtube-mod-commands" type="checkbox">
+              Модераторы меняют счёт: «!маты +3», «!маты сброс»</label>
+            <div class="streaming-row">
+              <label for="youtube-superchat">Слов за каждый Super Chat</label>
+              <input id="youtube-superchat" class="text-input streaming-num" type="number" min="0" placeholder="—">
+            </div>
+            <p class="note">Ответить в чат YouTube программа не может: для этого нужен вход в аккаунт Google.
+              Счёт зрители видят в оверлее.</p>
+            <div id="youtube-status" class="status-line"></div>
+          </div>
+          <div class="streaming-actions">
+            <button id="streaming-save" class="secondary-btn primary-btn" type="submit">Сохранить</button>
+            <button id="twitch-test" class="secondary-btn" type="button" disabled>Проверить чат Twitch</button>
+            <div id="streaming-save-status" class="status-line"></div>
+          </div>
+        </form>
+      </section>
+
       <section id="update-section" class="section" hidden>
         <h2 class="section-title">Обновления</h2>
         <div id="update-lock-note" class="update-lock-note" hidden>
@@ -362,5 +443,6 @@
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>
   <script src="control.js"></script>
+  <script src="streaming.js"></script>
 </body>
 </html>

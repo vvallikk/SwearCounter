@@ -30,6 +30,7 @@ from .settings import Settings
 from .stats import Stats
 from .sound import MAX_SOUND_BYTES, Sound
 from .timer import NoSwearTimer
+from .streaming import Streaming, make_router as streaming_router
 from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model, remove_model
 from .updater import Updater
 from .wordlists import WordLists
@@ -480,6 +481,8 @@ def create_app(
             task.add_done_callback(background.discard)
 
     hub.count_listeners.append(on_count)
+    streaming = Streaming(hub, settings)  # чат Twitch и YouTube: команды, объявления, маркеры
+    streaming.attach()
     if word_lists is not None:
         hub.extra.list_path = word_lists.path
 
@@ -523,6 +526,7 @@ def create_app(
         loop_holder["loop"] = updater.loop
         configure_obs_link()
         obs_link.start()
+        streaming.start(updater.loop)
         check_task = asyncio.create_task(updater.auto_check()) if check_updates else None
         if hotkey_listener is not None:
             loop = asyncio.get_running_loop()
@@ -536,6 +540,7 @@ def create_app(
             if check_task is not None:
                 check_task.cancel()
             await asyncio.to_thread(obs_link.stop)
+            await asyncio.to_thread(streaming.stop)
             loop_holder.pop("loop", None)
             await updater.stop()
             await downloader.stop()
@@ -543,6 +548,8 @@ def create_app(
 
     app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
     app.state.hub = hub  # трей читает отсюда, стоит ли пауза
+    app.state.streaming = streaming
+    app.include_router(streaming_router(streaming))
 
     @app.middleware("http")
     async def reject_foreign_origin(request: Request, call_next):

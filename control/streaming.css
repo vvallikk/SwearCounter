@@ -1,0 +1,10 @@
+/* Раздел «Трансляции» (control/streaming.js). */
+.streaming-platform { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border, rgba(127, 127, 127, 0.25)); }
+.streaming-platform:first-of-type { border-top: 0; padding-top: 0; }
+.streaming-platform h3 { margin: 0 0 6px; font-size: 15px; }
+.streaming-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.streaming-row .text-input { flex: 1 1 160px; min-width: 120px; }
+.streaming-row .streaming-wide { flex: 1 1 100%; }
+.streaming-row .streaming-num { flex: 0 0 90px; min-width: 0; }
+.streaming-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.streaming-actions .status-line { margin-top: 0; }
