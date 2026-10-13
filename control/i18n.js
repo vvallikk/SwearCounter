@@ -22,6 +22,11 @@
     "Счётчик матов": "Swear Counter",
     "Поддержать автора": "Support the author",
     "Нет связи с сервером": "No connection to the server",
+    // Банка матов (jar.js)
+    "Банка матов: каждое слово — монета. Наполняется до цели или особого числа, а без них — до круглого числа.":
+      "Swear jar: every word is a coin. It fills up to your goal or milestone, or to a round number if you have none.",
+    "Банка полна!": "The jar is full!",
+    "Цель достигнута! Банка полна": "Goal reached! The jar is full",
     "Подключено": "Connected",
     "Разделы": "Sections",
     "Счётчик": "Counter",
@@ -415,6 +420,8 @@
   // Строки с переменной частью: {} — любой текст (тоже переводится), {1}, {2} в
   // переводе — части по номеру, если порядок другой.
   const PATTERNS = [
+    ["Банка до цели {} · осталось {}", "Jar to goal {} · {} to go"],
+    ["Банка до {} · осталось {}", "Jar to {} · {} to go"],
     ["Ошибка сервера ({})", "Server error ({})"],
     ["{} (нет файла)", "{} (no file)"],
     ["{} (не найден)", "{} (not found)"],

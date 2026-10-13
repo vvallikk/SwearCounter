@@ -149,7 +149,34 @@
   const incBtn = $("inc");
   const resetBtn = $("reset");
 
+  // Показывает счёт: число «подпрыгивает», банка получает новую монету.
+  let shownCount = null;
+
+  function showCount(value) {
+    if (typeof value !== "number") return;
+    const grew = shownCount !== null && value > shownCount;
+    countEl.textContent = value;
+    countEl.classList.toggle("long", value >= 1000 && value < 10000);
+    countEl.classList.toggle("huge", value >= 10000);
+    if (grew) {
+      countEl.classList.remove("bump");
+      void countEl.offsetWidth; // перезапуск анимации
+      countEl.classList.add("bump");
+    }
+    shownCount = value;
+    currentCount = value;
+    renderJar();
+  }
+
+  function renderJar() {
+    if (window.SwearJar && shownCount !== null) {
+      window.SwearJar.update(shownCount, { goal: goalsState.goal, milestones: goalsState.milestones });
+    }
+  }
+  if (window.SwearJar) window.SwearJar.mount($("jar"), $("jar-caption"));
+
   function setOnline(online) {
+    document.body.classList.toggle("offline", !online);
     dotEl.classList.toggle("online", online);
     statusEl.textContent = online ? "Подключено" : "Нет связи с сервером";
   }
@@ -157,7 +184,7 @@
   async function post(url, button) {
     button.disabled = true;
     try {
-      countEl.textContent = (await api("POST", url)).count;
+      showCount((await api("POST", url)).count);
     } catch (e) {
       setOnline(false);
     } finally {
@@ -373,6 +400,7 @@
     $("goal-line").hidden = !goalsState.goal;
     $("goal-links").hidden = !goalsState.goal;
     $("goal-left").textContent = Math.max(goalsState.goal - currentCount, 0);
+    renderJar();
   }
 
   function showGoals(state) {
@@ -1842,8 +1870,7 @@
         showServerLabel(msg.label, msg.label_position);
       }
       else if (msg.count !== undefined) {
-        countEl.textContent = msg.count;
-        currentCount = msg.count;
+        showCount(msg.count);
         renderGoalLeft();
         refreshStatsSoon();
       }

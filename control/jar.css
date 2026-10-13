@@ -1,0 +1,76 @@
+/* «Банка матов» и герой-блок вкладки «Счётчик». Скрипт — jar.js. */
+:root {
+  --jar-glass: rgba(140, 190, 255, 0.16);
+  --jar-line: rgba(160, 205, 255, 0.55);
+  --jar-rim: #9bbcf0;
+  --jar-coin-top: #ffe27a;
+  --jar-coin-bottom: #f0a81c;
+  --jar-coin-edge: #b97a0c;
+  --jar-glow: rgba(255, 196, 61, 0.55);
+}
+:root[data-theme="light"] {
+  --jar-glass: rgba(70, 120, 200, 0.1);
+  --jar-line: rgba(60, 110, 190, 0.5);
+  --jar-rim: #6f93d4;
+  --jar-coin-top: #ffd84f;
+  --jar-coin-bottom: #e49a0a;
+  --jar-coin-edge: #a96a05;
+  --jar-glow: rgba(240, 160, 20, 0.45);
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin: 18px 0 14px;
+}
+.hero-count { flex: 1; min-width: 0; text-align: center; }
+.hero .count { margin: 0; }
+.jar-caption { margin-top: 8px; font-size: 12px; color: var(--muted); min-height: 1.4em; }
+.hero-count.celebrate .jar-caption { color: var(--jar-coin-bottom); font-weight: 700; }
+
+.jar { flex: none; width: 112px; padding-top: 14px; }
+.jar-svg { display: block; width: 100%; height: auto; overflow: visible; transform-origin: 50% 100%; }
+.jar-shadow { fill: rgba(0, 0, 0, 0.25); }
+:root[data-theme="light"] .jar-shadow { fill: rgba(30, 40, 60, 0.15); }
+.jar-back { fill: var(--jar-glass); }
+.jar-glass { fill: none; stroke: var(--jar-line); stroke-width: 2.2; stroke-linejoin: round; }
+.jar-shine { fill: none; stroke: #fff; stroke-opacity: 0.35; stroke-width: 3; stroke-linecap: round; }
+.jar-rim { fill: none; stroke: var(--jar-rim); stroke-width: 2.4; }
+
+/* Банка полна: тёплое свечение и искры. */
+.jar-svg { transition: filter 0.3s; }
+.jar-svg.full { filter: drop-shadow(0 0 10px var(--jar-glow)); }
+.jar-sparks { opacity: 0; }
+.jar-spark { fill: var(--jar-coin-top); transform-box: fill-box; transform-origin: center; }
+.jar-svg.full .jar-sparks { opacity: 1; }
+.jar-svg.full .jar-spark { animation: jar-twinkle 0.9s ease-in-out infinite alternate; }
+@keyframes jar-twinkle {
+  from { transform: scale(0.4); opacity: 0.3; }
+  to { transform: scale(1.15); opacity: 1; }
+}
+
+/* Число: «подпрыгивает» на каждом слове; длинные числа мельче, чтобы влезли рядом с банкой. */
+.count { transition: opacity 0.2s, color 0.2s; }
+.count.bump { animation: count-bump 0.32s cubic-bezier(.3, 1.6, .5, 1); }
+.count.long { font-size: 68px; }
+.count.huge { font-size: 52px; }
+@keyframes count-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+body.offline .hero { opacity: 0.45; filter: grayscale(0.6); }
+.count.paused ~ .jar-caption { opacity: 0.6; }
+.hero:has(.count.paused) .jar { opacity: 0.55; filter: grayscale(0.7); }
+
+@media (max-width: 400px) {
+  .hero { flex-direction: column; gap: 8px; }
+  .jar { width: 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .count.bump, .jar-svg.full .jar-spark { animation: none; }
+}
