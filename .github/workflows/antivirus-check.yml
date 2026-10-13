@@ -4,11 +4,21 @@ name: Antivirus check
 # или пушем в ветку av-check/*. Ничего не публикует; архив остаётся артефактом на 7 дней.
 on:
   workflow_dispatch:
+    inputs:
+      source_bootloader:
+        description: "Собрать загрузчик PyInstaller из исходников (по умолчанию готовый из колёс)"
+        type: boolean
+        default: false
   push:
     branches: ["av-check/**"]
 
 permissions:
   contents: read
+
+# Повторный пуш отменяет предыдущую сборку: проверка нужна только для последнего коммита.
+concurrency:
+  group: antivirus-check-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   PYTHONUTF8: "1"
@@ -27,14 +37,14 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install -r requirements-build.txt
 
-      # Как в release.yml: загрузчик PyInstaller собирается из исходников.
-      - name: Install PyInstaller (build bootloader from source)
+      # Эксперимент: свой загрузчик. Проверка показала, что он ловится чаще готового,
+      # поэтому по умолчанию выключен.
+      - name: Rebuild PyInstaller bootloader from source
+        if: inputs.source_bootloader
         shell: bash
-        run: |
-          version=$(grep -i '^pyinstaller==' requirements-build.txt | cut -d= -f3)
-          python -m pip install --no-binary pyinstaller "pyinstaller==${version}"
+        run: python -m pip install --force-reinstall --no-deps --no-binary pyinstaller "pyinstaller==$(grep -i '^pyinstaller==' requirements-build.txt | cut -d= -f3)"
 
       - name: Build
         run: python scripts/build.py

@@ -257,8 +257,9 @@ gh secret set VT_API_KEY
 **Ложные срабатывания.** Приложения на PyInstaller регулярно метят ML-эвристики
 отдельных антивирусов (на VirusTotal это 1-2 движка из ~70, чаще всего Bkav Pro).
 Что для этого уже сделано: сборка без UPX и без onefile, заполненные метаданные exe
-(CompanyName, LegalCopyright в [SwearCounter.spec](../SwearCounter.spec)) и загрузчик
-PyInstaller, собираемый из исходников в release.yml (его хеш не совпадает с готовым).
+(CompanyName, LegalCopyright в [SwearCounter.spec](../SwearCounter.spec)). Загрузчик
+PyInstaller, собранный из исходников, проверили: он ловится чаще готового, поэтому в
+релизе используется готовый.
 Проверить сборку без релиза: Actions → Antivirus check (запуск вручную или пуш в ветку `av-check/*`).
 Остальное снимается подписью (SignPath, ниже) и заявкой производителю антивируса о
 ложном срабатывании: для Bkav это форма на [bkav.com](https://www.bkav.com/) и
