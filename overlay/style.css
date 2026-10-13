@@ -259,12 +259,12 @@ body {
 }
 
 /* --- Цензура: фирменный стиль. Красная плашка с белым «#!» — как значок программы --- */
-:root[data-preset="censor"] {
+:root[data-preset="swearcounter"] {
   --brand-red: #e0282a;
   --brand-red-dark: #a81618;
 }
 
-:root[data-preset="censor"] .value {
+:root[data-preset="swearcounter"] .value {
   padding: 0.06em 0.26em 0.1em;
   border-radius: 0.26em;
   background: linear-gradient(180deg, var(--brand-red) 0%, var(--brand-red-dark) 100%);
@@ -276,17 +276,17 @@ body {
   text-shadow: 0 0.03em 0 rgba(0, 0, 0, 0.3);
 }
 
-:root[data-preset="censor"] .label {
+:root[data-preset="swearcounter"] .label {
   -webkit-text-stroke: calc(var(--size) * 0.07) var(--brand-red-dark);
   text-shadow: 0 calc(var(--size) * 0.04) calc(var(--size) * 0.1) rgba(0, 0, 0, 0.5);
 }
 
-:root[data-preset="censor"] .glow {
+:root[data-preset="swearcounter"] .glow {
   background: radial-gradient(circle, var(--brand-red) 0%, transparent 65%);
 }
 
 /* «Пузырь» комикса с руганью над плашкой */
-:root[data-preset="censor"] .plus.censor-bubble {
+:root[data-preset="swearcounter"] .plus.censor-bubble {
   top: -0.1em;
   padding: 0.08em 0.4em 0.14em;
   border-radius: 0.5em 0.5em 0.5em 0.12em;

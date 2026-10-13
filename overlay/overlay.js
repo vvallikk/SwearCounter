@@ -318,7 +318,7 @@
 
   // id пресета → анимация прибавления
   const INCREMENT_ANIMATIONS = {
-    censor: animateCensor,
+    swearcounter: animateCensor,
     classic: animateClassic,
     impact: animateImpact,
     neon: animateNeon,

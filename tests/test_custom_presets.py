@@ -315,8 +315,8 @@ def test_api_remove_resets_active_preset(presets_client, settings_path):
         skip_greeting(ws)
         assert presets_client.delete("/api/presets/custom/vasya-gold").json() == []
         assert ws.receive_json() == {"type": "presets"}
-        assert ws.receive_json()["preset"] == "classic"
-    assert Settings(settings_path).get("overlay_preset") == "classic"
+        assert ws.receive_json()["preset"] == "swearcounter"
+    assert Settings(settings_path).get("overlay_preset") == "swearcounter"
     assert presets_client.get("/overlay/custom/vasya-gold/style.css").status_code == 404
 
 

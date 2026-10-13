@@ -509,7 +509,23 @@ def test_preset_is_saved_and_broadcast(client, settings_path):
 
 
 def test_default_overlay_style(client):
-    assert client.get("/api/overlay").json() == {"preset": "classic", "label": "", "label_position": "left"}
+    assert client.get("/api/overlay").json() == {"preset": "swearcounter", "label": "", "label_position": "left"}
+
+
+@pytest.mark.parametrize("saved", ["classic", "neon", "explosion", "my-custom-pack"])
+def test_saved_overlay_style_survives_default_change(settings_path, counter_path, recognizer, sound, fake_sd, saved):
+    """Миграция: тот, кто выбрал оформление раньше (в том числе «Классику» или личное), его сохраняет."""
+    settings_path.write_text(f'{{"overlay_preset": "{saved}"}}', encoding="utf-8")
+    app = create_app(Hub(Counter(counter_path)), recognizer, Settings(settings_path), sound)
+    with TestClient(app, base_url="http://localhost") as client:
+        assert client.get("/api/overlay").json()["preset"] == saved
+    assert Settings(settings_path).get("overlay_preset") == saved
+
+
+def test_default_style_is_not_written_to_settings(client, settings_path):
+    """Оформление по умолчанию не записывается в файл: смена умолчания затронет только тех, кто ничего не выбирал."""
+    client.get("/api/overlay")
+    assert Settings(settings_path).get("overlay_preset") is None
 
 
 PRESET_IDS = re.findall(r'id: "([^"]+)"', (ROOT / "overlay" / "presets.js").read_text(encoding="utf-8"))
@@ -533,8 +549,8 @@ def test_label_is_saved_and_broadcast(client, settings_path):
     with client.websocket_connect("ws://localhost/ws") as ws:
         skip_greeting(ws)
         response = client.post("/api/overlay/label", json={"text": "  Маты:\n ", "position": "top"})
-        assert response.json() == {"preset": "classic", "label": "Маты:", "label_position": "top"}
-        assert ws.receive_json() == {"type": "style", "preset": "classic", "label": "Маты:", "label_position": "top"}
+        assert response.json() == {"preset": "swearcounter", "label": "Маты:", "label_position": "top"}
+        assert ws.receive_json() == {"type": "style", "preset": "swearcounter", "label": "Маты:", "label_position": "top"}
     assert Settings(settings_path).get("overlay_label") == "Маты:"
     assert Settings(settings_path).get("overlay_label_position") == "top"
 

@@ -38,7 +38,7 @@ def test_add_update_remove_and_persist(tmp_path, list_path):
     path = tmp_path / "counters.json"
     counters = ExtraCounters(path, list_path)
     first = counters.add("  Паразиты \n", "parasites.txt")
-    assert first == {"id": "c1", "name": "Паразиты", "list": "parasites.txt", "preset": "classic", "label": "", "count": 0}
+    assert first == {"id": "c1", "name": "Паразиты", "list": "parasites.txt", "preset": "swearcounter", "label": "", "count": 0}
     counters.add("Маты", "swears.txt")
     counters.update("c1", preset="neon", label="Паразиты:")
     counters.add_count("c1", 3)
@@ -47,6 +47,18 @@ def test_add_update_remove_and_persist(tmp_path, list_path):
     reloaded = ExtraCounters(path, list_path)
     assert reloaded.items()[0] == {**first, "preset": "neon", "label": "Паразиты:", "count": 3}
     assert reloaded.ids() == ["c1", "c2"]
+
+
+def test_legacy_counter_without_preset_keeps_classic(tmp_path, list_path):
+    """Файл, записанный до смены оформления по умолчанию: счётчик остаётся в «Классике»."""
+    path = tmp_path / "counters.json"
+    path.write_text(
+        '{"counters": [{"id": "c1", "name": "Старый", "list": "swears.txt", "count": 2},'
+        ' {"id": "c2", "name": "Свой", "list": "swears.txt", "preset": "my-pack", "count": 0}]}',
+        encoding="utf-8",
+    )
+    items = ExtraCounters(path, list_path).items()
+    assert [item["preset"] for item in items] == ["classic", "my-pack"]
 
 
 @pytest.mark.parametrize("name, list_id, message", [

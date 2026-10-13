@@ -9,7 +9,7 @@
 // У личных оформлений sound — адрес файла из набора.
 window.OVERLAY_PRESETS = [
   {
-    id: "censor",
+    id: "swearcounter",
     title: "Цензура",
     description: "Фирменный: красная плашка как значок программы, при каждом мате вылетает «#!@%».",
     color: "#ffffff",
