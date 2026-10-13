@@ -67,7 +67,6 @@ def test_unknown_webmail(sender):
 
 @pytest.fixture
 def registry(monkeypatch):
-    pytest.importorskip("winreg")  # константы разделов реестра есть только в Windows
     values: dict = {}
     keys: set = set()
     monkeypatch.setattr(mail.sys, "platform", "win32")

@@ -2,11 +2,10 @@
 
 Страницу управления переводит control/i18n.js, а здесь — то, что показывает сама
 программа: меню трея, уведомления и окна сообщений. Язык выбирается на странице
-управления и хранится в settings.json; пока не выбран, берётся язык системы.
+управления и хранится в settings.json; пока не выбран, берётся язык Windows.
 """
 
 import ctypes
-import os
 import sys
 
 from .settings import Settings
@@ -19,8 +18,6 @@ SETTING = "ui_language"
 # Языки Windows, для которых интерфейс по умолчанию русский: русский, украинский,
 # белорусский, казахский (основной идентификатор языка, младшие 10 бит LANGID).
 RUSSIAN_SPEAKING_LANGIDS = {0x19, 0x22, 0x23, 0x3F}
-# Те же языки в macOS и Linux: начало переменной LANG вида «ru_RU.UTF-8».
-RUSSIAN_SPEAKING_LOCALES = {"ru", "uk", "be", "kk"}
 
 TITLES = {RU: "Счётчик матов", EN: "Swear Counter"}
 
@@ -58,11 +55,7 @@ _EN = {
 
 def system_language() -> str:
     if sys.platform != "win32":
-        locale = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
-        # Без переменных (например, программа запущена не из терминала) — русский, как раньше.
-        if not locale or locale in ("C", "POSIX") or locale.startswith("C."):
-            return RU
-        return RU if locale.split("_")[0].split(".")[0].lower() in RUSSIAN_SPEAKING_LOCALES else EN
+        return RU
     try:
         langid = ctypes.windll.kernel32.GetUserDefaultUILanguage()
     except (AttributeError, OSError):
@@ -71,7 +64,7 @@ def system_language() -> str:
 
 
 def language(settings: Settings) -> str:
-    """Выбранный на странице управления язык, а пока не выбран — язык системы."""
+    """Выбранный на странице управления язык, а пока не выбран — язык Windows."""
     chosen = settings.get(SETTING)
     return chosen if chosen in LANGUAGES else system_language()
 
