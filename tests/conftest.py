@@ -201,6 +201,22 @@ def run_key(monkeypatch):
     return key
 
 
+@pytest.fixture(autouse=True)
+def no_slow_refusals(monkeypatch):
+    """Подключение к закрытому порту OBS отказывает сразу, а не через ~2 с, как на Windows."""
+    from app import obs
+    from test_obs import CLOSED_PORTS
+
+    real = obs.connect
+
+    def connect(url, *args, **kwargs):
+        if int(url.rsplit(":", 1)[1]) in CLOSED_PORTS:
+            raise ConnectionRefusedError
+        return real(url, *args, **kwargs)
+
+    monkeypatch.setattr(obs, "connect", connect)
+
+
 # Сообщения, которыми сервер встречает нового клиента WebSocket, по порядку.
 GREETING = ("state", "pause", "timer", "goals", "sound", "style", "counters")
 
