@@ -26,12 +26,17 @@ version_info = VSVersionInfo(
     kids=[
         StringFileInfo([
             StringTable("041904B0", [
+                # Пустые CompanyName/LegalCopyright — один из признаков, по которым
+                # эвристики антивирусов принимают exe за подозрительный.
+                StringStruct("CompanyName", "vvallikk"),
                 StringStruct("FileDescription", "Счётчик матов"),
                 StringStruct("ProductName", "Счётчик матов"),
                 StringStruct("FileVersion", VERSION),
                 StringStruct("ProductVersion", VERSION),
                 StringStruct("InternalName", "SwearCounter"),
                 StringStruct("OriginalFilename", "SwearCounter.exe"),
+                StringStruct("LegalCopyright", "Copyright (C) vvallikk. GNU GPL v3"),
+                StringStruct("Comments", "https://github.com/vvallikk/SwearCounter"),
             ])
         ]),
         VarFileInfo([VarStruct("Translation", [0x0419, 1200])]),
