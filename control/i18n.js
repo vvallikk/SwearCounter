@@ -87,6 +87,28 @@
     "Точно очистить?": "Really clear?",
     "Пока пусто: сессия начинается с первого слова после запуска или сброса.": "Nothing yet: a session starts with the first word after launch or a reset.",
 
+    // Хайлайты
+    "Хайлайты": "Highlights",
+    "Каждое засчитанное слово оставляет метку времени. Из меток собираются таймкоды для описания видео на YouTube.":
+      "Every counted word leaves a time mark. The marks are turned into timestamps for a YouTube video description.",
+    "Считать время от начала трансляции или записи в OBS": "Count time from the start of the OBS stream or recording",
+    "Ставить главу в запись OBS на каждое слово": "Add a chapter to the OBS recording for every word",
+    "Сохранять клип из буфера повтора OBS": "Save a clip from the OBS replay buffer",
+    "Главы работают в OBS 30.2 и новее при записи в Hybrid MP4 или MOV, клипы — при включённом буфере повтора.":
+      "Chapters need OBS 30.2 or newer recording to Hybrid MP4 or MOV; clips need the replay buffer to be on.",
+    "Таймкод раньше слова на, с": "Timestamp earlier than the word by, s",
+    "Скопировать таймкоды": "Copy timestamps",
+    "Сохранить в TXT": "Save as TXT",
+    "Начать заново": "Start over",
+    "Точно начать заново?": "Really start over?",
+    "Пока пусто: момент появится с первого засчитанного слова.": "Nothing yet: a moment appears with the first counted word.",
+    "начала трансляции": "the stream start",
+    "начала записи": "the recording start",
+    "запуска программы": "the program launch",
+    "Скопировано: вставьте в описание видео": "Copied: paste it into the video description",
+    "Нет связи с OBS: проверьте, что он запущен и порт с паролем указаны в настройках":
+      "No connection to OBS: check that it is running and the port and password are set in the settings",
+
     // Вкладка «Оформление»
     "Подпись к счётчику": "Counter label",
     "Например: Маты за стрим: или Слова-паразиты:": "For example: Swears this stream: or Filler words:",
@@ -385,6 +407,7 @@
     ["{} (нет файла)", "{} (no file)"],
     ["{} (не найден)", "{} (not found)"],
     ["Сохранено: {}", "Saved: {}"],
+    ["Моментов: {} · Отсчёт: {}", "Moments: {} · Counting from: {}"],
     ["Архив сохранён: {}", "Archive saved: {}"],
     ["чаще всего: {}", "most frequent: {}"],
     ["всего {}", "{} in total"],

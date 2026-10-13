@@ -1,0 +1,9 @@
+/* Хайлайты: список моментов и настройки OBS. */
+.highlights-list { margin: 0 0 8px; padding: 0; list-style: none; max-height: 180px; overflow-y: auto; font-size: 13px; }
+.highlights-list:empty { display: none; }
+.highlights-list li { display: flex; gap: 10px; align-items: baseline; padding: 3px 0; border-bottom: 1px solid rgba(127, 127, 127, 0.25); }
+.highlight-time { min-width: 54px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.highlight-clip { margin-left: auto; font-size: 11px; color: var(--accent); cursor: help; }
+.highlights-options { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.highlights-lead { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 14px; }
+.highlights-lead input { width: 64px; }

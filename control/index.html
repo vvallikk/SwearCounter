@@ -12,6 +12,7 @@
   </script>
   <script src="i18n.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="highlights.css">
 </head>
 <body>
   <main class="card">
@@ -102,6 +103,27 @@
           <button id="stats-clear" class="secondary-btn" type="button">Очистить</button>
         </div>
         <div id="stats-status" class="status-line"></div>
+      </section>
+
+      <section id="highlights-section" class="section" hidden>
+        <h2 class="section-title">Хайлайты</h2>
+        <p class="note">Каждое засчитанное слово оставляет метку времени. Из меток собираются таймкоды для описания видео на YouTube.</p>
+        <ol id="highlights-list" class="highlights-list"></ol>
+        <p id="highlights-summary" class="note"></p>
+        <div class="highlights-options">
+          <label class="check-row"><input id="highlights-obs" type="checkbox"> Считать время от начала трансляции или записи в OBS</label>
+          <label class="check-row"><input id="highlights-chapter" type="checkbox"> Ставить главу в запись OBS на каждое слово</label>
+          <label class="check-row"><input id="highlights-clip" type="checkbox"> Сохранять клип из буфера повтора OBS</label>
+          <p class="note">Главы работают в OBS 30.2 и новее при записи в Hybrid MP4 или MOV, клипы — при включённом буфере повтора.</p>
+        </div>
+        <label class="highlights-lead">Таймкод раньше слова на, с <input id="highlights-lead" type="number" min="0" max="30" value="3"></label>
+        <div class="row">
+          <button id="highlights-copy" class="secondary-btn" type="button">Скопировать таймкоды</button>
+          <button id="highlights-txt" class="secondary-btn" type="button">Сохранить в TXT</button>
+          <button id="highlights-csv" class="secondary-btn" type="button">Сохранить в CSV</button>
+          <button id="highlights-restart" class="secondary-btn" type="button">Начать заново</button>
+        </div>
+        <div id="highlights-status" class="status-line"></div>
       </section>
     </div>
 
@@ -362,5 +384,6 @@
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>
   <script src="control.js"></script>
+  <script src="highlights.js"></script>
 </body>
 </html>
