@@ -97,12 +97,20 @@
   }
 
   for (const button of tabButtons) {
-    button.addEventListener("click", () => selectTab(button.dataset.tab));
+    button.addEventListener("click", () => {
+      selectTab(button.dataset.tab);
+      // Новая вкладка открывается с начала, а не посередине прошлой.
+      if (window.scrollY > 0) window.scrollTo(0, 0);
+    });
     button.addEventListener("keydown", (event) => {
-      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-      if (!step) return;
+      const here = TABS.indexOf(button.dataset.tab);
+      let index = null;
+      if (event.key === "ArrowRight") index = (here + 1) % TABS.length;
+      else if (event.key === "ArrowLeft") index = (here - 1 + TABS.length) % TABS.length;
+      else if (event.key === "Home") index = 0;
+      else if (event.key === "End") index = TABS.length - 1;
+      if (index === null) return;
       event.preventDefault();
-      const index = (TABS.indexOf(button.dataset.tab) + step + TABS.length) % TABS.length;
       selectTab(TABS[index], true);
     });
   }
@@ -113,6 +121,7 @@
   // Показывает раздел на вкладке настроек и прокручивает к нему.
   function showInSettings(node) {
     selectTab("settings");
+    if (window.setSectionOpen) window.setSectionOpen(node, true);
     node.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
@@ -149,7 +158,26 @@
   const incBtn = $("inc");
   const resetBtn = $("reset");
 
+  // Показывает счёт: число «подпрыгивает» на каждом новом слове.
+  let shownCount = null;
+
+  function showCount(value) {
+    if (typeof value !== "number") return;
+    const grew = shownCount !== null && value > shownCount;
+    countEl.textContent = value;
+    countEl.classList.toggle("long", value >= 1000 && value < 10000);
+    countEl.classList.toggle("huge", value >= 10000);
+    if (grew) {
+      countEl.classList.remove("bump");
+      void countEl.offsetWidth; // перезапуск анимации
+      countEl.classList.add("bump");
+    }
+    shownCount = value;
+    currentCount = value;
+  }
+
   function setOnline(online) {
+    document.body.classList.toggle("offline", !online);
     dotEl.classList.toggle("online", online);
     statusEl.textContent = online ? "Подключено" : "Нет связи с сервером";
   }
@@ -157,7 +185,7 @@
   async function post(url, button) {
     button.disabled = true;
     try {
-      countEl.textContent = (await api("POST", url)).count;
+      showCount((await api("POST", url)).count);
     } catch (e) {
       setOnline(false);
     } finally {
@@ -492,13 +520,24 @@
     timerState = { elapsed: msg.elapsed, record: msg.record, running: msg.running, at: performance.now() };
     renderTimer();
   }
-  setInterval(renderTimer, 1000);
+  setInterval(() => {
+    if (!document.hidden) renderTimer();
+  }, 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) renderTimer();
+  });
 
   // Предпросмотр оверлея: окно программы не открывает вкладки, поэтому браузер запускает сервер.
-  $("overlay-open").addEventListener("click", () => {
-    // Если программа не ответила (страница открыта не из неё), откроем вкладку сами.
-    api("POST", "/api/overlay/open").catch(() => window.open(overlayUrl, "_blank"));
-  });
+  function bindOpen(button, show, fallbackUrl) {
+    button.addEventListener("click", () => {
+      // Если программа не ответила (страница открыта не из неё), откроем вкладку сами.
+      const path = show ? `/api/overlay/open?show=${show}` : "/api/overlay/open";
+      api("POST", path).catch(() => window.open(fallbackUrl, "_blank"));
+    });
+  }
+  bindOpen($("overlay-open"), "", overlayUrl);
+  bindOpen($("timer-open"), "timer", timerOverlayUrl);
+  bindOpen($("goal-open"), "goal", goalOverlayUrl);
 
   // --- Состояние распознавания (микрофон и модель) ---
 
@@ -604,13 +643,26 @@
     return Math.min(Math.max((20 * Math.log10(level) + 60) / 60, 0), 1);
   }
 
+  // Кадры рисуются, только пока есть сигнал; тишина и скрытая вкладка ничего не стоят.
+  // Шкала двигается через transform (композитор), а не через width (раскладка).
+  let meterFrame = 0;
+  let drawnLevel = -1;
+
   function drawMeter() {
+    meterFrame = 0;
     shownLevel = targetLevel > shownLevel ? targetLevel : shownLevel * 0.88;
     targetLevel *= 0.8;
-    meterMaskEl.style.width = `${(1 - shownLevel) * 100}%`;
-    requestAnimationFrame(drawMeter);
+    if (shownLevel < 0.004 && targetLevel < 0.004) shownLevel = targetLevel = 0;
+    if (Math.abs(shownLevel - drawnLevel) > 0.003 || shownLevel === 0) {
+      drawnLevel = shownLevel;
+      meterMaskEl.style.transform = `scaleX(${1 - shownLevel})`;
+    }
+    if (shownLevel > 0 || targetLevel > 0) meterFrame = requestAnimationFrame(drawMeter);
   }
-  requestAnimationFrame(drawMeter);
+
+  function wakeMeter() {
+    if (!meterFrame) meterFrame = requestAnimationFrame(drawMeter);
+  }
 
   // --- Звук оповещения (тот же проигрыватель, что в оверлее: /overlay/sound.js) ---
 
@@ -1055,7 +1107,8 @@
     return `Скачано ${done} из ${formatMB(download.total_bytes)} · ${Math.round(download.progress * 100)}%`;
   }
 
-  function modelCard(m, current, failed) {
+  // grouped — карточка внутри группы провайдера: заголовок и ключ показаны один раз у группы.
+  function modelCard(m, current, failed, grouped = false) {
     const card = el("div", "model-card");
     const download = m.download;
     const active = download && download.status !== "error"; // качается или распаковывается
@@ -1067,9 +1120,9 @@
 
     const pick = el("button", "model-pick");
     pick.type = "button";
-    const title = el("span", "title", m.title);
-    title.append(el("span", "model-name", `(${m.name})`));
-    if (m.cloud) title.append(el("span", "badge cloud", "облако"));
+    const title = el("span", "title", grouped ? m.name : m.title);
+    if (!grouped) title.append(el("span", "model-name", `(${m.name})`));
+    if (m.cloud && !grouped) title.append(el("span", "badge cloud", "облако"));
     if (selected) title.append(el("span", "badge", "выбрана"));
     else if (active) title.append(el("span", "badge", "скачивается"));
     else if (!m.installed) title.append(el("span", "badge", `не скачана · ${m.download_size}`));
@@ -1089,7 +1142,7 @@
       );
     }
     if (!m.installed && m.cloud) {
-      details.append(el("p", "specs", `Кнопка «Скачать» загружает только детектор речи (${m.download_size}).`));
+      details.append(el("p", "specs", `Кнопка «Подготовить» скачивает детектор речи (${m.download_size}): он находит в звуке фразы. Распознаёт их модель в облаке, её скачивать не нужно.`));
     } else if (!m.installed) {
       const hint = el("p", "specs", `Скачивается кнопкой «Скачать» (${m.download_size}).`);
       // Вручную предлагаем ставить только модели из одного архива: модель из нескольких
@@ -1136,9 +1189,9 @@
       card.append(box);
       downloadBars.set(m.id, { bar, text });
     } else if (download && download.status === "error") {
-      card.append(el("div", "model-download status-line error", `${download.error}. Нажмите «Скачать», чтобы попробовать ещё раз`));
+      card.append(el("div", "model-download status-line error", `${download.error}. Нажмите «${m.cloud ? "Подготовить" : "Скачать"}», чтобы попробовать ещё раз`));
     }
-    if (m.cloud) card.append(cloudKeyRow(m));
+    if (m.cloud && !grouped) card.append(cloudKeyRow(m));
     card.append(details);
     return card;
   }
@@ -1183,6 +1236,32 @@
     return box;
   }
 
+  // Группа облачных моделей одного сервиса: ключ вводится один раз, под ним — его модели.
+  function providerGroup(provider, models, current, failed) {
+    const info = (shownSpeech && shownSpeech[0].providers[provider]) || { title: provider };
+    const group = el("section", "provider-group");
+    const hasKey = models.some((m) => m.has_key);
+    const head = el("div", "provider-head");
+    head.append(el("span", "provider-name", info.title));
+    head.append(el("span", `badge${hasKey ? " ok" : ""}`, hasKey ? "ключ сохранён" : "нужен ключ"));
+    group.append(head);
+    group.append(cloudKeyRow(models[0]));
+    if (!models.every((m) => m.installed)) {
+      // Что произойдёт по шагам: кнопка качает только вспомогательный детектор, не модель.
+      const steps = el("ol", "cloud-steps");
+      steps.append(
+        el("li", "", "Сохраните API-ключ."),
+        el("li", "", `Нажмите «⬇ Подготовить»: скачается детектор речи (${models[0].download_size}). Он находит в звуке фразы, текст не распознаёт.`),
+        el("li", "", `Распознаёт фразы сам ${info.title} в облаке, по вашему ключу.`)
+      );
+      group.append(steps);
+    }
+    const list = el("div", "model-list");
+    list.append(...models.map((m) => modelCard(m, current, failed, true)));
+    group.append(list);
+    return group;
+  }
+
   async function keyCall(method, url, body, button) {
     button.disabled = true;
     try {
@@ -1199,8 +1278,10 @@
     const box = el("div", "model-action");
     let button;
     if (!m.installed) {
-      button = el("button", "secondary-btn small-btn", "⬇ Скачать");
-      button.title = `Скачать модель (${m.download_size})`;
+      button = el("button", "secondary-btn small-btn", m.cloud ? "⬇ Подготовить" : "⬇ Скачать");
+      button.title = m.cloud
+        ? `Скачать детектор речи (${m.download_size}), модель остаётся в облаке`
+        : `Скачать модель (${m.download_size})`;
       button.addEventListener("click", () => modelCall("POST", `/api/speech/download/${encodeURIComponent(m.id)}`, button));
     } else {
       button = el("button", "icon-btn", "🗑");
@@ -1228,6 +1309,38 @@
     }
   }
 
+  // Вкладки «Локальные» / «Облачные»: пятнадцать карточек в одном списке не обозреть.
+  let modelGroup = null; // "local" | "cloud"; пока null — берётся группа выбранной модели
+  const modelTabsEl = el("div", "model-tabs");
+  modelTabsEl.setAttribute("role", "group");
+  modelTabsEl.setAttribute("aria-label", "Где распознавать");
+  const modelGroupNoteEl = el("p", "note model-group-note");
+  modelListEl.before(modelTabsEl, modelGroupNoteEl);
+  const GROUP_NOTES = {
+    local: "Работают на вашем компьютере без интернета, звук никуда не отправляется. Модель нужно скачать один раз.",
+    cloud: "Звук фраз отправляется сервису по интернету, нужен ваш API-ключ. Скачивать модель не нужно, распознаёт быстро и точно.",
+  };
+
+  function renderModelTabs(models, current) {
+    const counts = { local: 0, cloud: 0 };
+    for (const m of models) counts[m.cloud ? "cloud" : "local"] += 1;
+    const labels = { local: "Локальные", cloud: "Облачные" };
+    const buttons = ["local", "cloud"].map((group) => {
+      const button = el("button", "model-tab", `${labels[group]} · ${counts[group]}`);
+      button.type = "button";
+      button.setAttribute("aria-pressed", String(modelGroup === group));
+      if (current && Boolean(current.cloud) === (group === "cloud")) button.append(el("span", "model-tab-dot"));
+      button.addEventListener("click", () => {
+        modelGroup = group;
+        renderedModelsKey = null;
+        if (shownSpeech) showModels(...shownSpeech);
+      });
+      return button;
+    });
+    modelTabsEl.replaceChildren(...buttons);
+    modelGroupNoteEl.textContent = GROUP_NOTES[modelGroup];
+  }
+
   function showModels(state, loading) {
     $("model-section").hidden = false;
     shownSpeech = [state, loading];
@@ -1237,7 +1350,10 @@
       speechLanguageEl.value = speechLanguage;
     }
     $("speech-language-note").hidden = speechLanguage === "ru";
-    const models = state.models.filter((m) => m.language === speechLanguage);
+    const inLanguage = state.models.filter((m) => m.language === speechLanguage);
+    const currentModel = state.models.find((m) => m.id === state.model && m.installed);
+    if (modelGroup === null) modelGroup = currentModel && currentModel.cloud ? "cloud" : "local";
+    const models = inLanguage.filter((m) => Boolean(m.cloud) === (modelGroup === "cloud"));
     // Перерисовываем только при изменениях: опрос идёт раз в секунду.
     const failed = state.status === "error";
     // Байты скачивания в ключ не входят: полосы обновляются на месте, без перерисовки карточек.
@@ -1246,11 +1362,20 @@
       state.model,
       failed,
       speechLanguage,
+      modelGroup,
     ]);
     if (key !== renderedModelsKey) {
       renderedModelsKey = key;
       downloadBars.clear();
-      modelListEl.replaceChildren(...models.map((m) => modelCard(m, state.model, failed)));
+      renderModelTabs(inLanguage, currentModel);
+      if (modelGroup === "cloud") {
+        const providers = [...new Set(models.map((m) => m.provider))];
+        modelListEl.replaceChildren(
+          ...providers.map((p) => providerGroup(p, models.filter((m) => m.provider === p), state.model, failed))
+        );
+      } else {
+        modelListEl.replaceChildren(...models.map((m) => modelCard(m, state.model, failed)));
+      }
     }
     for (const m of state.models) {
       const shown = downloadBars.get(m.id);
@@ -1827,7 +1952,10 @@
       } catch (e) {
         return;
       }
-      if (msg.type === "mic_level") targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
+      if (msg.type === "mic_level") {
+        targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
+        wakeMeter();
+      }
       else if (msg.type === "sound") showSound(msg);
       else if (msg.type === "update") showUpdate(msg);
       else if (msg.type === "presets") loadCustomPresets();
@@ -1842,8 +1970,7 @@
         showServerLabel(msg.label, msg.label_position);
       }
       else if (msg.count !== undefined) {
-        countEl.textContent = msg.count;
-        currentCount = msg.count;
+        showCount(msg.count);
         renderGoalLeft();
         refreshStatsSoon();
       }

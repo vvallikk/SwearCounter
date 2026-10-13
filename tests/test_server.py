@@ -835,6 +835,21 @@ def test_open_overlay_in_browser(client, monkeypatch):
     assert opened == ["http://localhost/overlay/"] and r.json() == {"url": opened[0]}
 
 
+@pytest.mark.parametrize(
+    ("show", "expected"),
+    [("timer", "http://localhost/overlay/?show=timer"), ("goal", "http://localhost/overlay/?show=goal"),
+     ("x&evil=1", "http://localhost/overlay/")],
+)
+def test_open_overlay_separate_source(client, monkeypatch, show, expected):
+    """Таймер и цель открываются отдельным источником; произвольное значение show игнорируется."""
+    from app import server
+
+    opened = []
+    monkeypatch.setattr(server.webbrowser, "open", opened.append)
+    assert client.post("/api/overlay/open", params={"show": show}).status_code == 200
+    assert opened == [expected]
+
+
 @pytest.mark.parametrize("host", ["evil.example", "evil.example:8765", "localhost.evil.example", ""])
 def test_foreign_host_is_rejected(client, host):
     """DNS rebinding: чужой сайт указывает свой домен на 127.0.0.1, но Host у запроса — его."""

@@ -31,7 +31,11 @@
     </nav>
 
     <div id="tab-counter" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-counter">
-      <div id="count" class="count">—</div>
+      <div class="live-count">
+        <!-- Тот же оверлей, что в OBS (без звука): оформление, подпись и анимации выбранного стиля -->
+        <iframe id="live-count" class="live-count-frame" src="/overlay/?mute=1" title="Счётчик" tabindex="-1"></iframe>
+        <div id="count" class="count sr-only">—</div>
+      </div>
       <div class="timer-line" title="Сколько удалось продержаться без нужных слов. Рекорд — с запуска программы или сброса счёта; на паузе таймер стоит.">
         Без мата: <b id="timer-now">0:00</b> · рекорд <b id="timer-record">0:00</b></div>
       <div id="goal-line" class="timer-line" hidden>До цели: <b id="goal-left"></b></div>
@@ -41,27 +45,34 @@
         <button id="reset" type="button">Сбросить</button>
       </div>
       <p id="pause-note" class="note pause-note" hidden>Пауза: сказанное не считается. Кнопки работают.</p>
-      <div class="hint">
-        Оверлей для OBS (источник «Браузер») или любого браузера:
-        <div class="overlay-links">
-          <button id="overlay-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
-            <span id="overlay-url-text"></span><span class="copy-label">Копировать</span>
-          </button>
-          <button id="overlay-open" class="secondary-btn" type="button" title="Открыть оверлей в браузере по умолчанию">Открыть в браузере</button>
+      <div class="obs-sources" role="group" aria-label="Источники для OBS">
+        <div class="obs-sources-head">
+          <span class="obs-sources-title">Источники для OBS</span>
+          <span class="obs-sources-sub">Вставьте ссылку в источник «Браузер»</span>
         </div>
-        Таймер «без мата» — отдельный источник:
-        <div class="overlay-links">
-          <button id="timer-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
-            <span id="timer-url-text"></span><span class="copy-label">Копировать</span>
+        <div class="obs-row">
+          <button id="overlay-url" class="obs-link" type="button" title="Нажмите, чтобы скопировать">
+            <span class="obs-name">Счётчик</span>
+            <span id="overlay-url-text" class="obs-url"></span>
+            <span class="copy-label">Копировать</span>
           </button>
+          <button id="overlay-open" class="obs-open" type="button" title="Открыть оверлей в браузере по умолчанию" aria-label="Открыть в браузере">↗</button>
         </div>
-        <div id="goal-links" hidden>
-          Отсчёт до цели — отдельный источник:
-          <div class="overlay-links">
-            <button id="goal-url" class="copy-link" type="button" title="Нажмите, чтобы скопировать">
-              <span id="goal-url-text"></span><span class="copy-label">Копировать</span>
-            </button>
-          </div>
+        <div class="obs-row">
+          <button id="timer-url" class="obs-link" type="button" title="Нажмите, чтобы скопировать">
+            <span class="obs-name">Таймер «без мата»</span>
+            <span id="timer-url-text" class="obs-url"></span>
+            <span class="copy-label">Копировать</span>
+          </button>
+          <button id="timer-open" class="obs-open" type="button" title="Открыть оверлей в браузере по умолчанию" aria-label="Открыть в браузере">↗</button>
+        </div>
+        <div id="goal-links" class="obs-row" hidden>
+          <button id="goal-url" class="obs-link" type="button" title="Нажмите, чтобы скопировать">
+            <span class="obs-name">Отсчёт до цели</span>
+            <span id="goal-url-text" class="obs-url"></span>
+            <span class="copy-label">Копировать</span>
+          </button>
+          <button id="goal-open" class="obs-open" type="button" title="Открыть оверлей в браузере по умолчанию" aria-label="Открыть в браузере">↗</button>
         </div>
       </div>
 
@@ -362,5 +373,6 @@
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>
   <script src="control.js"></script>
+  <script src="sections.js"></script>
 </body>
 </html>
