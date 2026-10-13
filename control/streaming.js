@@ -36,6 +36,7 @@
   const twitchStatus = $("twitch-status");
   const youtubeStatus = $("youtube-status");
   const saveStatus = $("streaming-save-status");
+  let current = null; // последнее состояние с сервера
 
   const ids = {
     twitch: {
@@ -120,7 +121,8 @@
     button.disabled = true;
     setStatus(saveStatus, "Сохраняю…");
     try {
-      const state = await api("POST", "/api/streaming", collect());
+      current = await api("POST", "/api/streaming", collect());
+      const state = current;
       $("twitch-token").value = "";
       $("youtube-key").value = "";
       show(state);
@@ -146,7 +148,6 @@
   });
 
   // Сообщение WebSocket {"type": "streaming", "platform": ..., status, error, ...}: control.js передаёт его сюда.
-  let current = null;
   window.streamingUpdate = (msg) => {
     if (!current || !current[msg.platform]) return;
     const { type, platform, ...link } = msg;
