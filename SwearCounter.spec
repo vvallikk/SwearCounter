@@ -58,7 +58,9 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=["tkinter", "pytest"],
-    noarchive=False,
+    # Модули лежат отдельными .pyc, а не одним архивом PYZ: крупный запакованный блок
+    # байткода сильно повышает срабатывания эвристик антивирусов (проверено на VirusTotal).
+    noarchive=True,
 )
 pyz = PYZ(a.pure)
 
