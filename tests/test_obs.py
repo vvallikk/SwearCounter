@@ -57,6 +57,11 @@ def test_stream_started():
     assert not obs.stream_started({"op": 7, "d": {}})
 
 
+# Порты закрытых FakeObs: на Windows отказ в соединении занимает ~2 с, тестам с «OBS не запущен»
+# отказ отдаёт сразу фикстура no_slow_refusals (conftest.py).
+CLOSED_PORTS: set[int] = set()
+
+
 class FakeObs:
     """Сервер WebSocket, отвечающий как OBS: Hello, Identify, запросы и события.
 
@@ -83,6 +88,7 @@ class FakeObs:
         self.identified = threading.Event()
         self.server = serve(self._handle, "127.0.0.1", 0)
         self.port = self.server.socket.getsockname()[1]
+        CLOSED_PORTS.discard(self.port)  # ОС могла отдать порт, который уже закрывали
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
 
     def __enter__(self):
@@ -92,6 +98,7 @@ class FakeObs:
     def __exit__(self, *exc):
         self.server.shutdown()
         self.thread.join(5)
+        CLOSED_PORTS.add(self.port)
 
     def _handle(self, ws):
         hello = {"obsWebSocketVersion": "5.5.0", "rpcVersion": 1}
