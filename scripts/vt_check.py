@@ -11,6 +11,7 @@
 import argparse
 import os
 import sys
+import time
 import urllib.error
 from pathlib import Path
 
@@ -44,7 +45,11 @@ def check(path: Path, key: str) -> str:
         stats = wait_for_analysis(upload(path, key), key)
         if stats is None:
             return f"### {path.name}\n\nVirusTotal не успел проверить файл: [отчёт]({REPORT_URL.format(sha256=sha256)})\n"
-    attributes = call("GET", f"{API}/files/{sha256}", key)["data"]["attributes"]
+    for _ in range(20):  # после анализа атрибуты файла обновляются с задержкой
+        attributes = call("GET", f"{API}/files/{sha256}", key)["data"]["attributes"]
+        if any((attributes.get("last_analysis_stats") or {}).values()):
+            break
+        time.sleep(15)
     found, total = detections(attributes.get("last_analysis_stats") or {})
     lines = [
         f"### {path.name}",
