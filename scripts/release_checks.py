@@ -63,8 +63,16 @@ def call(method: str, url: str, key: str, body: bytes | None = None, content_typ
     request = urllib.request.Request(url, data=body, method=method, headers={"x-apikey": key, "accept": "application/json"})
     if content_type:
         request.add_header("content-type", content_type)
-    with urllib.request.urlopen(request, timeout=300) as response:
-        return json.load(response)
+    for attempt in range(6):
+        try:
+            with urllib.request.urlopen(request, timeout=300) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as e:
+            # 429: лимит запросов бесплатного ключа; подождать и повторить.
+            if e.code != 429 or attempt == 5:
+                raise
+            time.sleep(30)
+    raise AssertionError("unreachable")
 
 
 def known_stats(sha256: str, key: str) -> dict | None:

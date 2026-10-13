@@ -32,7 +32,17 @@ def flagged_engines(sha256: str, key: str) -> list[tuple[str, str]]:
 
 def reanalyze(sha256: str, key: str) -> None:
     """Попросить VirusTotal перепроверить файл (часть движков отвечает нестабильно)."""
-    analysis_id = call("POST", f"{API}/files/{sha256}/analyse", key)["data"]["id"]
+    # 409: предыдущий анализ ещё идёт; 429: общий ключ упёрся в лимит запросов.
+    for _ in range(10):
+        try:
+            analysis_id = call("POST", f"{API}/files/{sha256}/analyse", key)["data"]["id"]
+            break
+        except urllib.error.HTTPError as e:
+            if e.code not in (409, 429):
+                raise
+            time.sleep(60)
+    else:
+        return
     wait_for_analysis(analysis_id, key)
 
 
