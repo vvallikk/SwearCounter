@@ -644,3 +644,66 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
   .collapsible > .section-body { animation: none; }
   .section-toggle::before { transition: none; }
 }
+
+/* --- Источники для OBS: одна карточка вместо россыпи ссылок --- */
+.obs-sources {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.obs-sources-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.obs-sources-title { font-size: 13px; font-weight: 700; }
+.obs-sources-sub { font-size: 12px; color: var(--muted); }
+.obs-row { display: flex; gap: 6px; }
+.obs-row + .obs-row { margin-top: 6px; }
+.obs-link {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name action" "url action";
+  column-gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.3));
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.obs-link:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.obs-name { grid-area: name; font-size: 13px; font-weight: 600; }
+.obs-url {
+  grid-area: url;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 11px Consolas, monospace;
+  color: var(--muted);
+}
+.obs-link .copy-label {
+  grid-area: action;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  max-width: 8.5em;
+  text-align: right;
+}
+.obs-link.copied { border-color: var(--ok); }
+.obs-link.copied .copy-label { color: var(--ok); }
+.obs-open {
+  flex: none;
+  width: 44px;
+  font-size: 16px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.3));
+  border-radius: 10px;
+  cursor: pointer;
+}
+.obs-open:hover { color: var(--accent); border-color: var(--accent); }
