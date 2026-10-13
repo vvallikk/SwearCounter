@@ -13,7 +13,7 @@
 [![Поддержать на Boosty](https://img.shields.io/badge/Boosty-%D0%BF%D0%BE%D0%B4%D0%B4%D0%B5%D1%80%D0%B6%D0%B0%D1%82%D1%8C-F15F2C?style=for-the-badge&logo=boosty&logoColor=white)](https://boosty.to/walikk/single-payment/donation/834276/target?share=target_link)
 [![Донат на DonationAlerts](https://img.shields.io/badge/DonationAlerts-%D0%B4%D0%BE%D0%BD%D0%B0%D1%82-F57D07?style=for-the-badge)](https://www.donationalerts.com/r/vvalikk)
 
-<img src="docs/screenshots/overlay-neon.png" alt="Счётчик на стриме, оформление Неон" width="800">
+<img src="docs/screenshots/overlay-censor.png" alt="Счётчик на стриме, оформление Цензура" width="800">
 
 </div>
 
@@ -109,7 +109,7 @@
 
 **Оформления в OBS:**
 
-<img src="docs/screenshots/overlay-classic.png" alt="Оформление Классика" width="400">
+<img src="docs/screenshots/overlay-neon.png" alt="Оформление Неон" width="400">
 <img src="docs/screenshots/overlay-retro.png" alt="Оформление Ретро" width="400">
 
 ## Быстрый старт
