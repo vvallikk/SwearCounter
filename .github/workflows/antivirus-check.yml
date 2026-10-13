@@ -1,0 +1,101 @@
+name: Antivirus check
+
+# Сборка и проверка на VirusTotal без релиза и без PR: запуск вручную (Actions → Antivirus check)
+# или пушем в ветку av-check/*. Ничего не публикует; архив остаётся артефактом на 30 дней; release.yml публикует именно его.
+on:
+  workflow_dispatch:
+    inputs:
+      source_bootloader:
+        description: "Собрать загрузчик PyInstaller из исходников (по умолчанию готовый из колёс)"
+        type: boolean
+        default: false
+      sign:
+        description: "Подписать exe через SignPath до проверки (нужны переменные SIGNPATH_*; ждёт подтверждения до часа)"
+        type: boolean
+        default: false
+  push:
+    branches: ["av-check/**"]
+
+permissions:
+  contents: read
+
+# Повторный пуш отменяет предыдущую сборку: проверка нужна только для последнего коммита.
+concurrency:
+  group: antivirus-check-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          allow-prereleases: true
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-build.txt
+
+      # Эксперимент: свой загрузчик. Проверка показала, что он ловится чаще готового,
+      # поэтому по умолчанию выключен.
+      - name: Rebuild PyInstaller bootloader from source
+        if: inputs.source_bootloader
+        shell: bash
+        run: python -m pip install --force-reinstall --no-deps --no-binary pyinstaller "pyinstaller==$(grep -i '^pyinstaller==' requirements-build.txt | cut -d= -f3)"
+
+      - name: Build
+        run: python scripts/build.py
+
+      # Подпись до проверки: на VirusTotal должен лежать тот же файл, что уйдёт в релиз.
+      # Настройка SignPath описана в docs/DEVELOPMENT.md; release.yml не подписывает сам.
+      - name: Upload exe for signing
+        id: unsigned
+        if: inputs.sign
+        uses: actions/upload-artifact@v7
+        with:
+          name: SwearCounter-unsigned
+          path: dist/SwearCounter/SwearCounter.exe
+          if-no-files-found: error
+
+      - name: Sign exe with SignPath
+        if: inputs.sign
+        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2.3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist/signed
+
+      - name: Repack archive with signed exe
+        if: inputs.sign
+        shell: pwsh
+        run: |
+          Copy-Item dist/signed/SwearCounter.exe dist/SwearCounter/SwearCounter.exe -Force
+          $signature = Get-AuthenticodeSignature dist/SwearCounter/SwearCounter.exe
+          if ($signature.Status -ne "Valid") { throw "Подпись exe недействительна: $($signature.Status)" }
+          Write-Output "Подписано: $($signature.SignerCertificate.Subject)"
+          python scripts/build.py --archive-only
+
+      - name: Check on VirusTotal
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: python scripts/vt_check.py --rescans 1 dist/SwearCounter-v*-windows.zip dist/SwearCounter/SwearCounter.exe
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SwearCounter-windows
+          path: dist/SwearCounter-v*-windows.zip
+          retention-days: 30

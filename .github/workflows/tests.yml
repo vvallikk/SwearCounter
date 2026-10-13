@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Новый пуш в PR отменяет устаревший прогон; прогоны main не прерываются.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Python 3.14 на Windows пишет в консоль в cp1252: без UTF-8 падают print с кириллицей.
 env:
   PYTHONUTF8: "1"
@@ -86,13 +91,15 @@ jobs:
         run: python -m pytest -q
 
   # macOS и Linux: запуск из исходников. Отдельная проверка, чтобы не менять обязательную pytest.
+  # В PR только Linux: раннеры macOS стоят в очереди по 10 минут, а тесты идут полминуты.
+  # macOS проверяется после слияния, пушем в main.
   pytest-unix:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7

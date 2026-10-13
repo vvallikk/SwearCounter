@@ -26,12 +26,17 @@ version_info = VSVersionInfo(
     kids=[
         StringFileInfo([
             StringTable("041904B0", [
+                # Пустые CompanyName/LegalCopyright — один из признаков, по которым
+                # эвристики антивирусов принимают exe за подозрительный.
+                StringStruct("CompanyName", "vvallikk"),
                 StringStruct("FileDescription", "Счётчик матов"),
                 StringStruct("ProductName", "Счётчик матов"),
                 StringStruct("FileVersion", VERSION),
                 StringStruct("ProductVersion", VERSION),
                 StringStruct("InternalName", "SwearCounter"),
                 StringStruct("OriginalFilename", "SwearCounter.exe"),
+                StringStruct("LegalCopyright", "Copyright (C) vvallikk. GNU GPL v3"),
+                StringStruct("Comments", "https://github.com/vvallikk/SwearCounter"),
             ])
         ]),
         VarFileInfo([VarStruct("Translation", [0x0419, 1200])]),
@@ -53,8 +58,25 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=["tkinter", "pytest"],
-    noarchive=False,
+    # Модули лежат отдельными .pyc, а не одним архивом PYZ: крупный запакованный блок
+    # байткода сильно повышает срабатывания эвристик антивирусов (проверено на VirusTotal).
+    noarchive=True,
 )
+
+
+def _needed(entry):
+    """Пустые файлы и чужеродные для Windows ресурсы: на них срабатывают эвристики антивирусов
+    (Zillya: Trojan.Blank.Script на пустых файлах), а программе они не нужны."""
+    name, src = entry[0], entry[1]
+    if name.lower().endswith((".jar", ".dylib", ".xml")):
+        return False
+    path = Path(src)
+    return not (path.is_file() and path.stat().st_size == 0)
+
+
+a.datas = [d for d in a.datas if _needed(d)]
+a.binaries = [b for b in a.binaries if _needed(b)]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
