@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  actions: read  # скачать артефакт прогона antivirus-check
 
 # Python 3.14 на Windows пишет в консоль в cp1252: без UTF-8 падают print с кириллицей.
 env:
@@ -42,54 +43,48 @@ jobs:
           echo "VERSION=${version}" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: python -m pip install -r requirements-dev.txt -r requirements-build.txt
-
+        run: python -m pip install -r requirements-dev.txt
 
       - name: Run tests
         run: python -m pytest -q
 
-      - name: Build
-        run: python scripts/build.py
+      # Релиз публикует тот же архив, который уже проверен на VirusTotal: сборки PyInstaller
+      # не побитово одинаковые, и пересборка дала бы другой хеш и новый случайный итог.
+      # Архив собирает antivirus-check.yml на том же коммите, что и тег (пуш release/vX в
+      # ветку av-check/vX или ручной запуск на ветке релиза), см. private/RELEASES.md.
+      - name: Download archive from the Antivirus check run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --workflow antivirus-check.yml --commit "$GITHUB_SHA"             --status success --limit 1 --json databaseId -q '.[0].databaseId')
+          if [ -z "$run_id" ]; then
+            echo "::error::Нет успешного прогона Antivirus check для коммита ${GITHUB_SHA}. Соберите и проверьте билд на ветке релиза (Actions → Antivirus check), затем поставьте тег на тот же коммит."
+            exit 1
+          fi
+          echo "Прогон Antivirus check: ${run_id}"
+          gh run download "$run_id" -n SwearCounter-windows -D dist
+          if [ ! -f "dist/SwearCounter-v${VERSION}-windows.zip" ]; then
+            echo "::error::В артефакте нет SwearCounter-v${VERSION}-windows.zip: $(ls dist)"
+            exit 1
+          fi
 
-      # Подпись exe сертификатом SignPath Foundation (docs/CODE_SIGNING.md). Шаги включаются,
-      # когда в настройках репозитория заданы переменные SIGNPATH_* и секрет SIGNPATH_API_TOKEN;
-      # без них релиз выходит неподписанным, как раньше.
-      - name: Upload exe for signing
-        id: unsigned
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: SwearCounter-unsigned
-          path: dist/SwearCounter/SwearCounter.exe
-          if-no-files-found: error
-
-      - name: Sign exe with SignPath
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
-        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2.3
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
-          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
-          wait-for-completion: true
-          # Запрос подписи подтверждает человек в SignPath: ждём до часа.
-          wait-for-completion-timeout-in-seconds: 3600
-          output-artifact-directory: dist/signed
-
-      - name: Repack archive with signed exe
-        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+      # Если подпись SignPath настроена, в архиве должен быть уже подписанный exe
+      # (antivirus-check с sign=true); иначе релиз не выходит.
+      - name: Check signature
         shell: pwsh
         run: |
-          Copy-Item dist/signed/SwearCounter.exe dist/SwearCounter/SwearCounter.exe -Force
-          $signature = Get-AuthenticodeSignature dist/SwearCounter/SwearCounter.exe
-          if ($signature.Status -ne "Valid") { throw "Подпись exe недействительна: $($signature.Status)" }
-          Write-Output "Подписано: $($signature.SignerCertificate.Subject)"
-          python scripts/build.py --archive-only
-          "SIGNED=--signed" >> $env:GITHUB_ENV
+          Expand-Archive "dist/SwearCounter-v$env:VERSION-windows.zip" -DestinationPath dist/unpacked
+          $signature = Get-AuthenticodeSignature dist/unpacked/SwearCounter/SwearCounter.exe
+          if ($signature.Status -eq "Valid") {
+            Write-Output "Подписано: $($signature.SignerCertificate.Subject)"
+            "SIGNED=--signed" >> $env:GITHUB_ENV
+          } elseif ("${{ vars.SIGNPATH_ORGANIZATION_ID }}" -ne "") {
+            throw "SignPath настроен, но exe в проверенном архиве не подписан: запустите Antivirus check с sign=true"
+          }
 
       # SHA-256, отчёт VirusTotal (если задан секрет VT_API_KEY) и подпись в конце описания релиза.
+      # Файл уже проверен: VirusTotal отдаёт готовый итог по хешу, повторной загрузки нет.
       - name: Check archive
         shell: bash
         env:
@@ -103,5 +98,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" "dist/SwearCounter-v${VERSION}-windows.zip" \
-            --title "${GITHUB_REF_NAME}" --notes-file dist/release-notes.md --verify-tag
+          gh release create "${GITHUB_REF_NAME}" "dist/SwearCounter-v${VERSION}-windows.zip"             --title "${GITHUB_REF_NAME}" --notes-file dist/release-notes.md --verify-tag
