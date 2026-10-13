@@ -707,3 +707,15 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
   cursor: pointer;
 }
 .obs-open:hover { color: var(--accent); border-color: var(--accent); }
+
+/* --- Число: «подпрыгивает» на каждом слове; длинные числа мельче --- */
+.count.bump { animation: count-bump 0.32s cubic-bezier(.3, 1.6, .5, 1); }
+.count.long { font-size: 68px; }
+.count.huge { font-size: 52px; }
+@keyframes count-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+body.offline .count { opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) { .count.bump { animation: none; } }

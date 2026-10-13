@@ -158,7 +158,7 @@
   const incBtn = $("inc");
   const resetBtn = $("reset");
 
-  // Показывает счёт: число «подпрыгивает», банка получает новую монету.
+  // Показывает счёт: число «подпрыгивает» на каждом новом слове.
   let shownCount = null;
 
   function showCount(value) {
@@ -174,15 +174,7 @@
     }
     shownCount = value;
     currentCount = value;
-    renderJar();
   }
-
-  function renderJar() {
-    if (window.SwearJar && shownCount !== null) {
-      window.SwearJar.update(shownCount, { goal: goalsState.goal, milestones: goalsState.milestones });
-    }
-  }
-  if (window.SwearJar) window.SwearJar.mount($("jar"), $("jar-caption"));
 
   function setOnline(online) {
     document.body.classList.toggle("offline", !online);
@@ -409,7 +401,6 @@
     $("goal-line").hidden = !goalsState.goal;
     $("goal-links").hidden = !goalsState.goal;
     $("goal-left").textContent = Math.max(goalsState.goal - currentCount, 0);
-    renderJar();
   }
 
   function showGoals(state) {
