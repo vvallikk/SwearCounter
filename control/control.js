@@ -537,10 +537,16 @@
   });
 
   // Предпросмотр оверлея: окно программы не открывает вкладки, поэтому браузер запускает сервер.
-  $("overlay-open").addEventListener("click", () => {
-    // Если программа не ответила (страница открыта не из неё), откроем вкладку сами.
-    api("POST", "/api/overlay/open").catch(() => window.open(overlayUrl, "_blank"));
-  });
+  function bindOpen(button, show, fallbackUrl) {
+    button.addEventListener("click", () => {
+      // Если программа не ответила (страница открыта не из неё), откроем вкладку сами.
+      const path = show ? `/api/overlay/open?show=${show}` : "/api/overlay/open";
+      api("POST", path).catch(() => window.open(fallbackUrl, "_blank"));
+    });
+  }
+  bindOpen($("overlay-open"), "", overlayUrl);
+  bindOpen($("timer-open"), "timer", timerOverlayUrl);
+  bindOpen($("goal-open"), "goal", goalOverlayUrl);
 
   // --- Состояние распознавания (микрофон и модель) ---
 

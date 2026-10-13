@@ -774,9 +774,14 @@ def create_app(
             raise HTTPException(400, str(e)) from None
 
     @app.post("/api/overlay/open")
-    async def open_overlay(request: Request):
-        """Открывает оверлей в браузере по умолчанию: окно программы само вкладки не открывает."""
+    async def open_overlay(request: Request, show: str | None = None):
+        """Открывает оверлей в браузере по умолчанию: окно программы само вкладки не открывает.
+
+        show — отдельный источник оверлея (timer, goal); любое другое значение игнорируется.
+        """
         url = f"{request.base_url}overlay/"
+        if show in ("timer", "goal"):
+            url += f"?show={show}"
         await asyncio.to_thread(webbrowser.open, url)
         return {"url": url}
 
