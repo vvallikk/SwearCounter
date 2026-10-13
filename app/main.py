@@ -29,11 +29,13 @@ from .paths import (
     PRESETS_DIR,
     SETTINGS_FILE,
     SOUNDS_DIR,
+    HIGHLIGHTS_FILE,
     STATS_FILE,
     WATCH_LOG_FILE,
     WORDLISTS_DIR,
 )
 from .profanity import SwearTracker
+from .highlights import Timeline
 from .stats import Stats
 from .hotkeys import Hotkeys
 from .server import Hub, create_app
@@ -151,6 +153,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
     word_lists.prepare(OLD_WORDS_FILE)
 
     hub.stats = Stats(STATS_FILE)
+    hub.timeline = Timeline(HIGHLIGHTS_FILE)
     hub.extra = ExtraCounters(COUNTERS_FILE, word_lists.path)
 
     async def add_swears(words: list[str]) -> None:

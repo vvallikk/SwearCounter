@@ -20,6 +20,7 @@ OVERLAY_DIR = RESOURCE_DIR / "overlay"
 CONTROL_DIR = RESOURCE_DIR / "control"
 COUNTER_FILE = DATA_DIR / "counter.json"
 STATS_FILE = DATA_DIR / "stats.json"  # история сессий (app/stats.py)
+HIGHLIGHTS_FILE = DATA_DIR / "highlights.json"  # метки слов для таймкодов (app/highlights.py)
 COUNTERS_FILE = DATA_DIR / "counters.json"  # дополнительные счётчики (app/extra_counters.py)
 # Списки слов: встроенные копируются рядом с exe, чтобы пользователь мог их править
 # и добавлять свои (см. app/wordlists.py). Из исходников это одна и та же папка.

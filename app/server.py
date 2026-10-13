@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -20,7 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, mail, obs, preset_links
+from . import ORDER_EMAIL, ORDER_SUBJECT, SUPPORT_LINKS, __version__, autostart, goals, highlights, hotkeys, i18n, mail, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .extra_counters import CounterError, ExtraCounters
@@ -63,6 +64,10 @@ class Hub:
         self.goal = 0
         # Статистика по сессиям (app/stats.py); в тестах — только в памяти.
         self.stats = Stats()
+        # Хайлайты: метка на каждое слово (app/highlights.py); в тестах — только в памяти.
+        self.timeline = highlights.Timeline()
+        # Вызываются с меткой слова: клип и глава в OBS.
+        self.mark_listeners: list[Callable[[dict], None]] = []
         # Вызываются после прибавки с (было, стало): например, смена сцены в OBS по порогу.
         self.count_listeners: list[Callable[[int, int], None]] = []
         # Дополнительные счётчики (app/extra_counters.py); в тестах — только в памяти.
@@ -97,6 +102,7 @@ class Hub:
             before = self.counter.value
             count = await self.counter.add(delta)
             self.stats.add(delta, words)
+            mark = self.timeline.add(delta, words)
             message = {"type": "increment", "count": count, "delta": delta}
             milestone = goals.reached(self.milestones, self.goal, before, count)
             if milestone is not None:
@@ -106,6 +112,9 @@ class Hub:
             await self._broadcast(self.timer.message())
             for listener in self.count_listeners:
                 listener(before, count)
+            if mark is not None:
+                for listener in self.mark_listeners:
+                    listener(mark)
             return count
 
     async def increment_extra(self, counter_id: str, delta: int = 1, speech: bool = False) -> int:
@@ -237,6 +246,18 @@ class ObsOptions(BaseModel):
     reset_record: bool = False
     scene: str = ""
     scene_at: int = 0  # 0 — сцену не переключать
+
+
+class HighlightsOptions(BaseModel):
+    obs: bool = False
+    chapter: bool = False
+    clip: bool = False
+
+
+class HighlightsExport(BaseModel):
+    format: str = "chapters"
+    base: str = "start"
+    lead: int = highlights.DEFAULT_LEAD
 
 
 class PresetChoice(BaseModel):
@@ -451,18 +472,41 @@ def create_app(
             return
         asyncio.run_coroutine_threadsafe(coro, loop)
 
+    def highlight_options() -> dict:
+        return highlights.clean_options(settings.get("highlights"))
+
+    async def set_anchor(kind: str, at: float | None = None) -> None:
+        """Эфир начался: от этого момента считаются таймкоды. at — когда он начался (синхронизация)."""
+        known = hub.timeline.anchors.get(kind)
+        if at is None or known is None or abs(known - at) > 5:
+            hub.timeline.set_anchor(kind, at)
+
+    def sync_anchors() -> None:
+        """Программу запустили посреди эфира: спрашиваем OBS, сколько он идёт. Не из потока связи."""
+        for kind, request in (("stream", "GetStreamStatus"), ("record", "GetRecordStatus")):
+            try:
+                data = obs_link.request(request)
+            except obs.ObsError:
+                return
+            if data.get("outputActive") and isinstance(data.get("outputDuration"), int | float):
+                from_link_thread(set_anchor(kind, time.time() - data["outputDuration"] / 1000))
+
     def on_obs_output(output: str) -> None:
+        if highlights.link_needed(highlight_options()):
+            from_link_thread(set_anchor(output))
         if obs_options(settings)[f"reset_{output}"]:
             log.info("OBS: начало %s, счёт сброшен", "трансляции" if output == "stream" else "записи")
             from_link_thread(hub.reset())
 
     def on_obs_status(state: dict) -> None:
         from_link_thread(hub.broadcast({"type": "obs", **state}))
+        if state["connected"] and highlights.link_needed(highlight_options()):
+            threading.Thread(target=sync_anchors, name="obs-sync", daemon=True).start()
 
     obs_link = obs_link or ObsLink(on_obs_output, on_obs_status)
 
     def configure_obs_link() -> None:
-        needed = obs_link_needed(obs_options(settings))
+        needed = obs_link_needed(obs_options(settings)) or highlights.link_needed(highlight_options())
         obs_link.configure(needed, autostart.obs_port(settings), autostart.obs_password(settings))
 
     async def switch_scene(name: str) -> None:
@@ -480,6 +524,44 @@ def create_app(
             task.add_done_callback(background.discard)
 
     hub.count_listeners.append(on_count)
+
+    # --- Хайлайты: на каждое слово глава в записи OBS и/или клип из буфера повтора ---
+    gates = {"chapter": 0.0, "clip": 0.0}
+    last_error = {"text": ""}
+
+    def gate_open(name: str, cooldown: float) -> bool:
+        now = time.monotonic()
+        if now - gates[name] < cooldown:
+            return False
+        gates[name] = now
+        return True
+
+    async def obs_highlight(mark: dict, options: dict) -> None:
+        try:
+            if options["chapter"] and gate_open("chapter", highlights.CHAPTER_COOLDOWN):
+                name = highlights.LABEL + (": " + ", ".join(mark["words"][:3]) if mark["words"] else "")
+                await asyncio.to_thread(obs_link.request, "CreateRecordChapter", {"chapterName": name})
+            if options["clip"] and gate_open("clip", highlights.CLIP_COOLDOWN):
+                await asyncio.to_thread(obs_link.request, "SaveReplayBuffer")
+                await asyncio.sleep(highlights.CLIP_SETTLE)  # OBS дописывает файл клипа уже после ответа
+                data = await asyncio.to_thread(obs_link.request, "GetLastReplayBufferReplay")
+                path = data.get("savedReplayPath")
+                if isinstance(path, str) and path:
+                    hub.timeline.set_clip(mark, path)
+            last_error["text"] = ""
+        except obs.ObsError as e:
+            if last_error["text"] != str(e):
+                log.warning("Хайлайт в OBS не сохранён: %s", e)
+            last_error["text"] = str(e)
+
+    def on_mark(mark: dict) -> None:
+        options = highlight_options()
+        if (options["chapter"] or options["clip"]) and obs_link.connected:
+            task = asyncio.create_task(obs_highlight(mark, options))
+            background.add(task)
+            task.add_done_callback(background.discard)
+
+    hub.mark_listeners.append(on_mark)
     if word_lists is not None:
         hub.extra.list_path = word_lists.path
 
@@ -766,6 +848,65 @@ def create_app(
             return {"scenes": await asyncio.to_thread(obs.scenes, port, password)}
         except obs.ObsError as e:
             raise HTTPException(400, str(e)) from None
+
+    def highlights_state(lead: int = highlights.DEFAULT_LEAD) -> dict:
+        return {
+            **hub.timeline.state(lead),
+            "options": highlight_options(),
+            "error": last_error["text"],
+            "obs": obs_link.state(),
+        }
+
+    def highlights_args(base: str, lead: int) -> tuple[str, int]:
+        try:
+            return highlights.clean_base(base), highlights.clean_lead(lead)
+        except highlights.HighlightsError as e:
+            raise HTTPException(400, str(e)) from None
+
+    @app.get("/api/highlights")
+    async def get_highlights(lead: int = highlights.DEFAULT_LEAD):
+        return highlights_state(highlights_args("start", lead)[1])
+
+    @app.post("/api/highlights")
+    async def post_highlights(options: HighlightsOptions):
+        settings.set("highlights", options.model_dump())
+        configure_obs_link()
+        return highlights_state()
+
+    @app.delete("/api/highlights")
+    async def delete_highlights():
+        hub.timeline.restart()
+        return highlights_state()
+
+    def highlights_text(format: str, base: str, lead: int) -> tuple[str, str]:
+        base, lead = highlights_args(base, lead)
+        if format == "chapters":
+            return hub.timeline.chapters(base, lead), "txt"
+        if format == "csv":
+            return hub.timeline.csv(base, lead), "csv"
+        raise HTTPException(400, "Формат: chapters или csv")
+
+    @app.get("/api/highlights/text")
+    async def get_highlights_text(format: str = "chapters", base: str = "start", lead: int = highlights.DEFAULT_LEAD):
+        """Таймкоды текстом: страница копирует их в буфер обмена."""
+        return PlainTextResponse(highlights_text(format, base, lead)[0])
+
+    @app.post("/api/highlights/export")
+    async def export_highlights(body: HighlightsExport):
+        """Сохраняет таймкоды в «Загрузки» и показывает файл в Проводнике."""
+        text, ext = highlights_text(body.format, body.base, body.lead)
+        path = downloads_dir() / f"swearcounter-highlights.{ext}"
+        try:
+            # utf-8-sig: с BOM Excel и «Блокнот» открывают кириллицу без кракозябр.
+            await asyncio.to_thread(path.write_text, text, encoding="utf-8-sig", newline="")
+        except OSError as e:
+            raise HTTPException(500, f"Не удалось сохранить файл: {e}") from None
+        log.info("Хайлайты сохранены в %s", path)
+        try:
+            reveal(path)
+        except OSError:
+            pass  # файл сохранён, путь есть в ответе
+        return {"path": str(path)}
 
     @app.post("/api/overlay/open")
     async def open_overlay(request: Request):

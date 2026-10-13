@@ -6,6 +6,8 @@ counter.json
 counter.json.tmp
 stats.json
 stats.json.tmp
+highlights.json
+highlights.json.tmp
 counters.json
 counters.json.tmp
 build/
