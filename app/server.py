@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import subprocess
-import sys
 import threading
 import webbrowser
 from collections.abc import Callable
@@ -379,23 +378,8 @@ def downloads_dir() -> Path:
 
 def reveal(path: Path) -> None:
     """Показывает файл в Проводнике (выделенным), чтобы его сразу можно было отправить."""
-    try:
-        if os.name == "nt":
-            subprocess.Popen(["explorer", f"/select,{path}"])
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", "-R", str(path)])
-        else:
-            subprocess.Popen(["xdg-open", str(path.parent)])  # выделить файл xdg-open не умеет
-    except OSError as e:
-        log.warning("Не удалось показать файл %s: %s", path, e)
-
-
-def open_path(path: Path) -> None:
-    """Открывает файл или папку программой по умолчанию."""
-    if hasattr(os, "startfile"):
-        os.startfile(path)  # noqa: S606 путь из своей папки списков
-    else:
-        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
+    if os.name == "nt":
+        subprocess.Popen(["explorer", f"/select,{path}"])
 
 
 def create_app(
@@ -1189,8 +1173,10 @@ def create_app(
                 path = word_lists.directory if choice.id is None else word_lists.path(choice.id)
             except KeyError:
                 raise HTTPException(404, "Такого списка нет") from None
+            if not hasattr(os, "startfile"):
+                raise HTTPException(501, "Открыть файл можно только в Windows")
             try:
-                await asyncio.to_thread(open_path, path)
+                await asyncio.to_thread(os.startfile, path)
             except OSError as e:
                 raise HTTPException(500, f"Не удалось открыть: {e}") from None
             return word_lists.state()

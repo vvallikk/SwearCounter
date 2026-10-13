@@ -5,10 +5,8 @@ import urllib.request
 import uuid
 from contextlib import asynccontextmanager
 
-import pytest
 from fastapi import FastAPI
 
-from app import desktop
 from app.desktop import ServerThread, Urls, single_instance
 from app.main import PORT, Prepared
 
@@ -84,15 +82,3 @@ def test_port_notice_in_english(settings):
     with _bound_socket() as sock:
         prepared = Prepared(FastAPI(), sock, count=0, model_missing=False, settings=settings)
         assert prepared.port_notice.startswith(f"Port {PORT} is busy")
-
-
-def test_lock_file_on_unix():
-    """Вне Windows вместо mutex — блокировка файла; второй экземпляр её не получает."""
-    pytest.importorskip("fcntl")
-    name = _mutex_name()
-    with desktop._lock_file(name) as first:
-        assert first
-        with desktop._lock_file(name) as second:
-            assert not second
-    with desktop._lock_file(name) as again:
-        assert again

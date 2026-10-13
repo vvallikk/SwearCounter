@@ -753,16 +753,6 @@ def test_open_unknown_word_list(words_client, monkeypatch):
     assert opened == []
 
 
-@pytest.mark.parametrize("platform, opener", [("darwin", "open"), ("linux", "xdg-open")])
-def test_open_word_list_on_unix(words_client, word_lists, monkeypatch, platform, opener):
-    started = []
-    monkeypatch.delattr("os.startfile", raising=False)
-    monkeypatch.setattr(server.sys, "platform", platform)
-    monkeypatch.setattr(server.subprocess, "Popen", started.append)
-    assert words_client.post("/api/words/open", json={}).status_code == 200
-    assert started == [[opener, str(word_lists.directory)]]
-
-
 def test_open_word_list_error(words_client, monkeypatch):
     def fail(path):
         raise OSError("нет редактора")
