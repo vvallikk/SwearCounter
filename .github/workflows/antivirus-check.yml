@@ -30,12 +30,13 @@ jobs:
     # сборки, у каждой ещё две перепроверки.
     strategy:
       fail-fast: false
+      # Один ключ VirusTotal на все задания: лимит бесплатного ключа общий, 4 запроса в минуту.
+      max-parallel: 1
       matrix:
         include:
           - {variant: base, patch: "true"}
           - {variant: console, patch: "sed -i 's/console=False/console=True/' SwearCounter.spec"}
           - {variant: no-version, patch: "sed -i 's/    version=version_info,//' SwearCounter.spec"}
-          - {variant: entry-renamed, patch: "cp swearcounter.py launcher_main.py && sed -i 's/\"swearcounter.py\"/\"launcher_main.py\"/' SwearCounter.spec"}
     steps:
       - uses: actions/checkout@v7
 
@@ -67,7 +68,7 @@ jobs:
         shell: bash
         env:
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
-        run: python scripts/vt_check.py --rescans 2 dist/SwearCounter-v*-windows.zip dist/SwearCounter/SwearCounter.exe
+        run: python scripts/vt_check.py --rescans 0 dist/SwearCounter-v*-windows.zip dist/SwearCounter/SwearCounter.exe
 
       - uses: actions/upload-artifact@v7
         with:

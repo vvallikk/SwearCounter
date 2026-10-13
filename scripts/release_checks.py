@@ -29,7 +29,12 @@ from app.updater import CHECKS_MARKER, file_sha256  # noqa: E402
 API = "https://www.virustotal.com/api/v3"
 REPORT_URL = "https://www.virustotal.com/gui/file/{sha256}"
 WAIT_SECONDS = 15 * 60  # большой архив VirusTotal проверяет несколько минут
-POLL_SECONDS = 30  # бесплатный ключ: не больше 4 запросов в минуту
+POLL_SECONDS = 30
+# Бесплатный ключ: 4 запроса в минуту, 500 в сутки. Между запросами выдерживаем паузу
+# с запасом (3,75 в минуту); считаем и показываем число запросов.
+MIN_INTERVAL = 16.0
+_last_request = 0.0
+requests_made = 0
 # Вердикты антивирусов, которые входят в итог "N из M"; timeout, unsupported и т. п. не считаем.
 COUNTED = ("malicious", "suspicious", "undetected", "harmless")
 
@@ -63,7 +68,11 @@ def call(method: str, url: str, key: str, body: bytes | None = None, content_typ
     request = urllib.request.Request(url, data=body, method=method, headers={"x-apikey": key, "accept": "application/json"})
     if content_type:
         request.add_header("content-type", content_type)
+    global _last_request, requests_made
     for attempt in range(6):
+        time.sleep(max(0.0, _last_request + MIN_INTERVAL - time.monotonic()))
+        _last_request = time.monotonic()
+        requests_made += 1
         try:
             with urllib.request.urlopen(request, timeout=300) as response:
                 return json.load(response)

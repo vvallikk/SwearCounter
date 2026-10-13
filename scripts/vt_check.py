@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from app.updater import file_sha256  # noqa: E402
+from scripts import release_checks  # noqa: E402
 from scripts.release_checks import API, REPORT_URL, call, detections, upload, wait_for_analysis  # noqa: E402
 
 FLAGGED = ("malicious", "suspicious")
@@ -93,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         print("::error::VT_API_KEY не задан")
         return 1
     report = "## VirusTotal\n\n" + "\n".join(check(path, key, args.rescans) for path in args.files)
+    report += f"\nЗапросов к VirusTotal: {release_checks.requests_made} (бесплатный ключ: 4 в минуту, 500 в сутки)\n"
     print(report)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
