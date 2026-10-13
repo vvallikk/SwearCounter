@@ -1,0 +1,47 @@
+name: AV baseline
+
+# Эксперимент: срабатывает ли Zillya на пустое приложение (PyInstaller и Nuitka).
+on:
+  push:
+    branches: ["av-check/**"]
+    paths: [".github/workflows/av-baseline.yml"]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  hello:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        tool: [pyinstaller, nuitka]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          allow-prereleases: true
+      - name: Build hello
+        shell: bash
+        run: |
+          mkdir hello && cd hello
+          printf 'import sys\nprint("hello")\n' > hello.py
+          if [ "${{ matrix.tool }}" = pyinstaller ]; then
+            python -m pip install -r ../requirements-build.txt
+            python -m PyInstaller --noconfirm --noarchive --windowed hello.py
+            echo "FILE=hello/dist/hello/hello.exe" >> "$GITHUB_ENV"
+          else
+            python -m pip install nuitka
+            python -m nuitka --standalone --assume-yes-for-downloads --windows-console-mode=disable hello.py
+            echo "FILE=hello/hello.dist/hello.exe" >> "$GITHUB_ENV"
+          fi
+      - name: Check on VirusTotal
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: python scripts/vt_check.py "$FILE"
