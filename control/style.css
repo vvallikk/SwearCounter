@@ -313,6 +313,8 @@ select:focus-visible { border-color: var(--accent); outline-offset: 0; }
   bottom: 0;
   width: 100%;
   background: var(--meter-off);
+  transform-origin: right center;
+  will-change: transform;
 }
 .monitor-row { margin-top: 10px; flex-wrap: wrap; }
 #mic-monitor[aria-pressed="true"] { background: var(--danger); border-color: var(--danger); }
@@ -605,3 +607,40 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 .obs-scene-row .goal-input { width: 90px; }
 .obs-ws-row .text-input { min-width: 160px; }
 .obs-ws-row .obs-port { flex: 0 0 100px; min-width: 0; }
+
+/* --- Сворачиваемые разделы настроек (sections.js) --- */
+.section-head { display: flex; align-items: center; gap: 8px; }
+.section-head .section-title { flex: 1; margin: 0; cursor: pointer; user-select: none; }
+.section-toggle {
+  flex: none;
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  order: 2;
+}
+.section-toggle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.section-toggle[aria-expanded="false"]::before { transform: translateX(-2px) rotate(-45deg); }
+.section-toggle:hover { background: var(--hover, rgba(127, 127, 127, 0.14)); color: var(--text, inherit); }
+.collapsible.collapsed > .section-body { display: none; }
+.collapsible > .section-body { margin-top: 10px; animation: panel-in 0.2s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .collapsible > .section-body { animation: none; }
+  .section-toggle::before { transition: none; }
+}

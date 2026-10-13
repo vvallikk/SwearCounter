@@ -97,12 +97,20 @@
   }
 
   for (const button of tabButtons) {
-    button.addEventListener("click", () => selectTab(button.dataset.tab));
+    button.addEventListener("click", () => {
+      selectTab(button.dataset.tab);
+      // Новая вкладка открывается с начала, а не посередине прошлой.
+      if (window.scrollY > 0) window.scrollTo(0, 0);
+    });
     button.addEventListener("keydown", (event) => {
-      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-      if (!step) return;
+      const here = TABS.indexOf(button.dataset.tab);
+      let index = null;
+      if (event.key === "ArrowRight") index = (here + 1) % TABS.length;
+      else if (event.key === "ArrowLeft") index = (here - 1 + TABS.length) % TABS.length;
+      else if (event.key === "Home") index = 0;
+      else if (event.key === "End") index = TABS.length - 1;
+      if (index === null) return;
       event.preventDefault();
-      const index = (TABS.indexOf(button.dataset.tab) + step + TABS.length) % TABS.length;
       selectTab(TABS[index], true);
     });
   }
@@ -113,6 +121,7 @@
   // Показывает раздел на вкладке настроек и прокручивает к нему.
   function showInSettings(node) {
     selectTab("settings");
+    if (window.setSectionOpen) window.setSectionOpen(node, true);
     node.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
@@ -520,7 +529,12 @@
     timerState = { elapsed: msg.elapsed, record: msg.record, running: msg.running, at: performance.now() };
     renderTimer();
   }
-  setInterval(renderTimer, 1000);
+  setInterval(() => {
+    if (!document.hidden) renderTimer();
+  }, 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) renderTimer();
+  });
 
   // Предпросмотр оверлея: окно программы не открывает вкладки, поэтому браузер запускает сервер.
   $("overlay-open").addEventListener("click", () => {
@@ -632,13 +646,26 @@
     return Math.min(Math.max((20 * Math.log10(level) + 60) / 60, 0), 1);
   }
 
+  // Кадры рисуются, только пока есть сигнал; тишина и скрытая вкладка ничего не стоят.
+  // Шкала двигается через transform (композитор), а не через width (раскладка).
+  let meterFrame = 0;
+  let drawnLevel = -1;
+
   function drawMeter() {
+    meterFrame = 0;
     shownLevel = targetLevel > shownLevel ? targetLevel : shownLevel * 0.88;
     targetLevel *= 0.8;
-    meterMaskEl.style.width = `${(1 - shownLevel) * 100}%`;
-    requestAnimationFrame(drawMeter);
+    if (shownLevel < 0.004 && targetLevel < 0.004) shownLevel = targetLevel = 0;
+    if (Math.abs(shownLevel - drawnLevel) > 0.003 || shownLevel === 0) {
+      drawnLevel = shownLevel;
+      meterMaskEl.style.transform = `scaleX(${1 - shownLevel})`;
+    }
+    if (shownLevel > 0 || targetLevel > 0) meterFrame = requestAnimationFrame(drawMeter);
   }
-  requestAnimationFrame(drawMeter);
+
+  function wakeMeter() {
+    if (!meterFrame) meterFrame = requestAnimationFrame(drawMeter);
+  }
 
   // --- Звук оповещения (тот же проигрыватель, что в оверлее: /overlay/sound.js) ---
 
@@ -1855,7 +1882,10 @@
       } catch (e) {
         return;
       }
-      if (msg.type === "mic_level") targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
+      if (msg.type === "mic_level") {
+        targetLevel = Math.max(targetLevel, levelToPosition(msg.level));
+        wakeMeter();
+      }
       else if (msg.type === "sound") showSound(msg);
       else if (msg.type === "update") showUpdate(msg);
       else if (msg.type === "presets") loadCustomPresets();
