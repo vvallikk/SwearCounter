@@ -539,6 +539,7 @@
     else if (state.mic) text = `Слушает: ${state.mic}`;
     else if (loading) text = "Микрофон откроется, когда модель загрузится";
     else if (state.status === "no_model") text = "Микрофон откроется, когда модель скачается";
+    else if (state.status === "no_key") text = "Микрофон откроется, когда будет введён API-ключ";
     setStatus(micStatusEl, text, error);
     showMonitor(Boolean(state.monitor));
     micMonitorBtn.disabled = !state.mic;
@@ -1027,6 +1028,7 @@
     no_model: "Модель ещё не скачана. Скачайте любую модель ниже — она включится сама",
     listening: "Модель работает",
     mic_error: "Модель загружена, но микрофон не открылся",
+    no_key: "Для облачной модели нужен API-ключ сервиса: введите его в карточке модели ниже",
     error: "Ошибка распознавания, подробности в консоли приложения. Нажмите на модель, чтобы перезапустить",
     stopped: "Распознавание остановлено",
   };
@@ -1067,6 +1069,7 @@
     pick.type = "button";
     const title = el("span", "title", m.title);
     title.append(el("span", "model-name", `(${m.name})`));
+    if (m.cloud) title.append(el("span", "badge cloud", "облако"));
     if (selected) title.append(el("span", "badge", "выбрана"));
     else if (active) title.append(el("span", "badge", "скачивается"));
     else if (!m.installed) title.append(el("span", "badge", `не скачана · ${m.download_size}`));
@@ -1078,12 +1081,16 @@
     const details = el("div", "model-details");
     details.id = `model-details-${m.id}`;
     details.hidden = !expandedModels.has(m.id);
-    details.append(
-      el("p", "", m.description),
-      el("p", "specs", `Размер на диске: ${m.disk} · в памяти: ${m.memory}`),
-      el("p", "specs", `Загрузка в память при запуске: ${m.load_time}`)
-    );
-    if (!m.installed) {
+    details.append(el("p", "", m.description));
+    if (!m.cloud) {
+      details.append(
+        el("p", "specs", `Размер на диске: ${m.disk} · в памяти: ${m.memory}`),
+        el("p", "specs", `Загрузка в память при запуске: ${m.load_time}`)
+      );
+    }
+    if (!m.installed && m.cloud) {
+      details.append(el("p", "specs", `Кнопка «Скачать» загружает только детектор речи (${m.download_size}).`));
+    } else if (!m.installed) {
       const hint = el("p", "specs", `Скачивается кнопкой «Скачать» (${m.download_size}).`);
       // Вручную предлагаем ставить только модели из одного архива: модель из нескольких
       // файлов проще и надёжнее скачать кнопкой.
@@ -1131,8 +1138,59 @@
     } else if (download && download.status === "error") {
       card.append(el("div", "model-download status-line error", `${download.error}. Нажмите «Скачать», чтобы попробовать ещё раз`));
     }
+    if (m.cloud) card.append(cloudKeyRow(m));
     card.append(details);
     return card;
+  }
+
+  // Облачная модель: поле для API-ключа сервиса, одно на все модели этого сервиса.
+  function cloudKeyRow(m) {
+    const provider = (shownSpeech && shownSpeech[0].providers[m.provider]) || { title: m.provider };
+    const box = el("div", "model-download cloud-key");
+    if (m.has_key) {
+      const row = el("div", "row");
+      row.append(el("span", "download-text", `Ключ ${provider.title} сохранён. Звук фраз уходит в ${provider.title}.`));
+      const remove = el("button", "secondary-btn small-btn", "Удалить ключ");
+      remove.type = "button";
+      confirmByTwoClicks(remove, "Удалить?", () => keyCall("DELETE", `/api/speech/cloud-key/${m.provider}`, null, remove));
+      row.append(remove);
+      box.append(row);
+      return box;
+    }
+    box.append(el("div", "download-text", `Звук фраз будет отправляться в ${provider.title}: нужен ваш API-ключ.`));
+    const row = el("div", "row key-row");
+    const input = document.createElement("input");
+    input.type = "password";
+    input.className = "text-input key-input";
+    input.placeholder = `API-ключ ${provider.title}`;
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    const save = el("button", "secondary-btn small-btn", "Сохранить ключ");
+    save.type = "button";
+    save.addEventListener("click", () => keyCall("PUT", "/api/speech/cloud-key", { provider: m.provider, key: input.value }, save));
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") save.click();
+    });
+    row.append(input, save);
+    box.append(row);
+    if (provider.keys_page) {
+      const link = el("a", "", "Где взять ключ");
+      link.href = provider.keys_page;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      box.append(link);
+    }
+    return box;
+  }
+
+  async function keyCall(method, url, body, button) {
+    button.disabled = true;
+    try {
+      showSpeech(await api(method, url, body || undefined));
+    } catch (e) {
+      setStatus(speechStatusEl, e.message, true);
+      button.disabled = false;
+    }
   }
 
   // Кнопка в карточке: «Скачать» у нескачанной модели, корзина — у скачанной.
@@ -1184,7 +1242,7 @@
     const failed = state.status === "error";
     // Байты скачивания в ключ не входят: полосы обновляются на месте, без перерисовки карточек.
     const key = JSON.stringify([
-      state.models.map((m) => [m.id, m.installed, m.download && m.download.status, m.download && m.download.error]),
+      state.models.map((m) => [m.id, m.installed, m.has_key, m.download && m.download.status, m.download && m.download.error]),
       state.model,
       failed,
       speechLanguage,

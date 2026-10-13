@@ -184,6 +184,40 @@
     "Когда скачается, она включится сама. Страницу можно закрыть: скачивание идёт в приложении.":
       "It will switch on by itself once downloaded. You can close the page: the download runs in the app.",
     "Страницу можно закрыть: скачивание идёт в приложении.": "You can close the page: the download runs in the app.",
+    // Облачные модели
+    "облако": "cloud",
+    "Для облачной модели нужен API-ключ сервиса: введите его в карточке модели ниже":
+      "A cloud model needs the service's API key: enter it in the model card below",
+    "Микрофон откроется, когда будет введён API-ключ": "The microphone will open once the API key is entered",
+    "Сохранить ключ": "Save key",
+    "Удалить ключ": "Delete key",
+    "Где взять ключ": "Where to get a key",
+    "быстрая и недорогая, от Deepgram": "fast and inexpensive, from Deepgram",
+    "новая модель Deepgram, точнее Nova-2": "Deepgram's new model, more accurate than Nova-2",
+    "экономная модель OpenAI": "OpenAI's economical model",
+    "самая точная у OpenAI": "OpenAI's most accurate",
+    "классический Whisper через API OpenAI": "classic Whisper through the OpenAI API",
+    "Whisper на Groq, очень быстро и дёшево": "Whisper on Groq, very fast and cheap",
+    "самый точный Whisper на Groq": "the most accurate Whisper on Groq",
+    "модель ElevenLabs": "an ElevenLabs model",
+    "Проверенная модель Deepgram: распознаёт быстро, цена за минуту невысокая. Подходит, если нужна скорость и недорого.":
+      "A proven Deepgram model: recognizes fast, with a low price per minute. Fits when you need speed and a low price.",
+    "Новая модель Deepgram: точнее Nova-2, лучше справляется с шумом и разговорной речью.":
+      "Deepgram's new model: more accurate than Nova-2, copes better with noise and conversational speech.",
+    "Облегчённая модель OpenAI: точнее исходного Whisper и дешевле GPT-4o Transcribe.":
+      "OpenAI's lightweight model: more accurate than the original Whisper and cheaper than GPT-4o Transcribe.",
+    "Самая точная модель распознавания OpenAI. Стоит дороже остальных у этого сервиса.":
+      "OpenAI's most accurate recognition model. Costs more than the others from this service.",
+    "Whisper large-v2, работающий на серверах OpenAI: нагрузки на компьютер нет совсем.":
+      "Whisper large-v2 running on OpenAI's servers: no load on your computer at all.",
+    "Whisper large-v3 turbo на серверах Groq: самый дешёвый способ получить Whisper, работает быстро. Сервис округляет каждый запрос до 10 секунд, поэтому короткие фразы обходятся как десятисекундные.":
+      "Whisper large-v3 turbo on Groq's servers: the cheapest way to get Whisper, and fast. The service rounds each request up to 10 seconds, so short phrases cost like ten-second ones.",
+    "Полная Whisper large-v3 на серверах Groq: точнее turbo-версии. Сервис округляет каждый запрос до 10 секунд.":
+      "Full Whisper large-v3 on Groq's servers: more accurate than the turbo version. The service rounds each request up to 10 seconds.",
+    "Модель распознавания речи ElevenLabs, точная на многих языках, в том числе на русском.":
+      "ElevenLabs' speech recognition model, accurate in many languages, Russian included.",
+    "Ключ должен быть одной строкой без пробелов и русских букв":
+      "The key must be a single string without spaces or Russian letters",
     // Модели (app/stt/catalog.py)
     "Базовая": "Basic",
     "Экономная": "Lightweight",
@@ -398,6 +432,16 @@
     ["Звук оформления «{}»", "Sound of the “{}” look"],
     ["Оформление «{}» установлено и включено", "The “{}” look is installed and on"],
     ["Скачано {} из {}", "Downloaded {} of {}"],
+    ["Облако: {}", "Cloud: {}"],
+    ["Неизвестный сервис {}", "Unknown service {}"],
+    [
+      "{} Звук ваших фраз отправляется в {} и оплачивается по вашему API-ключу. Остальное распознавание остаётся на компьютере: в облако уходят только законченные фразы. Нужен интернет.",
+      "{} The audio of your phrases is sent to {} and billed to your API key. Everything else stays on the computer: only finished phrases go to the cloud. Internet is required.",
+    ],
+    ["Ключ {} сохранён. Звук фраз уходит в {}.", "The {} key is saved. Phrase audio is sent to {}."],
+    ["Звук фраз будет отправляться в {}: нужен ваш API-ключ.", "Phrase audio will be sent to {}: your API key is required."],
+    ["API-ключ {}", "{} API key"],
+    ["Кнопка «Скачать» загружает только детектор речи ({}).", "The “Download” button fetches only the speech detector ({})."],
     ["Скачано {}", "Downloaded {}"],
     ["Размер на диске: {}", "Size on disk: {}"],
     ["в памяти: {}", "in memory: {}"],

@@ -486,6 +486,13 @@ select {
 .download-text { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .small-btn { padding: 4px 10px; font-size: 12px; }
 .download-note { margin-top: 6px; }
+/* Облачная модель: бейдж и поле API-ключа. */
+.model-card .badge.cloud { color: var(--accent); border-color: var(--accent); }
+.cloud-key .download-text { display: block; margin-bottom: 6px; }
+.cloud-key .row { margin-top: 0; }
+.cloud-key a { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--accent); }
+.key-row { gap: 8px; }
+.key-input { flex: 1; min-width: 0; }
 
 /* --- Заказ оформления --- */
 .link-btn {

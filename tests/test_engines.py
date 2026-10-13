@@ -228,6 +228,28 @@ def test_whisper_model_with_vad(fake_sherpa, models_dir, language):
     assert fake_sherpa.vad_configs[-1].silero_vad.model == str(model.path / model.model_files["vad"])
 
 
+@pytest.mark.parametrize("language", [RU, EN])
+def test_cloud_model_with_vad_and_key(fake_sherpa, models_dir, language):
+    from app.stt.catalog import CLOUD
+    from app.stt.cloud import CloudRecognizer
+
+    model = next(m for m in CATALOG if m.engine == CLOUD and m.language == language)
+    with pytest.raises(ValueError):
+        load_engine(str(model.path))  # без ключа облачная модель не запускается
+    engine = load_engine(str(model.path), api_key="KEY")
+    assert isinstance(engine.rec, CloudRecognizer)
+    assert (engine.rec.model, engine.rec.language, engine.rec.key) == (model.api_model, language, "KEY")
+    assert engine.rec.provider.id == model.provider
+    assert engine.partial_seconds == float("inf")  # промежуточных запросов в облако нет
+    engine.session(48000)
+    assert fake_sherpa.vad_configs[-1].silero_vad.model == str(model.path / model.model_files["vad"])
+
+
+def test_api_key_is_ignored_by_local_models(fake_sherpa, models_dir):
+    model = model_of(SHERPA_NEMO_CTC)
+    assert load_engine(str(model.path), api_key="KEY").rec.kind == "nemo_ctc"
+
+
 # --- Vosk ---
 
 

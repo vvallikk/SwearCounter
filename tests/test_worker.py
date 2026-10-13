@@ -87,15 +87,15 @@ class WorkerHarness:
         self.thread: threading.Thread | None = None
         self.levels: list[float] = []  # уровни громкости, пропущенные recv()
 
-    def start(self, device=None, *, via_run_worker=False) -> None:
+    def start(self, device=None, *, via_run_worker=False, api_key=None) -> None:
         self.results, results_send = multiprocessing.Pipe(duplex=False)
         cmd_recv, self.commands = multiprocessing.Pipe(duplex=False)
         self._threads_before = set(threading.enumerate())
         if via_run_worker:
-            target = lambda: worker_module.run_worker(results_send, cmd_recv, "models/fake", device)  # noqa: E731
+            target = lambda: worker_module.run_worker(results_send, cmd_recv, "models/fake", device, api_key)  # noqa: E731
         else:
             worker = worker_module._Worker(results_send, cmd_recv, device)
-            target = lambda: worker.run("models/fake")  # noqa: E731
+            target = lambda: worker.run("models/fake", api_key)  # noqa: E731
         self.thread = threading.Thread(target=self._guard, args=(target,), daemon=True)
         self.thread.start()
 
@@ -378,3 +378,36 @@ def test_lost_microphone_is_closed_right_away(worker, monkeypatch):
     worker.expect("mic_error")
     # Закрыт сразу, а не только после выбора другого микрофона.
     assert lost.closed
+
+
+def test_api_key_reaches_the_engine_loader(worker, monkeypatch):
+    from app.stt import engines
+
+    loaded = []
+
+    def load_engine(path, **kwargs):
+        loaded.append((path, kwargs))
+        return worker_module_fake_engine()
+
+    def worker_module_fake_engine():
+        return types.SimpleNamespace(session=lambda rate: types.SimpleNamespace(accept=lambda data: []))
+
+    monkeypatch.setattr(engines, "load_engine", load_engine)
+    worker.start(via_run_worker=True, api_key="KEY")
+    worker.expect("loaded")
+    assert loaded == [("models/fake", {"api_key": "KEY"})]
+
+
+def test_local_model_is_loaded_without_key(worker, monkeypatch):
+    from app.stt import engines
+
+    loaded = []
+
+    def load_engine(path, **kwargs):
+        loaded.append((path, kwargs))
+        return types.SimpleNamespace(session=lambda rate: types.SimpleNamespace(accept=lambda data: []))
+
+    monkeypatch.setattr(engines, "load_engine", load_engine)
+    worker.start(via_run_worker=True)
+    worker.expect("loaded")
+    assert loaded == [("models/fake", {})]

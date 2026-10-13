@@ -4,6 +4,7 @@ import json
 
 from app.stt.catalog import (
     CATALOG,
+    CLOUD,
     EN,
     RU,
     SHERPA_NEMO_CTC,
@@ -65,6 +66,7 @@ REQUIRED_FILES = {
     SHERPA_T_ONE: {"model", "tokens"},
     SHERPA_NEMO_CTC: {"model", "tokens", "vad"},
     SHERPA_WHISPER: {"encoder", "decoder", "tokens", "vad"},
+    CLOUD: {"vad"},  # звук распознаёт сервис, локально нужен только детектор речи
 }
 
 
@@ -79,7 +81,7 @@ def test_every_model_has_known_engine_and_files():
 def test_default_model_is_still_small_vosk():
     """Первая модель — модель по умолчанию; у тех, кто обновился, она не должна смениться."""
     assert CATALOG[0].id == SMALL
-    assert [m for m in CATALOG if m.language == RU][-1].id == LARGE
+    assert [m for m in CATALOG if m.language == RU and not m.cloud][-1].id == LARGE
 
 
 def test_models_grouped_by_language():

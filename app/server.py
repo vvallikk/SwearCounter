@@ -30,6 +30,7 @@ from .settings import Settings
 from .stats import Stats
 from .sound import MAX_SOUND_BYTES, Sound
 from .timer import NoSwearTimer
+from .stt.cloud import PROVIDERS, clean_key
 from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model, remove_model
 from .updater import Updater
 from .wordlists import WordLists
@@ -184,6 +185,11 @@ class GoalsChoice(BaseModel):
 
 class ModelChoice(BaseModel):
     model: str
+
+
+class CloudKeyChoice(BaseModel):
+    provider: str
+    key: str
 
 
 class DeviceChoice(BaseModel):
@@ -863,10 +869,24 @@ def create_app(
         hub.stats.clear()
         return hub.stats.state()
 
+    def cloud_keys() -> dict:
+        keys = settings.get("cloud_keys", {})
+        return keys if isinstance(keys, dict) else {}  # файл могли испортить вручную
+
     @app.get("/api/speech")
     async def get_speech():
+        saved = cloud_keys()
         return {
-            "models": [m.to_dict() | {"download": downloader.state(m.id)} for m in CATALOG],
+            "models": [
+                m.to_dict()
+                | {"download": downloader.state(m.id), "has_key": m.cloud and clean_key(saved.get(m.provider)) is not None}
+                for m in CATALOG
+            ],
+            # Сами ключи наружу не отдаём: только есть ли ключ.
+            "providers": {
+                p.id: {"title": p.title, "keys_page": p.keys_page, "has_key": clean_key(saved.get(p.id)) is not None}
+                for p in PROVIDERS.values()
+            },
             "model": recognizer.model_path.name,
             "status": recognizer.status,
             "progress": recognizer.load_progress,
@@ -929,6 +949,32 @@ def create_app(
             except OSError as e:
                 raise HTTPException(500, f"Не удалось удалить модель: {e}") from None
             log.info("Модель %s удалена", model.id)
+        return await get_speech()
+
+    async def restart_for_key(provider: str) -> None:
+        """Ключ сервиса поменяли: если по нему работает выбранная модель, перезапускаем её."""
+        async with switch_lock:
+            if recognizer.cloud_provider() == provider:
+                await recognizer.set_model(recognizer.model_path)
+
+    @app.put("/api/speech/cloud-key")
+    async def put_cloud_key(choice: CloudKeyChoice):
+        """Сохраняет API-ключ облачного сервиса (в settings.json на этом компьютере)."""
+        if choice.provider not in PROVIDERS:
+            raise HTTPException(404, f"Неизвестный сервис {choice.provider}")
+        key = clean_key(choice.key)
+        if key is None:
+            raise HTTPException(400, "Ключ должен быть одной строкой без пробелов и русских букв")
+        settings.set("cloud_keys", cloud_keys() | {choice.provider: key})
+        await restart_for_key(choice.provider)
+        return await get_speech()
+
+    @app.delete("/api/speech/cloud-key/{provider}")
+    async def delete_cloud_key(provider: str):
+        if provider not in PROVIDERS:
+            raise HTTPException(404, f"Неизвестный сервис {provider}")
+        settings.set("cloud_keys", {k: v for k, v in cloud_keys().items() if k != provider})
+        await restart_for_key(provider)
         return await get_speech()
 
     devices_lock = threading.Lock()  # PortAudio нельзя перезапускать из двух потоков сразу

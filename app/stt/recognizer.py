@@ -15,6 +15,8 @@ from pathlib import Path
 
 from ..settings import Settings
 from .base import OnText, Recognizer
+from .catalog import find_model
+from .cloud import clean_key
 from .worker import run_worker
 
 log = logging.getLogger(__name__)
@@ -63,6 +65,19 @@ class MicRecognizer(Recognizer):
         elapsed = time.monotonic() - self._load_started
         return min(elapsed / self._load_expected, 0.99)
 
+    def cloud_provider(self) -> str | None:
+        """Сервис выбранной облачной модели; у локальной модели None."""
+        model = find_model(self.model_path.name)
+        return model.provider if model is not None and model.cloud else None
+
+    def api_key(self) -> str | None:
+        """Ключ сервиса выбранной облачной модели; None, если модель не облачная или ключа нет."""
+        provider = self.cloud_provider()
+        keys = self.settings.get("cloud_keys", {})
+        if provider is None or not isinstance(keys, dict):
+            return None
+        return clean_key(keys.get(provider))
+
     def _saved_load_seconds(self) -> dict:
         saved = self.settings.get("load_seconds", {})
         return saved if isinstance(saved, dict) else {}  # файл могли испортить вручную
@@ -84,6 +99,10 @@ class MicRecognizer(Recognizer):
         # на странице управления — тогда она скачается и запустится.
         if not self.model_path.is_dir():
             self.status = "no_model"
+            return
+        # Облачной модели нужен ключ сервиса: без него ждём, пока его введут.
+        if self.cloud_provider() is not None and self.api_key() is None:
+            self.status = "no_key"
             return
         await super().start()
 
@@ -134,11 +153,11 @@ class MicRecognizer(Recognizer):
         cmd_recv, cmd_send = _mp.Pipe(duplex=False)
         process = _mp.Process(
             target=run_worker,
-            args=(send_conn, cmd_recv, str(self.model_path), self.device),
+            args=(send_conn, cmd_recv, str(self.model_path), self.device, self.api_key()),
             name=self.model_path.name,
             daemon=True,  # при выходе из программы процесс завершится вместе с ней
         )
-        log.info("Загрузка модели Vosk в память: %s", self.model_path)
+        log.info("Загрузка модели в память: %s", self.model_path)
         self._load_started = time.monotonic()
         await asyncio.to_thread(process.start)
         # Свой экземпляр передающего конца закрываем: тогда при завершении

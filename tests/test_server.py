@@ -12,7 +12,7 @@ from app import server
 from app.server import Hub, create_app
 from app.settings import Settings
 from app.sound import Sound
-from app.stt import CATALOG
+from app.stt import CATALOG, find_model
 from conftest import GREETING, HYPERX, REALTEK, STEAM, skip_greeting
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,6 +44,10 @@ class FakeRecognizer:
         self.calls.append(("set_model", model_path))
         self.model_path = Path(model_path)
         self.status = "loading"
+
+    def cloud_provider(self):
+        model = find_model(self.model_path.name)
+        return model.provider if model is not None and model.cloud else None
 
     def set_device(self, device):
         self.calls.append(("set_device", device))
@@ -1039,3 +1043,73 @@ def test_ui_language(client, settings, monkeypatch):
 def test_ui_language_open_during_forced_update(locked_client):
     client, _ = locked_client
     assert client.post("/api/ui-language", json={"language": "en"}).status_code == 200
+
+
+# --- облачные модели: API-ключи ---
+
+CLOUD = "cloud-deepgram-nova-2-ru"
+
+
+def test_speech_lists_cloud_models_without_keys(client):
+    data = client.get("/api/speech").json()
+    model = next(m for m in data["models"] if m["id"] == CLOUD)
+    assert model["cloud"] is True
+    assert model["has_key"] is False
+    assert data["providers"]["deepgram"]["has_key"] is False
+    assert {"openai", "groq", "deepgram", "elevenlabs"} <= set(data["providers"])
+
+
+def test_cloud_key_is_saved_and_never_returned(client, settings):
+    response = client.put("/api/speech/cloud-key", json={"provider": "deepgram", "key": "  secret-key-123  "})
+    assert response.status_code == 200
+    assert settings.get("cloud_keys") == {"deepgram": "secret-key-123"}
+    assert response.json()["providers"]["deepgram"]["has_key"] is True
+    assert "secret-key-123" not in response.text
+    assert "secret-key-123" not in client.get("/api/speech").text
+    model = next(m for m in response.json()["models"] if m["id"] == CLOUD)
+    assert model["has_key"] is True
+
+
+@pytest.mark.parametrize("key", ["", "   ", "два слова", "ключ-по-русски", "a\nb", "x" * 600])
+def test_bad_cloud_key_is_rejected(client, settings, key):
+    response = client.put("/api/speech/cloud-key", json={"provider": "deepgram", "key": key})
+    assert response.status_code == 400
+    assert settings.get("cloud_keys") is None
+
+
+def test_unknown_provider_key(client):
+    assert client.put("/api/speech/cloud-key", json={"provider": "нет", "key": "abc"}).status_code == 404
+    assert client.delete("/api/speech/cloud-key/нет").status_code == 404
+
+
+def test_cloud_key_delete(client, settings):
+    client.put("/api/speech/cloud-key", json={"provider": "openai", "key": "k1"})
+    client.put("/api/speech/cloud-key", json={"provider": "groq", "key": "k2"})
+    response = client.delete("/api/speech/cloud-key/openai")
+    assert response.json()["providers"]["openai"]["has_key"] is False
+    assert settings.get("cloud_keys") == {"groq": "k2"}
+
+
+def test_key_change_restarts_the_selected_cloud_model(client, recognizer, models_dir):
+    (models_dir / CLOUD).mkdir()
+    recognizer.model_path = models_dir / CLOUD
+    client.put("/api/speech/cloud-key", json={"provider": "deepgram", "key": "k"})
+    assert ("set_model", models_dir / CLOUD) in recognizer.calls
+    recognizer.calls.clear()
+    client.delete("/api/speech/cloud-key/deepgram")
+    assert ("set_model", models_dir / CLOUD) in recognizer.calls
+
+
+def test_key_of_other_provider_keeps_the_model_running(client, recognizer):
+    client.put("/api/speech/cloud-key", json={"provider": "openai", "key": "k"})
+    assert not any(call[0] == "set_model" for call in recognizer.calls)
+
+
+def test_foreign_site_cannot_set_cloud_key(client, settings):
+    response = client.put(
+        "/api/speech/cloud-key",
+        json={"provider": "openai", "key": "k"},
+        headers={"Origin": "https://evil.example"},
+    )
+    assert response.status_code == 403
+    assert settings.get("cloud_keys") is None
