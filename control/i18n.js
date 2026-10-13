@@ -454,7 +454,7 @@
     ["Ключ {} сохранён. Звук фраз уходит в {}.", "The {} key is saved. Phrase audio is sent to {}."],
     ["Звук фраз будет отправляться в {}: нужен ваш API-ключ.", "Phrase audio will be sent to {}: your API key is required."],
     ["API-ключ {}", "{} API key"],
-    ["Кнопка «Скачать» загружает только детектор речи ({}).", "The “Download” button fetches only the speech detector ({})."],
+    ["Скачивается только небольшая вспомогательная часть ({}): она находит в звуке фразы и отправляет их в облако. Сама модель в облаке, её скачивать не нужно.", "Only a small helper ({}) is downloaded: it finds phrases in the audio and sends them to the cloud. The model itself runs in the cloud, no download needed."],
     ["Скачано {}", "Downloaded {}"],
     ["Размер на диске: {}", "Size on disk: {}"],
     ["в памяти: {}", "in memory: {}"],
