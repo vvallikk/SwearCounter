@@ -48,6 +48,10 @@
     "Оверлей для OBS (источник «Браузер») или любого браузера:": "Overlay for OBS (a “Browser” source) or any browser:",
     "Нажмите, чтобы скопировать": "Click to copy",
     "Где распознавать": "Where to recognize",
+    "Работают на вашем компьютере без интернета, звук никуда не отправляется. Модель нужно скачать один раз.":
+      "Run on your computer without internet; audio never leaves it. The model is downloaded once.",
+    "Звук фраз отправляется сервису по интернету, нужен ваш API-ключ. Скачивать модель не нужно, распознаёт быстро и точно.":
+      "Phrase audio is sent to the service over the internet; your API key is required. No model download, fast and accurate.",
     "ключ сохранён": "key saved",
     "нужен ключ": "key needed",
     "Источники для OBS": "Sources for OBS",
@@ -422,8 +426,8 @@
   // Строки с переменной частью: {} — любой текст (тоже переводится), {1}, {2} в
   // переводе — части по номеру, если порядок другой.
   const PATTERNS = [
-    ["На компьютере · {}", "On this PC · {}"],
-    ["Облако (по API-ключу) · {}", "Cloud (API key) · {}"],
+    ["Локальные · {}", "Local · {}"],
+    ["Облачные · {}", "Cloud · {}"],
     ["Ошибка сервера ({})", "Server error ({})"],
     ["{} (нет файла)", "{} (no file)"],
     ["{} (не найден)", "{} (not found)"],

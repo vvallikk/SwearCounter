@@ -1297,17 +1297,22 @@
     }
   }
 
-  // Вкладки «На компьютере» / «Облако»: пятнадцать карточек в одном списке не обозреть.
+  // Вкладки «Локальные» / «Облачные»: пятнадцать карточек в одном списке не обозреть.
   let modelGroup = null; // "local" | "cloud"; пока null — берётся группа выбранной модели
   const modelTabsEl = el("div", "model-tabs");
   modelTabsEl.setAttribute("role", "group");
   modelTabsEl.setAttribute("aria-label", "Где распознавать");
-  modelListEl.before(modelTabsEl);
+  const modelGroupNoteEl = el("p", "note model-group-note");
+  modelListEl.before(modelTabsEl, modelGroupNoteEl);
+  const GROUP_NOTES = {
+    local: "Работают на вашем компьютере без интернета, звук никуда не отправляется. Модель нужно скачать один раз.",
+    cloud: "Звук фраз отправляется сервису по интернету, нужен ваш API-ключ. Скачивать модель не нужно, распознаёт быстро и точно.",
+  };
 
   function renderModelTabs(models, current) {
     const counts = { local: 0, cloud: 0 };
     for (const m of models) counts[m.cloud ? "cloud" : "local"] += 1;
-    const labels = { local: "На компьютере", cloud: "Облако (по API-ключу)" };
+    const labels = { local: "Локальные", cloud: "Облачные" };
     const buttons = ["local", "cloud"].map((group) => {
       const button = el("button", "model-tab", `${labels[group]} · ${counts[group]}`);
       button.type = "button";
@@ -1321,6 +1326,7 @@
       return button;
     });
     modelTabsEl.replaceChildren(...buttons);
+    modelGroupNoteEl.textContent = GROUP_NOTES[modelGroup];
   }
 
   function showModels(state, loading) {
