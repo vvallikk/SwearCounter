@@ -26,6 +26,12 @@ env:
 jobs:
   check:
     runs-on: windows-latest
+    # Сборки не побитово одинаковые, и часть движков отвечает нестабильно: три независимые
+    # сборки, у каждой ещё две перепроверки.
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
 
@@ -53,10 +59,10 @@ jobs:
         shell: bash
         env:
           VT_API_KEY: ${{ secrets.VT_API_KEY }}
-        run: python scripts/vt_check.py dist/SwearCounter-v*-windows.zip dist/SwearCounter/SwearCounter.exe
+        run: python scripts/vt_check.py --rescans 2 dist/SwearCounter-v*-windows.zip dist/SwearCounter/SwearCounter.exe
 
       - uses: actions/upload-artifact@v7
         with:
-          name: SwearCounter-windows
+          name: SwearCounter-windows-${{ matrix.attempt }}
           path: dist/SwearCounter-v*-windows.zip
           retention-days: 7

@@ -62,6 +62,21 @@ a = Analysis(
     # байткода сильно повышает срабатывания эвристик антивирусов (проверено на VirusTotal).
     noarchive=True,
 )
+
+
+def _needed(entry):
+    """Пустые файлы и чужеродные для Windows ресурсы: на них срабатывают эвристики антивирусов
+    (Zillya: Trojan.Blank.Script на пустых файлах), а программе они не нужны."""
+    name, src = entry[0], entry[1]
+    if name.lower().endswith((".jar", ".dylib", ".xml")):
+        return False
+    path = Path(src)
+    return not (path.is_file() and path.stat().st_size == 0)
+
+
+a.datas = [d for d in a.datas if _needed(d)]
+a.binaries = [b for b in a.binaries if _needed(b)]
+
 pyz = PYZ(a.pure)
 
 exe = EXE(

@@ -30,7 +30,13 @@ def flagged_engines(sha256: str, key: str) -> list[tuple[str, str]]:
     return sorted((name, r.get("result") or r["category"]) for name, r in results.items() if r["category"] in FLAGGED)
 
 
-def check(path: Path, key: str) -> str:
+def reanalyze(sha256: str, key: str) -> None:
+    """Попросить VirusTotal перепроверить файл (часть движков отвечает нестабильно)."""
+    analysis_id = call("POST", f"{API}/files/{sha256}/analyse", key)["data"]["id"]
+    wait_for_analysis(analysis_id, key)
+
+
+def check(path: Path, key: str, rescans: int = 0) -> str:
     sha256 = file_sha256(path)
     # Новый файл ждёт результат; уже известный VirusTotal берётся из кэша.
     # Перепроверку не просим: итог должен быть тем, что увидят пользователи.
@@ -51,25 +57,32 @@ def check(path: Path, key: str) -> str:
             break
         time.sleep(15)
     found, total = detections(attributes.get("last_analysis_stats") or {})
-    lines = [
-        f"### {path.name}",
-        "",
-        f"- SHA-256: `{sha256}`",
-        f"- Итог: **{found}/{total}** ([отчёт]({REPORT_URL.format(sha256=sha256)}))",
-    ]
-    lines += [f"- {name}: `{verdict}`" for name, verdict in flagged_engines(sha256, key)]
+    lines = [f"### {path.name}", "", f"- SHA-256: `{sha256}`"]
+
+    def add(title: str) -> None:
+        nonlocal found, total
+        lines.append(f"- {title}: **{found}/{total}** ([отчёт]({REPORT_URL.format(sha256=sha256)}))")
+        lines.extend(f"  - {name}: `{verdict}`" for name, verdict in flagged_engines(sha256, key))
+
+    add("Итог")
+    for n in range(1, rescans + 1):
+        reanalyze(sha256, key)
+        attributes = call("GET", f"{API}/files/{sha256}", key)["data"]["attributes"]
+        found, total = detections(attributes.get("last_analysis_stats") or {})
+        add(f"Перепроверка {n}")
     return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("files", nargs="+", type=Path)
+    parser.add_argument("--rescans", type=int, default=0, help="сколько раз перепроверить файл после первого итога")
     args = parser.parse_args(argv)
     key = os.environ.get("VT_API_KEY", "").strip()
     if not key:
         print("::error::VT_API_KEY не задан")
         return 1
-    report = "## VirusTotal\n\n" + "\n".join(check(path, key) for path in args.files)
+    report = "## VirusTotal\n\n" + "\n".join(check(path, key, args.rescans) for path in args.files)
     print(report)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
