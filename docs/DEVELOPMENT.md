@@ -259,6 +259,7 @@ gh secret set VT_API_KEY
 Что для этого уже сделано: сборка без UPX и без onefile, заполненные метаданные exe
 (CompanyName, LegalCopyright в [SwearCounter.spec](../SwearCounter.spec)) и загрузчик
 PyInstaller, собираемый из исходников в release.yml (его хеш не совпадает с готовым).
+Проверить сборку без релиза: Actions → Antivirus check (запуск вручную или пуш в ветку `av-check/*`).
 Остальное снимается подписью (SignPath, ниже) и заявкой производителю антивируса о
 ложном срабатывании: для Bkav это форма на [bkav.com](https://www.bkav.com/) и
 письмо в поддержку, в заявке нужны ссылка на отчёт VirusTotal и на репозиторий.

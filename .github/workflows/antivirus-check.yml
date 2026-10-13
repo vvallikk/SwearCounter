@@ -1,0 +1,52 @@
+name: Antivirus check
+
+# Сборка и проверка на VirusTotal без релиза и без PR: запуск вручную (Actions → Antivirus check)
+# или пушем в ветку av-check/*. Ничего не публикует; архив остаётся артефактом на 7 дней.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["av-check/**"]
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          allow-prereleases: true
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      # Как в release.yml: загрузчик PyInstaller собирается из исходников.
+      - name: Install PyInstaller (build bootloader from source)
+        shell: bash
+        run: |
+          version=$(grep -i '^pyinstaller==' requirements-build.txt | cut -d= -f3)
+          python -m pip install --no-binary pyinstaller "pyinstaller==${version}"
+
+      - name: Build
+        run: python scripts/build.py
+
+      - name: Check on VirusTotal
+        shell: bash
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: python scripts/vt_check.py dist/SwearCounter-v*-windows.zip dist/SwearCounter/SwearCounter.exe
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SwearCounter-windows
+          path: dist/SwearCounter-v*-windows.zip
+          retention-days: 7
