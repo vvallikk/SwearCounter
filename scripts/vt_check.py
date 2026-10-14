@@ -2,7 +2,7 @@
 
 Запуск из antivirus-check.yml (нужна переменная окружения VT_API_KEY):
 
-    python scripts/vt_check.py dist/SwearCounter-v1.5.0-windows.zip dist/SwearCounter/SwearCounter.exe
+    python scripts/vt_check.py dist/SwearCounter-v1.6.0-windows.zip dist/SwearCounter/SwearCounter.exe
 
 Результат печатается и дописывается в GITHUB_STEP_SUMMARY, если он задан.
 Код возврата 0, даже если что-то нашли: скрипт только сообщает.
