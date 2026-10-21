@@ -67,26 +67,36 @@
   const valueEl = document.getElementById("value");
   const glowEl = document.getElementById("glow");
 
-  // Меряет счётчик при размере FIT_BASE_PX и масштабирует его под окно.
+  // Во сколько раз можно увеличить счётчик при размере FIT_BASE_PX, чтобы он влез в окно.
   // Размеры без transform (offsetWidth), поэтому идущая анимация не мешает.
-  function fitToWindow() {
-    if (!autoSize) return;
+  function fitScale() {
     const text = valueEl.textContent;
-    // Подгоняем без своих масштабов: они применяются к результату
-    const [savedNumber, savedLabel] = [numberScale, labelScale];
-    numberScale = labelScale = 1;
     setSize(FIT_BASE_PX);
     valueEl.textContent = text.padStart(FIT_MIN_DIGITS, "0");
     const width = counterEl.offsetWidth;
     const height = counterEl.offsetHeight;
     valueEl.textContent = text;
+    if (!width || !height) return null;
+    return Math.min((innerWidth * FIT_WIDTH) / width, (innerHeight * FIT_HEIGHT) / height);
+  }
+
+  // Подгоняет счётчик под окно, затем применяет свои масштабы числа и подписи, но не
+  // больше, чем влезает в окно: при 200% ничего не вылезает за края.
+  let fitRetry = 0;
+  function fitToWindow() {
+    if (!autoSize) return;
+    const [savedNumber, savedLabel] = [numberScale, labelScale];
+    numberScale = labelScale = 1;
+    const plain = fitScale();
     [numberScale, labelScale] = [savedNumber, savedLabel];
-    if (!width || !height) {
+    if (plain === null) {
+      // Окно скрыто (вкладка страницы управления): подгоним, когда его покажут
       setSize(FIT_BASE_PX);
+      if (!fitRetry) fitRetry = requestAnimationFrame(() => { fitRetry = 0; fitToWindow(); });
       return;
     }
-    const scale = Math.min((innerWidth * FIT_WIDTH) / width, (innerHeight * FIT_HEIGHT) / height);
-    setSize(Math.max(8, Math.floor(FIT_BASE_PX * scale)));
+    const scaled = numberScale === 1 && labelScale === 1 ? plain : fitScale();
+    setSize(Math.max(8, Math.floor(FIT_BASE_PX * Math.min(plain, scaled ?? plain))));
   }
 
   window.addEventListener("resize", fitToWindow);

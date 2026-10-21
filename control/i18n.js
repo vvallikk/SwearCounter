@@ -107,8 +107,8 @@
       "The timer label sits on the same side as the counter label. An empty field shows just the time.",
     "Размер числа": "Number size",
     "Размер подписи": "Label size",
-    "100% — размер по умолчанию. Если крупное число не помещается в окно источника в OBS, растяните сам источник.":
-      "100% is the default size. If a big number doesn't fit in the OBS source window, stretch the source itself.",
+    "100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет: чтобы он был крупнее, растяните сам источник.":
+      "100% is the default size. The counter never grows beyond the OBS source window: to make it bigger, stretch the source itself.",
     "Где подпись": "Label position",
     "Слева": "Left",
     "Справа": "Right",
