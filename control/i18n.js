@@ -101,6 +101,14 @@
     // Вкладка «Оформление»
     "Подпись к счётчику": "Counter label",
     "Например: Маты за стрим: или Слова-паразиты:": "For example: Swears this stream: or Filler words:",
+    "Подпись к таймеру «без мата»": "Label for the swear-free timer",
+    "Например: Без мата:": "For example: Swear-free for:",
+    "Подпись таймера стоит с той же стороны, что и подпись счётчика. Пустое поле — только время.":
+      "The timer label sits on the same side as the counter label. An empty field shows just the time.",
+    "Размер числа": "Number size",
+    "Размер подписи": "Label size",
+    "100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет: чтобы он был крупнее, растяните сам источник.":
+      "100% is the default size. The counter never grows beyond the OBS source window: to make it bigger, stretch the source itself.",
     "Где подпись": "Label position",
     "Слева": "Left",
     "Справа": "Right",
@@ -509,6 +517,7 @@
     ["Микрофон «{}» не найден", "Microphone “{}” not found"],
     ["Микрофон «{}» перестал отвечать", "Microphone “{}” stopped responding"],
     ["Не удалось включить прослушивание: {}", "Couldn't turn on listening: {}"],
+    ["Размер должен быть от {} до {}%", "The size must be from {} to {}%"],
     ["Подпись длиннее {} символов", "The label is longer than {} characters"],
     ["Название длиннее {} символов", "The name is longer than {} characters"],
     ["Описание длиннее {} символов: сократите его", "The description is longer than {} characters: shorten it"],

@@ -868,6 +868,8 @@
       preset: shownPreset,
       label: labelTextEl.value.trim(),
       label_position: labelPositionEl.value,
+      number_scale: Number(numberScaleEl.value),
+      label_scale: Number(labelScaleEl.value),
       visible: !$("tab-look").hidden, // на скрытой вкладке превью не анимируется
     };
     win.postMessage(message, location.origin);
@@ -1064,6 +1066,79 @@
     if (typeof text !== "string") return; // сервер старее страницы
     if (labelRequests > 0 || labelTimer !== null || document.activeElement === labelTextEl) return;
     showLabel(text, position);
+  }
+
+  // Подпись таймера «без мата»: то же, но свой запрос и своё поле
+  const timerLabelEl = $("timer-label-text");
+  let timerLabelTimer = null;
+  let timerLabelRequests = 0;
+
+  async function sendTimerLabel() {
+    clearTimeout(timerLabelTimer);
+    timerLabelTimer = null;
+    timerLabelRequests += 1;
+    try {
+      await api("POST", "/api/overlay/timer-label", { text: timerLabelEl.value });
+      setStatus(labelStatusEl, "");
+    } catch (e) {
+      setStatus(labelStatusEl, e.message, true);
+    } finally {
+      timerLabelRequests -= 1;
+    }
+  }
+
+  timerLabelEl.addEventListener("input", () => {
+    clearTimeout(timerLabelTimer);
+    timerLabelTimer = setTimeout(sendTimerLabel, 400);
+  });
+
+  // Размер числа и подписи: проценты, 100 — по умолчанию
+  const numberScaleEl = $("number-scale");
+  const labelScaleEl = $("label-scale");
+  let scaleTimer = null;
+  let scaleRequests = 0;
+
+  function showScaleValues() {
+    $("number-scale-value").textContent = `${numberScaleEl.value}%`;
+    $("label-scale-value").textContent = `${labelScaleEl.value}%`;
+  }
+
+  async function sendScale() {
+    clearTimeout(scaleTimer);
+    scaleTimer = null;
+    scaleRequests += 1;
+    try {
+      await api("POST", "/api/overlay/scale", { number: Number(numberScaleEl.value), label: Number(labelScaleEl.value) });
+      setStatus($("scale-status"), "");
+    } catch (e) {
+      setStatus($("scale-status"), e.message, true);
+    } finally {
+      scaleRequests -= 1;
+    }
+  }
+
+  function onScaleInput() {
+    showScaleValues();
+    sendPreviewStyle(); // превью меняется сразу, оверлей — когда замрёт ползунок
+    clearTimeout(scaleTimer);
+    scaleTimer = setTimeout(sendScale, 250);
+  }
+  numberScaleEl.addEventListener("input", onScaleInput);
+  labelScaleEl.addEventListener("input", onScaleInput);
+
+  function showServerScale(number, label) {
+    if (typeof number !== "number" || typeof label !== "number") return; // сервер старее страницы
+    if (scaleRequests > 0 || scaleTimer !== null || document.activeElement === numberScaleEl || document.activeElement === labelScaleEl) return;
+    numberScaleEl.value = number;
+    labelScaleEl.value = label;
+    showScaleValues();
+    sendPreviewStyle();
+  }
+
+  function showServerTimerLabel(text) {
+    if (typeof text !== "string") return;
+    if (timerLabelRequests > 0 || timerLabelTimer !== null || document.activeElement === timerLabelEl) return;
+    timerLabelEl.value = text;
   }
 
   // --- Модель распознавания: карточки, выбор кликом, описание раскрывается ---
@@ -1968,6 +2043,8 @@
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);
+        showServerTimerLabel(msg.timer_label);
+        showServerScale(msg.number_scale, msg.label_scale);
       }
       else if (msg.count !== undefined) {
         showCount(msg.count);

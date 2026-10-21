@@ -133,7 +133,27 @@
         </div>
         <p class="note">Подпись и число — один источник в OBS: двигаются и масштабируются вместе.
           Пустое поле — только число. Как это выглядит — в превью оформления ниже.</p>
+        <label class="section-title" for="timer-label-text">Подпись к таймеру «без мата»</label>
+        <div class="row">
+          <input id="timer-label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
+                 placeholder="Например: Без мата:">
+        </div>
+        <p class="note">Подпись таймера стоит с той же стороны, что и подпись счётчика.
+          Пустое поле — только время.</p>
         <div id="label-status" class="status-line"></div>
+        <label class="section-title" for="number-scale">Размер числа</label>
+        <div class="row volume-row">
+          <input id="number-scale" type="range" min="25" max="200" step="5" value="100" aria-describedby="number-scale-value">
+          <span id="number-scale-value" class="volume-value"></span>
+        </div>
+        <label class="section-title" for="label-scale">Размер подписи</label>
+        <div class="row volume-row">
+          <input id="label-scale" type="range" min="25" max="200" step="5" value="100" aria-describedby="label-scale-value">
+          <span id="label-scale-value" class="volume-value"></span>
+        </div>
+        <p class="note">100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет:
+          чтобы он был крупнее, растяните сам источник.</p>
+        <div id="scale-status" class="status-line"></div>
       </section>
 
       <section id="sound-section" class="section" hidden>

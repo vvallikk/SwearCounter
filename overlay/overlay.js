@@ -10,6 +10,7 @@
   const FIT_HEIGHT = 0.7;
   const PREVIEW_INTERVAL_MS = 2500;
   const PREVIEW_COUNT = 42;
+  const LABEL_RATIO = 0.4; // размер подписи от размера числа
 
   // --- Параметры из адреса: ?size=120&color=ffffff&mute=1&preset=neon&preview=1&counter=c1 ---
   const params = new URLSearchParams(location.search);
@@ -35,11 +36,29 @@
   const counterId = params.get("counter") || null;
 
   const root = document.documentElement;
+  // Размер числа и подписи со страницы управления: проценты от базового размера.
+  // baseSize — размер после подгонки под окно; size — число с учётом своего масштаба.
+  let baseSize = size;
+  let numberScale = 1;
+  let labelScale = 1;
   function setSize(px) {
-    size = px;
-    root.style.setProperty("--size", px + "px");
+    baseSize = px;
+    size = px * numberScale;
+    root.style.setProperty("--size", size + "px");
+    root.style.setProperty("--label-size", px * LABEL_RATIO * labelScale + "px");
   }
   setSize(size);
+
+  function applyScale(msg) {
+    const number = Number(msg.number_scale) / 100;
+    const label = Number(msg.label_scale) / 100;
+    if (!(number > 0) || !(label > 0)) return; // сервер старее страницы
+    if (number === numberScale && label === labelScale) return;
+    numberScale = number;
+    labelScale = label;
+    if (autoSize) fitToWindow();
+    else setSize(baseSize);
+  }
   if (preview) root.setAttribute("data-preview", "");
 
   const counterEl = document.getElementById("counter");
@@ -48,19 +67,36 @@
   const valueEl = document.getElementById("value");
   const glowEl = document.getElementById("glow");
 
-  // Меряет счётчик при размере FIT_BASE_PX и масштабирует его под окно.
+  // Во сколько раз можно увеличить счётчик при размере FIT_BASE_PX, чтобы он влез в окно.
   // Размеры без transform (offsetWidth), поэтому идущая анимация не мешает.
-  function fitToWindow() {
-    if (!autoSize) return;
+  function fitScale() {
     const text = valueEl.textContent;
     setSize(FIT_BASE_PX);
     valueEl.textContent = text.padStart(FIT_MIN_DIGITS, "0");
     const width = counterEl.offsetWidth;
     const height = counterEl.offsetHeight;
     valueEl.textContent = text;
-    if (!width || !height) return;
-    const scale = Math.min((innerWidth * FIT_WIDTH) / width, (innerHeight * FIT_HEIGHT) / height);
-    setSize(Math.max(8, Math.floor(FIT_BASE_PX * scale)));
+    if (!width || !height) return null;
+    return Math.min((innerWidth * FIT_WIDTH) / width, (innerHeight * FIT_HEIGHT) / height);
+  }
+
+  // Подгоняет счётчик под окно, затем применяет свои масштабы числа и подписи, но не
+  // больше, чем влезает в окно: при 200% ничего не вылезает за края.
+  let fitRetry = 0;
+  function fitToWindow() {
+    if (!autoSize) return;
+    const [savedNumber, savedLabel] = [numberScale, labelScale];
+    numberScale = labelScale = 1;
+    const plain = fitScale();
+    [numberScale, labelScale] = [savedNumber, savedLabel];
+    if (plain === null) {
+      // Окно скрыто (вкладка страницы управления): подгоним, когда его покажут
+      setSize(FIT_BASE_PX);
+      if (!fitRetry) fitRetry = requestAnimationFrame(() => { fitRetry = 0; fitToWindow(); });
+      return;
+    }
+    const scaled = numberScale === 1 && labelScale === 1 ? plain : fitScale();
+    setSize(Math.max(8, Math.floor(FIT_BASE_PX * Math.min(plain, scaled ?? plain))));
   }
 
   window.addEventListener("resize", fitToWindow);
@@ -403,8 +439,11 @@
   // Сообщение "style": пресет (если он не закреплён в адресе) и подпись
   function handleStyle(msg) {
     if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
-    // Подпись со страницы управления относится к счёту, у таймера и цели она из адреса.
-    if (ownLabel) applyLabel(timerLabel, msg.label_position);
+    applyScale(msg);
+    // Подпись со страницы управления относится к счёту. У цели она из адреса,
+    // у таймера — из адреса, а если её там нет, то со страницы управления.
+    if (showTimer) applyLabel(timerLabel || msg.timer_label || "", msg.label_position);
+    else if (ownLabel) applyLabel(timerLabel, msg.label_position);
     else if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
   }
 
@@ -463,6 +502,7 @@
       const msg = event.data;
       if (!msg || msg.type !== "style") return;
       if (typeof msg.preset === "string") applyPreset(msg.preset); // в превью ?preset — только начальный
+      applyScale(msg);
       if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
       if (typeof msg.visible === "boolean") {
         // Пока iframe был скрыт, мерить было нечего: подгоняем размер, когда его показали.
@@ -524,6 +564,7 @@
           if (player) player.apply(msg);
         } else if (msg.type === "style") {
           labelPosition = msg.label_position;
+          applyScale(msg);
           applyLabel(extraLabel, labelPosition);
         } else if (msg.type === "presets") {
           location.reload();
