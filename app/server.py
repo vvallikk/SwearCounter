@@ -253,6 +253,10 @@ class LabelChoice(BaseModel):
     position: str
 
 
+class TimerLabelChoice(BaseModel):
+    text: str
+
+
 class PageFiles(StaticFiles):
     """Страницы и скрипты: браузер сверяется с сервером перед каждым использованием.
 
@@ -481,6 +485,7 @@ def create_app(
             "preset": settings.get("overlay_preset", DEFAULT_PRESET),
             "label": settings.get("overlay_label", ""),
             "label_position": settings.get("overlay_label_position", DEFAULT_LABEL_POSITION),
+            "timer_label": settings.get("overlay_timer_label", ""),
         }
 
     def style_message() -> dict:
@@ -1070,6 +1075,15 @@ def create_app(
             raise HTTPException(400, "Неверное положение подписи")
         settings.set("overlay_label", text)
         settings.set("overlay_label_position", choice.position)
+        await hub.broadcast(style_message())
+        return await get_overlay()
+
+    @app.post("/api/overlay/timer-label")
+    async def post_overlay_timer_label(choice: TimerLabelChoice):
+        text = " ".join(choice.text.split())
+        if len(text) > LABEL_MAX_LENGTH:
+            raise HTTPException(400, f"Подпись длиннее {LABEL_MAX_LENGTH} символов")
+        settings.set("overlay_timer_label", text)
         await hub.broadcast(style_message())
         return await get_overlay()
 

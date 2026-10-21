@@ -403,8 +403,10 @@
   // Сообщение "style": пресет (если он не закреплён в адресе) и подпись
   function handleStyle(msg) {
     if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
-    // Подпись со страницы управления относится к счёту, у таймера и цели она из адреса.
-    if (ownLabel) applyLabel(timerLabel, msg.label_position);
+    // Подпись со страницы управления относится к счёту. У цели она из адреса,
+    // у таймера — из адреса, а если её там нет, то со страницы управления.
+    if (showTimer) applyLabel(timerLabel || msg.timer_label || "", msg.label_position);
+    else if (ownLabel) applyLabel(timerLabel, msg.label_position);
     else if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
   }
 

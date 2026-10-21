@@ -101,6 +101,10 @@
     // Вкладка «Оформление»
     "Подпись к счётчику": "Counter label",
     "Например: Маты за стрим: или Слова-паразиты:": "For example: Swears this stream: or Filler words:",
+    "Подпись к таймеру «без мата»": "Label for the swear-free timer",
+    "Например: Без мата:": "For example: Swear-free for:",
+    "Подпись таймера стоит с той же стороны, что и подпись счётчика. Пустое поле — только время.":
+      "The timer label sits on the same side as the counter label. An empty field shows just the time.",
     "Где подпись": "Label position",
     "Слева": "Left",
     "Справа": "Right",

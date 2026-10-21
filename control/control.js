@@ -1066,6 +1066,36 @@
     showLabel(text, position);
   }
 
+  // Подпись таймера «без мата»: то же, но свой запрос и своё поле
+  const timerLabelEl = $("timer-label-text");
+  let timerLabelTimer = null;
+  let timerLabelRequests = 0;
+
+  async function sendTimerLabel() {
+    clearTimeout(timerLabelTimer);
+    timerLabelTimer = null;
+    timerLabelRequests += 1;
+    try {
+      await api("POST", "/api/overlay/timer-label", { text: timerLabelEl.value });
+      setStatus(labelStatusEl, "");
+    } catch (e) {
+      setStatus(labelStatusEl, e.message, true);
+    } finally {
+      timerLabelRequests -= 1;
+    }
+  }
+
+  timerLabelEl.addEventListener("input", () => {
+    clearTimeout(timerLabelTimer);
+    timerLabelTimer = setTimeout(sendTimerLabel, 400);
+  });
+
+  function showServerTimerLabel(text) {
+    if (typeof text !== "string") return;
+    if (timerLabelRequests > 0 || timerLabelTimer !== null || document.activeElement === timerLabelEl) return;
+    timerLabelEl.value = text;
+  }
+
   // --- Модель распознавания: карточки, выбор кликом, описание раскрывается ---
 
   const progressEl = $("progress");
@@ -1968,6 +1998,7 @@
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);
+        showServerTimerLabel(msg.timer_label);
       }
       else if (msg.count !== undefined) {
         showCount(msg.count);
