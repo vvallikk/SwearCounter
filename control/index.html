@@ -141,6 +141,19 @@
         <p class="note">Подпись таймера стоит с той же стороны, что и подпись счётчика.
           Пустое поле — только время.</p>
         <div id="label-status" class="status-line"></div>
+        <label class="section-title" for="number-scale">Размер числа</label>
+        <div class="row volume-row">
+          <input id="number-scale" type="range" min="25" max="200" step="5" value="100" aria-describedby="number-scale-value">
+          <span id="number-scale-value" class="volume-value"></span>
+        </div>
+        <label class="section-title" for="label-scale">Размер подписи</label>
+        <div class="row volume-row">
+          <input id="label-scale" type="range" min="25" max="200" step="5" value="100" aria-describedby="label-scale-value">
+          <span id="label-scale-value" class="volume-value"></span>
+        </div>
+        <p class="note">100% — размер по умолчанию. Если крупное число не помещается в окно источника в OBS,
+          растяните сам источник.</p>
+        <div id="scale-status" class="status-line"></div>
       </section>
 
       <section id="sound-section" class="section" hidden>

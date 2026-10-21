@@ -257,6 +257,11 @@ class TimerLabelChoice(BaseModel):
     text: str
 
 
+class ScaleChoice(BaseModel):
+    number: int
+    label: int
+
+
 class PageFiles(StaticFiles):
     """Страницы и скрипты: браузер сверяется с сервером перед каждым использованием.
 
@@ -299,6 +304,8 @@ PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
 LABEL_POSITIONS = ("left", "right", "top", "bottom")
 DEFAULT_LABEL_POSITION = "left"
 LABEL_MAX_LENGTH = 40
+SCALE_RANGE = (25, 200)  # размер числа и подписи, проценты
+DEFAULT_SCALE = 100
 # Изменять состояние можно только со своих страниц: иначе любой открытый сайт
 # простым POST на localhost сбросит счёт или запустит обновление (CSRF).
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
@@ -486,6 +493,8 @@ def create_app(
             "label": settings.get("overlay_label", ""),
             "label_position": settings.get("overlay_label_position", DEFAULT_LABEL_POSITION),
             "timer_label": settings.get("overlay_timer_label", ""),
+            "number_scale": settings.get("overlay_number_scale", DEFAULT_SCALE),
+            "label_scale": settings.get("overlay_label_scale", DEFAULT_SCALE),
         }
 
     def style_message() -> dict:
@@ -1084,6 +1093,16 @@ def create_app(
         if len(text) > LABEL_MAX_LENGTH:
             raise HTTPException(400, f"Подпись длиннее {LABEL_MAX_LENGTH} символов")
         settings.set("overlay_timer_label", text)
+        await hub.broadcast(style_message())
+        return await get_overlay()
+
+    @app.post("/api/overlay/scale")
+    async def post_overlay_scale(choice: ScaleChoice):
+        low, high = SCALE_RANGE
+        if not (low <= choice.number <= high and low <= choice.label <= high):
+            raise HTTPException(400, f"Размер должен быть от {low} до {high}%")
+        settings.set("overlay_number_scale", choice.number)
+        settings.set("overlay_label_scale", choice.label)
         await hub.broadcast(style_message())
         return await get_overlay()
 
