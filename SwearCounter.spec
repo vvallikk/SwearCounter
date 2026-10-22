@@ -51,7 +51,8 @@ a = Analysis(
     binaries=collect_dynamic_libs("vosk") + collect_dynamic_libs("sherpa_onnx"),
     # Ресурсы только для чтения; изменяемые файлы (wordlists, models, sounds, настройки)
     # лежат рядом с exe — см. app/paths.py.
-    datas=[("overlay", "overlay"), ("control", "control"), ("assets", "assets"), ("wordlists", "wordlists")],
+    datas=[("overlay", "overlay"), ("control", "control"), ("assets", "assets"), ("wordlists", "wordlists"),
+           ("docs/releases", "docs/releases")],
     # uvicorn выбирает реализации протоколов по строкам, их импорты не видны статически.
     hiddenimports=collect_submodules("uvicorn") + ["webview.platforms.winforms", "webview.platforms.edgechromium", "pystray._win32"],
     hookspath=[],

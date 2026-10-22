@@ -149,6 +149,12 @@ def run(
     def notify(text: str) -> None:
         icon.notify(text, i18n.title(language()))
 
+    def tray_title() -> str:
+        title = f"{i18n.title(language())} v{__version__}"
+        if updater is not None and updater.info is not None:
+            title = tr("{} (доступна v{})").format(title, updater.info["latest"])
+        return title
+
     title = f"{i18n.title(language())} v{__version__}"
     window = webview.create_window(
         title, urls.control, width=960, height=860, min_size=(480, 480), hidden=hidden
@@ -170,6 +176,17 @@ def run(
         # Раскрываем блок «Поддержать» в окне: там все способы и QR-коды.
         show()
         window.evaluate_js("window.openSupport && window.openSupport()")
+
+    def open_update() -> None:
+        # Окно "Что нового" с кнопкой установки.
+        show()
+        window.evaluate_js("window.openUpdate && window.openUpdate()")
+
+    def has_update(item=None) -> bool:
+        return updater is not None and updater.info is not None
+
+    def update_label(item=None) -> str:
+        return tr("Обновиться до v{}").format(updater.info["latest"] if has_update() else "")
 
     def copy_overlay() -> None:
         copy_to_clipboard(urls.overlay)
@@ -198,9 +215,13 @@ def run(
         # О найденном обновлении сообщает on_update_found.
 
     def on_update_found(version: str) -> None:
+        # Напоминание остаётся и в подсказке значка, и в меню трея.
+        icon.title = tray_title()
         if updater.forced:
             show()
             notify(tr("Нужно обязательное обновление до v{}: без него программа не работает.").format(version))
+        elif updater.auto_install and updater.frozen:
+            notify(tr("Скачиваю обновление до v{}: программа перезапустится сама.").format(version))
         else:
             notify(tr("Доступна версия v{}. Установить — на странице управления.").format(version))
 
@@ -215,6 +236,7 @@ def run(
         title,
         menu=pystray.Menu(
             pystray.MenuItem(label("Открыть"), show, default=True),
+            pystray.MenuItem(update_label, open_update, visible=has_update),
             pystray.MenuItem(label("Пауза распознавания"), toggle_pause, checked=is_paused),
             pystray.MenuItem(label("Скопировать адрес оверлея"), copy_overlay),
             pystray.MenuItem(label("Открыть в браузере"), lambda: webbrowser.open(urls.control)),
@@ -228,11 +250,10 @@ def run(
 
     def on_language_changed() -> None:
         # Вызывается сервером, когда язык переключили на странице управления.
-        title = f"{i18n.title(language())} v{__version__}"
         try:
-            icon.title = title
+            icon.title = tray_title()
             icon.update_menu()
-            window.set_title(title)
+            window.set_title(f"{i18n.title(language())} v{__version__}")
         except Exception as e:  # окно могло уже закрыться при выходе
             log.warning("Не удалось сменить язык окна и трея: %s", e)
 

@@ -684,6 +684,20 @@ def create_app(
         updater.set_auto(choice.enabled)
         return updater.state()
 
+    @app.post("/api/update/install")
+    async def post_update_install(choice: AutoUpdateChoice):
+        updater.set_auto_install(choice.enabled)
+        return updater.state()
+
+    @app.get("/api/update/whatsnew")
+    async def get_update_whatsnew():
+        return updater.whatsnew()
+
+    @app.post("/api/update/dismiss")
+    async def post_update_dismiss():
+        updater.dismiss()
+        return updater.state()
+
     @app.post("/api/update/download")
     async def post_update_download():
         try:

@@ -39,6 +39,10 @@ _EN = {
         "A required update to v{} is available: the program doesn't work without it.",
     "Доступна версия v{}. Установить — на странице управления.":
         "Version v{} is available. Install it on the control page.",
+    "Скачиваю обновление до v{}: программа перезапустится сама.":
+        "Downloading the update to v{}: the program will restart by itself.",
+    "Обновиться до v{}": "Update to v{}",
+    "{} (доступна v{})": "{} (v{} is available)",
     "Счётчик матов запущен и работает в трее. Нажмите на значок, чтобы открыть окно.":
         "Swear Counter is running in the tray. Click the icon to open the window.",
     "Счётчик матов уже запущен: его значок — в области уведомлений.":
