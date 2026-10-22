@@ -140,7 +140,6 @@
       "A personal look: your own font, images, animation and sound. You can make one yourself",
     "по инструкции": "following the guide",
     "или": "or",
-    "заказать у автора": "order one from the author",
     ". Готовое оформление ставится из zip-архива или по ссылке на Яндекс Диск, Google Диск или Dropbox. Устанавливайте только оформления из надёжных источников: анимация в них работает как небольшая программа внутри оверлея.":
       ". A finished look is installed from a zip archive or a link to Yandex Disk, Google Drive or Dropbox. Only install looks from trusted sources: their animation runs as a small program inside the overlay.",
     "Личные оформления": "Personal looks",
@@ -371,31 +370,11 @@
     "Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть», без каких-либо гарантий.":
       "Free software under the GNU GPL v3 license. Provided “as is”, without any warranty.",
     "❤ Поддержать": "❤ Support",
-    "Программа бесплатная. Если она пригодилась — можно поддержать автора или заказать у него личное оформление счётчика.":
-      "The program is free. If you find it useful, you can support the author or order a personal counter look from them.",
+    "Программа бесплатная. Если она пригодилась — можно поддержать автора.":
+      "The program is free. If you find it useful, you can support the author.",
     "Нажмите на ссылку или наведите камеру телефона на QR-код.": "Click a link or point your phone camera at the QR code.",
 
-    // Заказ оформления
-    "Заказать оформление": "Order a look",
-    "Опишите, каким вы видите счётчик: цвета, шрифт, картинки, анимацию, звук. Можно приложить ссылки на примеры. Автор ответит на почту для связи и обсудит сроки и цену.":
-      "Describe how you see the counter: colors, font, images, animation, sound. You can add links to examples. The author will reply to your contact email to discuss the timing and price.",
-    "Почта для связи": "Contact email",
-    "Каким должно быть оформление": "What the look should be like",
-    "Например: огненные цифры, взрыв при прибавлении, звук как в аркадах": "For example: fiery digits, an explosion on each increment, an arcade sound",
-    "Скопировать текст письма": "Copy the email text",
     "Отмена": "Cancel",
-    "Отправить": "Send",
-    "Ещё раз": "Again",
-    "✓ Текст скопирован": "✓ Text copied",
-    "Готовлю письмо…": "Preparing the email…",
-    "Укажите почту, на которую автор сможет ответить": "Enter an email the author can reply to",
-    "Опишите, каким должно быть оформление": "Describe what the look should be like",
-    "Напишите автору с любой почты: адрес и текст письма можно скопировать.": "Write to the author from any email: you can copy the address and the text.",
-    "Письмо открылось в почтовой программе: проверьте его и отправьте.": "The email has opened in your mail program: check it and send it.",
-    "Яндекс Почте": "Yandex Mail",
-    "Почте Mail": "Mail.ru",
-    "Рамблер Почте": "Rambler Mail",
-    "iCloud Почте": "iCloud Mail",
 
     // Ошибки с сервера и при запросах
     "Нет связи с приложением. Проверьте, что оно запущено, и повторите": "No connection to the app. Check that it's running and try again",
@@ -406,8 +385,6 @@
     "Неизвестное действие": "Unknown action",
     "Это сочетание уже назначено другому действию": "This shortcut is already assigned to another action",
     "Добавьте Ctrl, Alt, Shift или Win: без них клавиша мешала бы печатать": "Add Ctrl, Alt, Shift or Win: without them the key would get in the way of typing",
-    "Проверьте почту для связи": "Check the contact email",
-    "Заказ оформления недоступен": "Ordering a look is unavailable",
     "Неверный режим автозапуска": "Invalid autostart mode",
     "Порт — число от 1 до 65535": "The port is a number from 1 to 65535",
     "Слишком длинное имя сцены": "The scene name is too long",
@@ -521,13 +498,6 @@
     ["Неизвестная клавиша: {}", "Unknown key: {}"],
     ["Неверное сочетание: {}", "Invalid shortcut: {}"],
     ["QR-код {}", "QR code {}"],
-    ["Открыть в {}", "Open in {}"],
-    ["Письмо открылось в почтовой программе: проверьте его и отправьте. Если удобнее, напишите из {}.",
-      "The email has opened in your mail program: check it and send it. If you prefer, write from {}."],
-    ["Нажмите «Открыть в {}»: письмо автору уже заполнено, останется отправить.",
-      "Click “Open in {}”: the email to the author is already filled in, you just need to send it."],
-    ["Нажмите «Открыть в {}» и вставьте в новое письмо адрес автора и текст: их можно скопировать.",
-      "Click “Open in {}” and paste the author's address and the text into a new email: you can copy them."],
     ["Тема: {}", "Subject: {}"],
     ["Микрофон «{}» не найден: возможно, он отключён", "Microphone “{}” not found: it may be disconnected"],
     ["Микрофон «{}» не найден", "Microphone “{}” not found"],
