@@ -1521,8 +1521,9 @@
     $("update-progress-bar").style.width = `${Math.round(state.progress * 100)}%`;
     $("update-cancel").hidden = state.status !== "downloading";
     $("update-auto").checked = state.auto;
-    $("update-install-row").hidden = !state.can_install;
     $("update-install").checked = state.auto_install;
+    $("update-install").disabled = !state.can_install;
+    $("update-install-hint").hidden = state.can_install;
     $("update-notes").hidden = !found || !state.notes;
     $("update-notes-text").textContent = state.notes || "";
 

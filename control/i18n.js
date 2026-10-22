@@ -350,6 +350,7 @@
     "Устанавливать обновления автоматически?": "Install updates automatically?",
     "Сейчас это выключено. Если включить, новая версия будет скачиваться и ставиться при запуске программы, и она сама перезапустится. Передумать можно в разделе «Обновления».":
       "This is off right now. If you turn it on, a new version is downloaded and installed when the program starts, and it restarts by itself. You can change your mind in the \"Updates\" section.",
+    "Работает только в собранной программе (exe).": "Only works in the built program (exe).",
     "Что нового и история изменений": "What's new and changelog",
     "История изменений": "Changelog",
     "Включить": "Turn on",
