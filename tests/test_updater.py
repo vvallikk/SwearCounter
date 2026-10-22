@@ -16,10 +16,12 @@ from app.updater import (
     apply_script,
     fetch_releases,
     is_newer,
+    load_history,
     parse_version,
     pick_update,
     release_info,
     release_notes,
+    split_notes,
     update_policy,
 )
 
@@ -533,3 +535,172 @@ def test_apply_script_replaces_only_program_files(tmp_path):
     for user_file in ("settings.json", "counter.json", "wordlists", "models", "sounds", "webview"):
         assert user_file not in text
     assert text.index("PID eq") < text.index("robocopy") < text.index("start ")
+
+
+# --- «Что нового» и история изменений ---
+
+NOTES = (
+    "## Что нового\n\n- Раз.\n- Два.\n\n## What's new\n\n- One.\n- Two.\n\n"
+    "<!-- update: full-force -->\n\n<!-- checks -->\n## Проверка файла\nSHA"
+)
+
+
+def test_split_notes_by_language():
+    notes = split_notes(NOTES)
+    assert notes == {"ru": "- Раз.\n- Два.", "en": "- One.\n- Two."}
+
+
+def test_split_notes_without_sections_serves_both_languages():
+    assert split_notes("Просто текст") == {"ru": "Просто текст", "en": "Просто текст"}
+
+
+def test_split_notes_one_language_fills_the_other():
+    assert split_notes("## Что нового\n- Раз") == {"ru": "- Раз", "en": "- Раз"}
+
+
+def test_load_history_sorted_newest_first(tmp_path):
+    for version in ("v1.9.0", "v1.10.0", "v0.2.1"):
+        (tmp_path / f"{version}.md").write_text(
+            f"## Что нового\n- {version}\n## What's new\n- en {version}", encoding="utf-8"
+        )
+    (tmp_path / "notes.md").write_text("не версия", encoding="utf-8")
+    history = load_history(tmp_path)
+    assert [item["version"] for item in history] == ["1.10.0", "1.9.0", "0.2.1"]
+    assert history[0] == {"version": "1.10.0", "ru": "- v1.10.0", "en": "- en v1.10.0"}
+
+
+def test_load_history_missing_folder_is_empty(tmp_path):
+    assert load_history(tmp_path / "нет") == []
+
+
+def test_every_release_note_has_both_languages():
+    # Окно «Что нового» показывает раздел по языку: у каждого релиза должны быть оба.
+    for path in (ROOT / "docs" / "releases").glob("v*.md"):
+        text = path.read_text(encoding="utf-8")
+        notes = split_notes(text)
+        assert "## Что нового" in text and "## What's new" in text, path.name
+        assert notes["ru"] and notes["en"] and notes["ru"] != notes["en"], path.name
+
+
+def test_bundled_history_covers_current_version():
+    from app import __version__
+
+    versions = [item["version"] for item in load_history(ROOT / "docs" / "releases")]
+    assert __version__ in versions
+
+
+def test_fresh_install_has_nothing_to_announce(settings, tmp_path):
+    updater = Updater(settings, install_dir=tmp_path, frozen=True, current="1.0.0")
+    assert updater.announce is None
+    assert settings.get("whatsnew_seen") == "1.0.0"
+
+
+def test_old_install_announces_installed_version_once(settings, tmp_path):
+    settings.set("update_checked_at", 1.0)  # уже запускалась, но окна ещё не видела
+    updater = Updater(settings, install_dir=tmp_path, frozen=True, current="1.0.0")
+    assert updater.announce == "installed"
+    updater.dismiss()
+    assert updater.announce is None
+    assert Updater(settings, install_dir=tmp_path, frozen=True, current="1.0.0").announce is None
+
+
+def test_new_version_announces_installed_again(settings, tmp_path):
+    Updater(settings, install_dir=tmp_path, frozen=True, current="1.0.0")
+    updater = Updater(settings, install_dir=tmp_path, frozen=True, current="1.1.0")  # обновились
+    assert updater.announce == "installed"
+
+
+def test_available_update_announced_once_per_version(updater, responses):
+    responses[updater_module.RELEASES_URL] = releases(make_release())
+    asyncio.run(updater.check())
+    assert updater.announce == "available" and updater.state()["announce"] == "available"
+    updater.dismiss()
+    assert updater.announce is None
+    responses[updater_module.RELEASES_URL] = releases(make_release("v0.4.0"), make_release())
+    asyncio.run(updater.check())
+    assert updater.announce == "available"  # вышла ещё более новая
+
+
+def test_whatsnew_puts_new_release_first(updater, responses, tmp_path):
+    (tmp_path / "v0.2.0.md").write_text("## Что нового\n- было\n## What's new\n- was", encoding="utf-8")
+    updater.releases_dir = tmp_path
+    assert updater.whatsnew()["new"] is None
+    assert updater.whatsnew()["installed"]["ru"] == "- было"
+    responses[updater_module.RELEASES_URL] = releases(make_release(body=NOTES))
+    asyncio.run(updater.check())
+    data = updater.whatsnew()
+    assert data["new"] == {"version": "0.3.0", "ru": "- Раз.\n- Два.", "en": "- One.\n- Two."}
+    assert [item["version"] for item in data["history"]] == ["0.3.0", "0.2.0"]
+
+
+@pytest.mark.parametrize(
+    "frozen, install, asked, offer",
+    [(True, False, False, True), (True, True, False, False), (True, False, True, False), (False, False, False, False)],
+)
+def test_offer_install(settings, tmp_path, frozen, install, asked, offer):
+    settings.set("update_install", install)
+    settings.set("update_install_asked", asked)
+    updater = Updater(settings, install_dir=tmp_path, frozen=frozen, current="1.0.0")
+    assert updater.offer_install is offer
+
+
+def test_auto_install_is_off_by_default_and_remembers_answer(updater, settings_path):
+    assert updater.auto_install is False
+    updater.set_auto_install(True)
+    saved = Settings(settings_path)
+    assert saved.get("update_install") is True and saved.get("update_install_asked") is True
+    assert updater.state()["auto_install"] is True and updater.offer_install is False
+
+
+def test_auto_install_downloads_and_applies_at_start(updater, responses, monkeypatch):
+    responses[updater_module.RELEASES_URL] = releases(make_release())
+    responses[ZIP_URL] = ZIP
+    started = []
+    monkeypatch.setattr(updater_module.subprocess, "Popen", lambda args, **kw: started.append(args))
+    updater.set_auto_install(True)
+    updater.quit = lambda: None
+
+    async def start():
+        await updater.auto_check(now=10**10)
+        assert updater.announce is None  # перезапуск уже идёт, окно ни к чему
+        await updater._task
+
+    asyncio.run(start())
+    assert updater.status == "ready" and updater.applied and len(started) == 1
+
+
+def test_no_auto_install_by_default(updater, responses):
+    responses[updater_module.RELEASES_URL] = releases(make_release())
+    asyncio.run(updater.auto_check(now=10**10))
+    assert updater.status == "available" and updater._task is None
+
+
+def test_auto_install_needs_built_program(settings, tmp_path, responses):
+    responses[updater_module.RELEASES_URL] = releases(make_release())
+    updater = Updater(settings, install_dir=tmp_path, frozen=False, current="0.2.0")
+    updater.set_auto_install(True)
+    asyncio.run(updater.auto_check(now=10**10))
+    assert updater.status == "available" and updater._task is None
+
+
+def test_failed_auto_install_falls_back_to_announce(updater, responses):
+    responses[updater_module.RELEASES_URL] = releases(make_release(zip_data=ZIP_NO_EXE))
+    responses[ZIP_URL] = ZIP_NO_EXE
+    updater.set_auto_install(True)
+
+    async def start():
+        await updater.auto_check(now=10**10)
+        await updater._task
+
+    asyncio.run(start())
+    assert updater.status == "error" and not updater.applied
+    assert updater.announce == "available"  # пользователь увидит окно и решит сам
+
+
+def test_auto_install_checks_even_without_auto_check(updater, responses):
+    updater.set_auto(False)
+    updater.set_auto_install(True)
+    responses[updater_module.RELEASES_URL] = releases(make_release())
+    updater.frozen = False  # скачивание не нужно, смотрим только на проверку
+    asyncio.run(updater.auto_check(now=10**10))
+    assert updater.status == "available"

@@ -673,6 +673,24 @@ def test_update_auto_setting(client, settings_path):
     assert Settings(settings_path).get("update_auto") is False
 
 
+def test_update_install_choice(client, settings_path):
+    state = client.post("/api/update/install", json={"enabled": True}).json()
+    assert state["auto_install"] is True and state["offer_install"] is False
+    saved = Settings(settings_path)
+    assert saved.get("update_install") is True and saved.get("update_install_asked") is True
+
+
+def test_update_whatsnew_and_dismiss(update_client, settings_path):
+    client, _ = update_client
+    assert client.get("/api/update").json()["announce"] is None
+    client.post("/api/update/check")
+    assert client.get("/api/update").json()["announce"] == "available"
+    data = client.get("/api/update/whatsnew").json()
+    assert data["new"]["version"] == "9.0.0" and data["history"][0]["version"] == "9.0.0"
+    assert client.post("/api/update/dismiss").json()["announce"] is None
+    assert Settings(settings_path).get("update_announced") == "9.0.0"
+
+
 def test_update_download_needs_exe(update_client):
     client, _ = update_client
     client.post("/api/update/check")

@@ -1521,6 +1521,9 @@
     $("update-progress-bar").style.width = `${Math.round(state.progress * 100)}%`;
     $("update-cancel").hidden = state.status !== "downloading";
     $("update-auto").checked = state.auto;
+    $("update-install").checked = state.auto_install;
+    $("update-install").disabled = !state.can_install;
+    $("update-install-hint").hidden = state.can_install;
     $("update-notes").hidden = !found || !state.notes;
     $("update-notes-text").textContent = state.notes || "";
 
@@ -1545,6 +1548,7 @@
         : `Доступна ${kind} ${latest}. Из исходников обновитесь через git pull` +
           (state.force ? " (собранная программа без неё не работает)." : "."));
     } else setStatus(status, `Версия v${state.current}`);
+    showWhatsNew(state);
   }
 
   // Обязательное обновление в собранной программе: всё, кроме раздела обновлений,
@@ -1582,6 +1586,120 @@
   $("update-cancel").addEventListener("click", () => updateCall("DELETE", "/api/update/download"));
   $("update-auto").addEventListener("change", (e) =>
     updateCall("POST", "/api/update/auto", { enabled: e.target.checked }));
+
+  $("update-install").addEventListener("change", (e) =>
+    updateCall("POST", "/api/update/install", { enabled: e.target.checked }));
+
+  // --- Окно «Что нового»: открывается при выходе новой версии и после обновления ---
+
+  const whatsNewDialog = $("whatsnew-dialog");
+  let whatsNewData = null;
+  let whatsNewShown = false; // окно уже открывалось на этой странице: закрытое само не вернётся
+
+  function noteLines(text) {
+    const box = document.createDocumentFragment();
+    let list = null;
+    for (const raw of String(text || "").split("\n")) {
+      const line = raw.trim();
+      const bullet = /^[-*]\s+(.*)/.exec(line);
+      if (bullet) {
+        if (!list) box.appendChild((list = el("ul")));
+        list.appendChild(el("li", "", bullet[1]));
+      } else if (line) {
+        list = null;
+        box.appendChild(el("p", "", line));
+      }
+    }
+    return box;
+  }
+
+  function noteText(item) {
+    const english = document.documentElement.lang === "en";
+    return (english ? item.en : item.ru) || item.ru || item.en || "";
+  }
+
+  function renderWhatsNew(data) {
+    const state = updateState || {};
+    const fresh = data.new;
+    // Есть новая версия — о ней; иначе — что появилось в установленной.
+    const current = fresh || data.installed;
+    $("whatsnew-title").textContent = fresh ? `Вышла версия v${fresh.version}` : `Версия v${data.current}`;
+    const newBox = $("whatsnew-new");
+    newBox.replaceChildren(current ? noteLines(noteText(current)) : el("p", "note", "Для этой версии нет заметок."));
+    const historyBox = $("whatsnew-history");
+    historyBox.replaceChildren();
+    for (const item of data.history) {
+      historyBox.appendChild(el("h3", "whatsnew-version", `v${item.version}`));
+      historyBox.appendChild(noteLines(noteText(item)));
+    }
+    $("whatsnew-offer").hidden = !state.offer_install;
+
+    const action = $("whatsnew-action");
+    action.hidden = !fresh;
+    if (fresh) {
+      action.disabled = false;
+      if (state.status === "ready") action.textContent = "Перезапустить и обновить";
+      else if (state.status === "downloading" || state.status === "extracting") {
+        action.textContent = `Скачиваю… ${Math.round(state.progress * 100)}%`;
+        action.disabled = true;
+      } else if (state.can_install) action.textContent = "Скачать и установить";
+      else {
+        action.textContent = "Страница релиза";
+        action.disabled = !(state.html_url && /^https:\/\//i.test(state.html_url));
+      }
+    }
+    $("whatsnew-close").textContent = fresh ? "Позже" : "Закрыть";
+    setStatus($("whatsnew-status"), state.status === "error" ? state.error : "", true);
+  }
+
+  function whatsNewTab(name) {
+    const isNew = name === "new";
+    $("whatsnew-new").hidden = !isNew;
+    $("whatsnew-history").hidden = isNew;
+    $("whatsnew-tab-new").setAttribute("aria-selected", String(isNew));
+    $("whatsnew-tab-history").setAttribute("aria-selected", String(!isNew));
+  }
+
+  async function openWhatsNew(tab = "new") {
+    try {
+      whatsNewData = await api("GET", "/api/update/whatsnew");
+    } catch (e) {
+      return;
+    }
+    renderWhatsNew(whatsNewData);
+    whatsNewTab(tab);
+    whatsNewShown = true;
+    if (!whatsNewDialog.open) whatsNewDialog.showModal();
+  }
+  window.openUpdate = () => openWhatsNew("new");
+
+  // Состояние обновления сменилось: сервер говорит, что стоит показать (announce).
+  function showWhatsNew(state) {
+    if (whatsNewDialog.open && whatsNewData) renderWhatsNew(whatsNewData);
+    if (state.announce && !whatsNewShown) openWhatsNew("new");
+  }
+
+  $("whatsnew-open").addEventListener("click", () => openWhatsNew("new"));
+  $("whatsnew-tab-new").addEventListener("click", () => whatsNewTab("new"));
+  $("whatsnew-tab-history").addEventListener("click", () => whatsNewTab("history"));
+  $("whatsnew-close").addEventListener("click", () => whatsNewDialog.close());
+  // Закрыли (кнопкой или Esc): эту версию больше не показываем.
+  whatsNewDialog.addEventListener("close", () => {
+    if (updateState && updateState.announce) updateCall("POST", "/api/update/dismiss");
+  });
+  $("whatsnew-action").addEventListener("click", () => {
+    const s = updateState;
+    if (!s) return;
+    if (s.status === "ready") updateCall("POST", "/api/update/apply");
+    else if (s.can_install) updateCall("POST", "/api/update/download");
+    else if (s.html_url) window.open(s.html_url, "_blank", "noopener");
+  });
+  async function answerInstallOffer(enabled) {
+    await updateCall("POST", "/api/update/install", { enabled });
+    $("whatsnew-offer").hidden = true;
+  }
+  $("whatsnew-offer-yes").addEventListener("click", () => answerInstallOffer(true));
+  $("whatsnew-offer-no").addEventListener("click", () => answerInstallOffer(false));
 
   // --- Автозапуск: с Windows, при запуске OBS и при начале трансляции ---
 

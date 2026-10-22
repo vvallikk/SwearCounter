@@ -342,6 +342,9 @@
           <div id="update-notes-text"></div>
         </details>
         <label class="note update-auto"><input id="update-auto" type="checkbox"> Проверять обновления при запуске</label>
+        <label id="update-install-row" class="note update-auto"><input id="update-install" type="checkbox"> Устанавливать обновления автоматически</label>
+        <div id="update-install-hint" class="note" hidden>Работает только в собранной программе (exe).</div>
+        <button id="whatsnew-open" class="copy-link" type="button">Что нового и история изменений</button>
       </section>
 
       <section class="section">
@@ -363,6 +366,30 @@
       </section>
     </div>
   </main>
+
+  <dialog id="whatsnew-dialog" class="dialog whatsnew" aria-labelledby="whatsnew-title">
+    <h2 id="whatsnew-title" class="section-title"></h2>
+    <div class="wn-tabs" role="tablist">
+      <button id="whatsnew-tab-new" class="wn-tab" type="button" role="tab" aria-selected="true">Что нового</button>
+      <button id="whatsnew-tab-history" class="wn-tab" type="button" role="tab" aria-selected="false">История изменений</button>
+    </div>
+    <div id="whatsnew-new" class="whatsnew-body" role="tabpanel"></div>
+    <div id="whatsnew-history" class="whatsnew-body" role="tabpanel" hidden></div>
+    <div id="whatsnew-offer" class="whatsnew-offer" hidden>
+      <strong>Устанавливать обновления автоматически?</strong>
+      <p class="note">Сейчас это выключено. Если включить, новая версия будет скачиваться и ставиться
+        при запуске программы, и она сама перезапустится. Передумать можно в разделе «Обновления».</p>
+      <div class="row">
+        <button id="whatsnew-offer-yes" class="secondary-btn primary-btn" type="button">Включить</button>
+        <button id="whatsnew-offer-no" class="secondary-btn" type="button">Не сейчас</button>
+      </div>
+    </div>
+    <div id="whatsnew-status" class="status-line"></div>
+    <div class="row dialog-actions">
+      <button id="whatsnew-close" class="secondary-btn" type="button">Закрыть</button>
+      <button id="whatsnew-action" class="secondary-btn primary-btn" type="button" hidden></button>
+    </div>
+  </dialog>
 
   <dialog id="order-dialog" class="dialog" aria-labelledby="order-title">
     <form id="order-form" novalidate>

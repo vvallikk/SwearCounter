@@ -42,7 +42,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from . import __version__
-from .paths import DATA_DIR
+from .paths import DATA_DIR, RESOURCE_DIR
 from .settings import Settings
 from .stt.downloader import DownloadCancelled, fetch_to_file
 
@@ -53,6 +53,7 @@ RELEASES_URL = f"https://api.github.com/repos/{REPO}/releases?per_page=100"
 ASSET_NAME = re.compile(r"SwearCounter-v[\w.\-]+-windows\.zip")
 APP_FOLDER = "SwearCounter"  # папка внутри zip релиза (scripts/build.py)
 EXE_NAME = "SwearCounter.exe"
+RELEASES_DIR = RESOURCE_DIR / "docs" / "releases"  # заметки всех версий внутри сборки
 CHECK_INTERVAL = 6 * 60 * 60  # автопроверка не чаще, чем раз в 6 часов
 PROGRESS_INTERVAL = 0.5
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -121,6 +122,44 @@ def forces(release: dict, current: str) -> bool:
     if policy["type"] == "full-force":
         return True
     return any(same_version(v, current) for v in policy["versions"])
+
+
+def split_notes(text: str) -> dict:
+    """Заметки релиза по языкам: разделы "Что нового" (ru) и "What's new" (en).
+
+    Пометки update и раздел проверки файла отбрасываются; если разделов нет,
+    весь текст годится для обоих языков, а если нет одного из них — берётся другой.
+    """
+    text = MARKER.sub("", release_notes(text))
+    sections: dict[str, list[str]] = {}
+    current: list[str] | None = None
+    for line in text.splitlines():
+        heading = re.match(r"#{1,3}\s+(.*)", line)
+        if heading:
+            title = heading.group(1).lower()
+            lang = "ru" if "что нового" in title else "en" if re.search(r"what.?s new", title) else None
+            current = sections.setdefault(lang, []) if lang else None
+        elif current is not None:
+            current.append(line)
+    notes = {lang: "\n".join(lines).strip() for lang, lines in sections.items()}
+    fallback = notes.get("ru") or notes.get("en") or text.strip()
+    return {"ru": notes.get("ru") or fallback, "en": notes.get("en") or fallback}
+
+
+def load_history(directory: Path = RELEASES_DIR) -> list[dict]:
+    """Заметки всех версий из docs/releases (они лежат в сборке), новые сверху."""
+    found = []
+    for path in Path(directory).glob("v*.md"):
+        version = path.stem.lstrip("v")
+        if parse_version(version) is None:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as e:
+            log.warning("Не удалось прочитать заметки %s: %s", path.name, e)
+            continue
+        found.append({"version": version, **split_notes(text)})
+    return sorted(found, key=lambda item: parse_version(item["version"]), reverse=True)
 
 
 def pick_asset(release: dict) -> dict | None:
@@ -224,8 +263,10 @@ class Updater:
         install_dir: Path = DATA_DIR,
         frozen: bool = FROZEN,
         current: str = __version__,
+        releases_dir: Path = RELEASES_DIR,
     ):
         self.settings = settings
+        self.releases_dir = Path(releases_dir)
         self.install_dir = Path(install_dir)
         self.update_dir = self.install_dir / "update"
         self.frozen = frozen
@@ -243,6 +284,11 @@ class Updater:
         self.on_change: Callable[[dict], Awaitable[None]] | None = None
         self.on_found: Callable[[str], None] | None = None
         self.quit: Callable[[], None] | None = None
+        self._auto_apply = False  # скачивание начато само: после него сразу ставим
+        # Установка с нуля: показывать "Что нового" нечего. Старая установка без записи
+        # о показанной версии (обновились с версии без этого окна) своё окно получит.
+        if settings.get("whatsnew_seen") is None and settings.get("update_checked_at") is None:
+            settings.set("whatsnew_seen", current)
 
     @property
     def auto(self) -> bool:
@@ -250,6 +296,45 @@ class Updater:
 
     def set_auto(self, enabled: bool) -> None:
         self.settings.set("update_auto", enabled)
+
+    @property
+    def auto_install(self) -> bool:
+        """Скачивать и ставить обновления самой при запуске (по умолчанию выключено)."""
+        return bool(self.settings.get("update_install", False))
+
+    def set_auto_install(self, enabled: bool) -> None:
+        self.settings.set("update_install", enabled)
+        self.settings.set("update_install_asked", True)
+
+    @property
+    def offer_install(self) -> bool:
+        """Стоит ли предложить включить автоустановку: только в exe и пока не отвечали."""
+        return self.frozen and not self.auto_install and not self.settings.get("update_install_asked", False)
+
+    @property
+    def announce(self) -> str | None:
+        """Что показать в окне "Что нового": доступное обновление или итоги установленного."""
+        seen = self.settings.get("update_announced")
+        if self.info is not None and not self._auto_apply and self.info.get("latest") != seen:
+            return "available"
+        if self.settings.get("whatsnew_seen") != self.current:
+            return "installed"
+        return None
+
+    def dismiss(self) -> None:
+        """Окно "Что нового" закрыто: это обновление и эту версию больше не показываем."""
+        self.settings.set("whatsnew_seen", self.current)
+        if self.info is not None:
+            self.settings.set("update_announced", self.info.get("latest"))
+
+    def whatsnew(self) -> dict:
+        history = load_history(self.releases_dir)
+        installed = next((item for item in history if same_version(item["version"], self.current)), None)
+        new = None
+        if self.info is not None:
+            new = {"version": self.info["latest"], **split_notes(self.info.get("notes") or "")}
+            history = [new] + [item for item in history if not same_version(item["version"], new["version"])]
+        return {"current": self.current, "new": new, "installed": installed, "history": history}
 
     @property
     def forced(self) -> bool:
@@ -269,6 +354,9 @@ class Updater:
         return {
             "current": self.current,
             "auto": self.auto,
+            "auto_install": self.auto_install,
+            "offer_install": self.offer_install,
+            "announce": self.announce,
             "can_install": self.frozen,
             "status": self.status,
             "progress": min(progress, 1.0),
@@ -329,16 +417,21 @@ class Updater:
         обновление нельзя обойти, сняв галочку.
         """
         self.loop = asyncio.get_running_loop()
-        quiet = not self.auto
+        quiet = not (self.auto or self.auto_install)
         now = time.time() if now is None else now
         last = self.settings.get("update_last")
         fresh = now - float(self.settings.get("update_checked_at") or 0) < CHECK_INTERVAL
         # Прошлый результат годится, только если он посчитан для этой же версии.
         if fresh and (last is None or (isinstance(last, dict) and last.get("for_version") == self.current)):
             if last is not None and is_newer(str(last.get("latest", "")), self.current):
-                await self._show(last, quiet, notify=False)
-            return
-        await self.check(quiet=quiet)
+                # notify: при каждом запуске напоминаем, что обновление ждёт.
+                await self._show(last, quiet, notify=True)
+        else:
+            await self.check(quiet=quiet)
+        if self.auto_install and self.frozen and self.status == "available":
+            self._auto_apply = True
+            self.start_download()
+            await self._changed()
 
     def check_threadsafe(self, timeout: float = 30) -> str:
         """Проверка из другого потока (меню трея)."""
@@ -378,15 +471,26 @@ class Updater:
         try:
             job.result()
         except DownloadCancelled:
+            self._auto_apply = False
             log.info("Скачивание обновления прервано")
             await self._set("available")
             return
         except Exception as e:
+            self._auto_apply = False
             log.error("Не удалось скачать обновление: %s", e)
             await self._set("error", f"Не удалось скачать обновление: {e}")
             return
         log.info("Обновление %s скачано", self.info["latest"])
         await self._set("ready")
+        if self._auto_apply:
+            self._auto_apply = False
+            try:
+                self.apply()
+            except (ValueError, OSError) as e:
+                log.error("Не удалось установить обновление: %s", e)
+                await self._set("error", f"Не удалось установить обновление: {e}")
+                return
+            asyncio.get_running_loop().call_later(1.0, self.exit)
 
     def _install(self) -> None:
         shutil.rmtree(self.update_dir, ignore_errors=True)
