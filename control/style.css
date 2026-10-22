@@ -532,15 +532,7 @@ select:focus-visible { border-color: var(--accent); outline-offset: 0; }
 .key-row { gap: 8px; }
 .key-input { flex: 1; min-width: 0; }
 
-/* --- Заказ оформления --- */
-.link-btn {
-  padding: 0;
-  font: inherit;
-  color: var(--accent);
-  background: none;
-  border: none;
-  text-decoration: underline;
-}
+/* --- Диалоги --- */
 .note a { color: var(--accent); }
 .dialog {
   width: min(440px, calc(100vw - 32px));
