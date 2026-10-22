@@ -44,26 +44,35 @@ jobs:
 
       # Тесты здесь не гоняем: коммит релиза уже прошёл их в PR (tests.yml), а минуты Actions ограничены.
 
+      # ВРЕМЕННО (лимит минут Actions): релиз не ждёт Antivirus check, а собирает архив сам.
+      # Когда лимиты обновятся: раскомментировать шаг ниже "Download archive from the Antivirus check run",
+      # а шаги "Install build dependencies" и "Build" удалить.
+      - name: Install build dependencies
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Build
+        run: python scripts/build.py
+
       # Релиз публикует тот же архив, который уже проверен на VirusTotal: сборки PyInstaller
       # не побитово одинаковые, и пересборка дала бы другой хеш и новый случайный итог.
       # Архив собирает antivirus-check.yml на том же коммите, что и тег (пуш release/vX в
       # ветку av-check/vX или ручной запуск на ветке релиза), см. private/RELEASES.md.
-      - name: Download archive from the Antivirus check run
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          run_id=$(gh run list --workflow antivirus-check.yml --commit "$GITHUB_SHA"             --status success --limit 1 --json databaseId -q '.[0].databaseId')
-          if [ -z "$run_id" ]; then
-            echo "::error::Нет успешного прогона Antivirus check для коммита ${GITHUB_SHA}. Соберите и проверьте билд на ветке релиза (Actions → Antivirus check), затем поставьте тег на тот же коммит."
-            exit 1
-          fi
-          echo "Прогон Antivirus check: ${run_id}"
-          gh run download "$run_id" -n SwearCounter-windows -D dist
-          if [ ! -f "dist/SwearCounter-v${VERSION}-windows.zip" ]; then
-            echo "::error::В артефакте нет SwearCounter-v${VERSION}-windows.zip: $(ls dist)"
-            exit 1
-          fi
+      # - name: Download archive from the Antivirus check run
+      #   shell: bash
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #   run: |
+      #     run_id=$(gh run list --workflow antivirus-check.yml --commit "$GITHUB_SHA" --status success --limit 1 --json databaseId -q '.[0].databaseId')
+      #     if [ -z "$run_id" ]; then
+      #       echo "::error::Нет успешного прогона Antivirus check для коммита ${GITHUB_SHA}. Соберите и проверьте билд на ветке релиза (Actions → Antivirus check), затем поставьте тег на тот же коммит."
+      #       exit 1
+      #     fi
+      #     echo "Прогон Antivirus check: ${run_id}"
+      #     gh run download "$run_id" -n SwearCounter-windows -D dist
+      #     if [ ! -f "dist/SwearCounter-v${VERSION}-windows.zip" ]; then
+      #       echo "::error::В артефакте нет SwearCounter-v${VERSION}-windows.zip: $(ls dist)"
+      #       exit 1
+      #     fi
 
       # Если подпись SignPath настроена, в архиве должен быть уже подписанный exe
       # (antivirus-check с sign=true); иначе релиз не выходит.
@@ -80,11 +89,11 @@ jobs:
           }
 
       # SHA-256, отчёт VirusTotal (если задан секрет VT_API_KEY) и подпись в конце описания релиза.
-      # Файл уже проверен: VirusTotal отдаёт готовый итог по хешу, повторной загрузки нет.
+      # ВРЕМЕННО плашка VirusTotal отключена: env ниже закомментирован. Вернуть вместе с Antivirus check.
       - name: Check archive
         shell: bash
-        env:
-          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        # env:
+        #   VT_API_KEY: ${{ secrets.VT_API_KEY }}
         run: |
           cp "docs/releases/v${VERSION}.md" dist/release-notes.md
           python scripts/release_checks.py "dist/SwearCounter-v${VERSION}-windows.zip" dist/release-notes.md ${SIGNED}

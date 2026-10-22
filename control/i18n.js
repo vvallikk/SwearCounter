@@ -140,7 +140,6 @@
       "A personal look: your own font, images, animation and sound. You can make one yourself",
     "по инструкции": "following the guide",
     "или": "or",
-    "заказать у автора": "order one from the author",
     ". Готовое оформление ставится из zip-архива или по ссылке на Яндекс Диск, Google Диск или Dropbox. Устанавливайте только оформления из надёжных источников: анимация в них работает как небольшая программа внутри оверлея.":
       ". A finished look is installed from a zip archive or a link to Yandex Disk, Google Drive or Dropbox. Only install looks from trusted sources: their animation runs as a small program inside the overlay.",
     "Личные оформления": "Personal looks",
@@ -371,8 +370,8 @@
     "Свободная программа под лицензией GNU GPL v3. Предоставляется «как есть», без каких-либо гарантий.":
       "Free software under the GNU GPL v3 license. Provided “as is”, without any warranty.",
     "❤ Поддержать": "❤ Support",
-    "Программа бесплатная. Если она пригодилась — можно поддержать автора или заказать у него личное оформление счётчика.":
-      "The program is free. If you find it useful, you can support the author or order a personal counter look from them.",
+    "Программа бесплатная. Если она пригодилась — можно поддержать автора.":
+      "The program is free. If you find it useful, you can support the author.",
     "Нажмите на ссылку или наведите камеру телефона на QR-код.": "Click a link or point your phone camera at the QR code.",
 
     // Заказ оформления

@@ -619,7 +619,7 @@ def test_version(client):
     from app import SUPPORT_LINKS, __version__
 
     assert client.get("/api/version").json() == {
-        "version": __version__, "support": SUPPORT_LINKS, "order_email": server.ORDER_EMAIL,
+        "version": __version__, "support": SUPPORT_LINKS,
     }
 
 
@@ -941,70 +941,6 @@ def test_ws_rejects_foreign_pages(client, headers):
 def test_ws_accepts_own_pages_and_obs(client, headers):
     with client.websocket_connect("ws://localhost/ws", headers=headers) as ws:
         assert ws.receive_json()["type"] == "state"
-
-
-def test_order_hidden_without_email(client, monkeypatch):
-    monkeypatch.setattr(server, "ORDER_EMAIL", "")
-    opened = []
-    monkeypatch.setattr(server.webbrowser, "open", opened.append)
-    res = client.post("/api/order", json={"email": "me@example.com", "description": "Красный огонь"})
-    assert res.status_code == 404 and opened == []
-
-
-@pytest.fixture
-def order(monkeypatch):
-    monkeypatch.setattr(server, "ORDER_EMAIL", "author@example.com")
-    monkeypatch.setattr(server.mail, "has_mail_app", lambda: True)
-    opened = []
-    monkeypatch.setattr(server.webbrowser, "open", lambda url: opened.append(url) or True)
-    return opened
-
-
-def test_order_opens_mail_app(client, order):
-    from urllib.parse import parse_qs, urlsplit
-
-    res = client.post("/api/order", json={"email": " me@example.com ", "description": "Хорёк & огонь?\nИ звук"})
-    assert res.status_code == 200
-    answer = res.json()
-    assert answer["opened"] is True and answer["webmail"] is None
-    assert answer["email"] == "author@example.com" and answer["subject"] == server.ORDER_SUBJECT
-    parts = urlsplit(order[0])
-    assert parts.scheme == "mailto" and parts.path == "author@example.com"
-    query = parse_qs(parts.query)
-    assert query["subject"] == [server.ORDER_SUBJECT]
-    body = query["body"][0]
-    assert body == answer["body"]
-    assert "Почта для связи: me@example.com" in body
-    assert "Хорёк & огонь?\nИ звук" in body
-    assert server.__version__ in body
-
-
-def test_order_without_mail_app_offers_webmail(client, order, monkeypatch):
-    monkeypatch.setattr(server.mail, "has_mail_app", lambda: False)
-    res = client.post("/api/order", json={"email": "me@gmail.com", "description": "Огненные цифры"})
-    answer = res.json()
-    assert answer["opened"] is False and order == []
-    assert answer["webmail"]["name"] == "Gmail" and answer["webmail"]["filled"] is True
-    assert answer["webmail"]["url"].startswith("https://mail.google.com/")
-
-
-@pytest.mark.parametrize(
-    "payload",
-    [
-        {"email": "не почта", "description": "Красный огонь"},
-        {"email": "a@b", "description": "Красный огонь"},
-        {"email": "me@example.com", "description": "   "},
-        {"email": "me@example.com", "description": "x" * (server.ORDER_DESCRIPTION_MAX + 1)},
-        {"email": ("x" * 250) + "@example.com", "description": "Красный огонь"},
-    ],
-)
-def test_order_validates_fields(client, order, payload):
-    assert client.post("/api/order", json=payload).status_code == 400
-    assert order == []
-
-
-def test_order_needs_fields(client, order):
-    assert client.post("/api/order", json={"email": "me@example.com"}).status_code == 422
 
 
 # --- автозапуск ---

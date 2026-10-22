@@ -195,8 +195,7 @@
         </form>
         <p class="note">Личное оформление: свой шрифт, картинки, анимация и звук. Его можно сделать
           самому <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/PRESETS.md" target="_blank"
-          rel="noopener noreferrer">по инструкции</a><span id="order-offer" hidden> или
-          <button id="order-open" class="link-btn" type="button">заказать у автора</button></span>.
+          rel="noopener noreferrer">по инструкции</a>.
           Готовое оформление ставится из zip-архива или по ссылке на Яндекс Диск, Google Диск или Dropbox.
           Устанавливайте только оформления из надёжных источников: анимация в них работает как
           небольшая программа внутри оверлея.</p>
@@ -357,8 +356,7 @@
         <details id="support" class="support" hidden>
           <summary class="support-row">
             <span class="support-btn">❤ Поддержать</span>
-            <span class="note">Программа бесплатная. Если она пригодилась — можно поддержать автора
-              или заказать у него личное оформление счётчика.</span>
+            <span class="note">Программа бесплатная. Если она пригодилась — можно поддержать автора.</span>
           </summary>
           <p class="note support-hint">Нажмите на ссылку или наведите камеру телефона на QR-код.</p>
           <div id="support-links" class="support-links"></div>
@@ -391,30 +389,6 @@
     </div>
   </dialog>
 
-  <dialog id="order-dialog" class="dialog" aria-labelledby="order-title">
-    <form id="order-form" novalidate>
-      <h2 id="order-title" class="section-title">Заказать оформление</h2>
-      <p class="note">Опишите, каким вы видите счётчик: цвета, шрифт, картинки, анимацию, звук.
-        Можно приложить ссылки на примеры. Автор ответит на почту для связи и обсудит сроки и цену.</p>
-      <label class="field">Почта для связи
-        <input id="order-email" class="text-input" type="email" required maxlength="254"
-          autocomplete="email" placeholder="you@example.com">
-      </label>
-      <label class="field">Каким должно быть оформление
-        <textarea id="order-description" class="text-input" required maxlength="1500" rows="6"
-          placeholder="Например: огненные цифры, взрыв при прибавлении, звук как в аркадах"></textarea>
-      </label>
-      <div id="order-status" class="status-line"></div>
-      <div id="order-fallback" class="order-fallback" hidden>
-        <a id="order-webmail" class="secondary-btn primary-btn" target="_blank" rel="noopener noreferrer" hidden></a>
-        <button id="order-copy" class="copy-link" type="button"></button>
-        <button id="order-copy-text" class="secondary-btn" type="button">Скопировать текст письма</button>
-      </div>
-      <div class="row dialog-actions">
-        <button id="order-cancel" class="secondary-btn" type="button">Отмена</button>
-        <button id="order-send" class="secondary-btn primary-btn" type="submit">Отправить</button>
-      </div>
-    </form>
   </dialog>
 
   <script src="/overlay/presets.js"></script>
