@@ -1,18 +1,18 @@
 name: Tests
 
+# Только на PR: слитый main повторно не тестируем, это минуты Actions (Windows считается вдвое).
+# Релиз собирается из ветки release/*, которая уже прошла эти тесты в своём PR.
 on:
-  push:
-    branches: [main]
   pull_request:
 
 # Тестам нужен только checkout: токен с правом записи в PR от чужих форков не нужен.
 permissions:
   contents: read
 
-# Новый пуш в PR отменяет устаревший прогон; прогоны main не прерываются.
+# Новый пуш в PR отменяет устаревший прогон.
 concurrency:
   group: tests-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 # Python 3.14 на Windows пишет в консоль в cp1252: без UTF-8 падают print с кириллицей.
 env:

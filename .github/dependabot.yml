@@ -1,12 +1,19 @@
-# Раз в неделю проверяет зависимости и версии actions, присылает PR с обновлениями.
+# Раз в месяц проверяет зависимости и версии actions, присылает PR с обновлениями.
+# Каждый PR запускает тесты, поэтому проверки редкие и обновления собраны в один PR.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      python:
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
