@@ -306,16 +306,17 @@
           Сбрасывать счёт, когда начинается трансляция</label>
         <label class="check-row"><input id="obs-reset-record" type="checkbox">
           Сбрасывать счёт, когда начинается запись</label>
-        <div class="row obs-scene-row">
-          <label for="obs-scene-at">При</label>
-          <input id="obs-scene-at" class="text-input goal-input" type="number" min="0" placeholder="—"
-            aria-label="Сколько слов до смены сцены">
-          <label for="obs-scene">словах включить сцену</label>
-          <div class="select-wrap"><select id="obs-scene">
-            <option value="">не переключать</option>
-          </select></div>
-          <button id="obs-scenes-load" class="secondary-btn" type="button" title="Загрузить сцены из OBS">⟳</button>
+        <div id="obs-rules" class="obs-rules"></div>
+        <div class="row obs-rules-actions">
+          <button id="obs-rule-add" class="secondary-btn" type="button">+ Правило</button>
+          <button id="obs-scenes-load" class="secondary-btn" type="button" title="Загрузить сцены из OBS">⟳ Сцены</button>
         </div>
+        <div class="row obs-scene-row">
+          <label for="obs-scene-return">Вернуть прежнюю сцену через</label>
+          <input id="obs-scene-return" class="text-input goal-input obs-return" type="number" min="0" max="3600" placeholder="0">
+          <span>с</span>
+        </div>
+        <p class="note">Каждое правило срабатывает один раз, пока счёт не сброшен. 0 секунд — не возвращать.</p>
         <p class="note">Команда <code>!маты</code> в чате Twitch и другие связки — через Streamer.bot,
           см. <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/STREAMERBOT.md"
           target="_blank" rel="noopener noreferrer">инструкцию</a>.</p>
