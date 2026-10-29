@@ -691,15 +691,17 @@
     volumeValueEl.textContent = `${volume}%`;
   }
 
+  // В режиме «рандом» вместо радиокнопок — галочки: active значит «отмечен».
   function soundItem(id, name, active, removable = id !== null) {
+    const random = Boolean(soundState && soundState.random);
     const item = el("div", active ? "sound-item active" : "sound-item");
     const pick = el("button", "sound-pick");
     pick.type = "button";
-    pick.setAttribute("role", "radio");
+    pick.setAttribute("role", random ? "checkbox" : "radio");
     pick.setAttribute("aria-checked", String(active));
-    pick.append(el("span", "radio"), el("span", "name", name));
+    pick.append(el("span", random ? "check" : "radio"), el("span", "name", name));
     pick.title = name;
-    pick.addEventListener("click", () => selectSound(id));
+    pick.addEventListener("click", () => (random ? toggleInPool(id) : selectSound(id)));
     const play = el("button", "icon-btn", "▶");
     play.type = "button";
     play.title = "Прослушать";
@@ -725,18 +727,25 @@
     if (volumeTimer === null && document.activeElement !== volumeEl) showVolume(state.volume);
     soundState = state;
     const eventSounds = state.event_sounds || [];
-    const key = JSON.stringify([state.sounds, eventSounds, state.active, standardSound, standardSoundName]);
+    const random = Boolean(state.random);
+    const pool = new Set(state.pool || []);
+    // Отмечен ли звук: в «рандоме» — галочка, иначе — выбранный
+    const on = (id) => (random ? pool.has(id === null ? STANDARD_ID : id) : id === (state.active ?? null));
+    const key = JSON.stringify([state.sounds, eventSounds, state.active, random, state.pool, standardSound, standardSoundName]);
     if (key !== renderedSoundsKey) {
       renderedSoundsKey = key;
+      soundListEl.setAttribute("role", random ? "group" : "radiogroup");
+      soundRandomBtn.setAttribute("aria-pressed", String(random));
+      $("sound-random-note").hidden = !random;
       soundListEl.replaceChildren(
-        soundItem(null, standardSoundName, state.active === null),
-        ...state.sounds.map((s) => soundItem(s.id, s.name, s.id === state.active))
+        soundItem(null, standardSoundName, on(null)),
+        ...state.sounds.map((s) => soundItem(s.id, s.name, on(s.id)))
       );
       // Встроенные звуки события: удалить нельзя, после события пропадут сами
       if (eventSounds.length) {
         soundListEl.append(
           el("div", "sound-group-title", "Хеллоуин · до 1 ноября"),
-          ...eventSounds.map((s) => soundItem(s.id, s.name, s.id === state.active, false))
+          ...eventSounds.map((s) => soundItem(s.id, s.name, on(s.id), false))
         );
       }
     }
@@ -752,6 +761,38 @@
       setStatus(soundStatusEl, e.message, true);
     }
   }
+
+  // --- Режим «рандом»: случайный звук из отмеченных ---
+
+  const STANDARD_ID = "standard"; // стандартный звук в списке отмеченных (app/sound.py)
+  const soundRandomBtn = $("sound-random");
+
+  async function setRandom(enabled, pool) {
+    try {
+      await showSound(await api("POST", "/api/sound/random", { enabled, pool }));
+      setStatus(soundStatusEl, "");
+    } catch (e) {
+      setStatus(soundStatusEl, e.message, true);
+    }
+  }
+
+  async function toggleInPool(id) {
+    const key = id === null ? STANDARD_ID : id;
+    const pool = new Set(soundState.pool || []);
+    if (pool.has(key)) pool.delete(key);
+    else pool.add(key);
+    await setRandom(true, [...pool]);
+    if (pool.has(key)) player.preview(id); // отметили — сразу слышно, что добавили
+  }
+
+  soundRandomBtn.addEventListener("click", () => {
+    if (!soundState) return;
+    const enabled = !soundState.random;
+    // Первое включение: отмечен выбранный сейчас звук, чтобы рандом не начинался с пустого списка
+    let pool = soundState.pool || [];
+    if (enabled && !pool.length) pool = [soundState.active ?? STANDARD_ID];
+    setRandom(enabled, pool);
+  });
 
   async function deleteSound(id) {
     try {
@@ -2076,9 +2117,11 @@
         presetRequests -= 1;
       }
       showPreset("halloween");
-      await showSound(await api("POST", "/api/sound/active", { id: "halloween:random" }));
+      // Рандом из всех скримеров события
+      const ids = ((soundState && soundState.event_sounds) || []).map((s) => s.id);
+      await showSound(await api("POST", "/api/sound/random", { enabled: true, pool: ids }));
       player.play();
-      setStatus(eventStatusEl, "Готово: в OBS теперь «Проклятый мат» и скримеры", false, true);
+      setStatus(eventStatusEl, "Готово: в OBS теперь «Проклятый мат» и рандом из скримеров", false, true);
     } catch (e) {
       setStatus(eventStatusEl, e.message, true);
     } finally {

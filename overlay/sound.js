@@ -3,8 +3,9 @@
 // Какой звук играет, по порядку: звук, выбранный в библиотеке на странице управления
 // (/api/sound/file/<id>); стандартный звук пресета — синтезированный звон, у личного оформления —
 // файл из набора (/overlay/custom/<id>/<файл>); если файла нет — звон.
-// Во время события (app/events.py) в списке есть и его звуки (поле event_sounds):
-// файл из overlay/sounds/<событие>/ или «случайный» — каждый раз один из остальных.
+// Во время события (app/events.py) в списке есть и его звуки (поле event_sounds) из overlay/sounds/<событие>/.
+// Режим «рандом» (поле random): на каждый мат и проклятие играет случайный звук из отмеченных (pool),
+// "standard" в нём — стандартный звук.
 window.createDingPlayer = function createDingPlayer() {
   "use strict";
 
@@ -19,10 +20,10 @@ window.createDingPlayer = function createDingPlayer() {
   const standards = new Map();
   const standardsReady = new Map();
   let standardName = "ding";
-  // Звуки события: id -> адрес файла (null — случайный из остальных), и уже готовые: id -> AudioBuffer
+  // Звуки события: id -> адрес файла, и уже готовые звуки: id -> AudioBuffer
   const eventUrls = new Map();
   const ready = new Map();
-  let activeRandom = false;
+  let pool = []; // режим «рандом»: id отмеченных звуков; пусто — режим выключен
 
   function context() {
     if (!audioCtx) {
@@ -70,11 +71,10 @@ window.createDingPlayer = function createDingPlayer() {
     return promise;
   }
 
-  // Звук из библиотеки или события (id) или стандартный (null). У случайного звука события — null.
+  // Звук из библиотеки или события (id) или стандартный (null).
   function load(id) {
     if (id === null) return loadStandard(standardName);
-    const url = eventUrls.has(id) ? eventUrls.get(id) : `/api/sound/file/${encodeURIComponent(id)}`;
-    if (url === null) return Promise.resolve(null);
+    const url = eventUrls.get(id) || `/api/sound/file/${encodeURIComponent(id)}`;
     let promise = buffers.get(id);
     if (!promise) {
       promise = fetchBuffer(url)
@@ -94,14 +94,14 @@ window.createDingPlayer = function createDingPlayer() {
   async function apply(state) {
     volume = Math.max(0, Math.min(100, state.volume)) / 100;
     eventUrls.clear();
-    for (const s of state.event_sounds || []) eventUrls.set(s.id, s.url || null);
+    for (const s of state.event_sounds || []) eventUrls.set(s.id, s.url);
     const ids = new Set((state.sounds || []).map((s) => s.id).concat([...eventUrls.keys()]));
     for (const id of buffers.keys()) if (!ids.has(id)) buffers.delete(id);
     for (const id of ready.keys()) if (!ids.has(id)) ready.delete(id);
     ids.forEach(load); // заранее, чтобы «Прослушать» не ждал загрузки
     const id = state.active || null;
     activeId = id;
-    activeRandom = id !== null && eventUrls.get(id) === null;
+    pool = state.random ? state.pool || [] : [];
     loadStandard(standardName);
     const sound = id && (await load(id));
     // Пока грузили, могли выбрать другой звук.
@@ -113,6 +113,7 @@ window.createDingPlayer = function createDingPlayer() {
     const own = typeof name === "string" && name.startsWith("/overlay/custom/");
     standardName = STANDARD[name] || own ? name : "ding";
     loadStandard(standardName);
+    if (standardName === "halloween") loadStandard("curse"); // смех проклятия — заранее
   }
 
   // Один удар колокольчика: основной тон и негармонический обертон с затуханием
@@ -186,7 +187,9 @@ window.createDingPlayer = function createDingPlayer() {
 
   // Звуки события Хеллоуин (overlay/sounds/halloween/, источники — в README.md там же)
   const HALLOWEEN_SCREAMS = [
+    "halloween/scream-stab.ogg",
     "halloween/ghost-shriek.ogg",
+    "halloween/banshee.ogg",
     "halloween/jumpscare-hit.ogg",
     "halloween/jumpscare-low.ogg",
     "halloween/ghost-moan.ogg",
@@ -213,10 +216,12 @@ window.createDingPlayer = function createDingPlayer() {
     return Array.isArray(sound) ? pick(sound) : sound;
   }
 
-  // Случайный из загруженных звуков события (без «случайного» и звуков библиотеки).
-  function randomEventBuffer() {
-    const loaded = [...eventUrls.keys()].filter((id) => eventUrls.get(id) && ready.has(id));
-    return loaded.length ? ready.get(pick(loaded)) : null;
+  // Режим «рандом»: случайный из отмеченных. "standard" — стандартный звук;
+  // не загруженный ещё звук тоже даёт стандартный, а не тишину.
+  function randomPick() {
+    const id = pick(pool);
+    if (id === "standard") return standardBuffer(standardName);
+    return ready.get(id) || standardBuffer(standardName);
   }
 
   // name — стандартный звук, чья синтезированная замена играет без sound.
@@ -240,12 +245,14 @@ window.createDingPlayer = function createDingPlayer() {
 
   // Выбранный звук; если он из библиотеки, но не загрузился, — стандартный.
   function playActive() {
-    const chosen = activeRandom ? randomEventBuffer() : activeId && buffer;
-    play(chosen || standardBuffer(standardName));
+    if (pool.length) return play(randomPick());
+    play((activeId && buffer) || standardBuffer(standardName));
   }
 
-  // Проклятие события (каждое 13-е ругательство): злой смех, без файла — удары колокола.
+  // Проклятие события (каждое 13-е ругательство): в режиме «рандом» — случайный из отмеченных,
+  // иначе злой смех, без файла — удары колокола.
   function playCurse() {
+    if (pool.length) return play(randomPick());
     loadStandard("curse");
     play(standardBuffer("curse"), "curse");
   }
@@ -262,10 +269,6 @@ window.createDingPlayer = function createDingPlayer() {
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
   async function preview(id) {
     context(); // запускаем звук сразу по клику, пока файл догружается
-    if (id !== null && eventUrls.get(id) === null) {
-      await Promise.all([...eventUrls.keys()].map(load));
-      return play(randomEventBuffer() || standardBuffer(standardName));
-    }
     const sound = (id && (await load(id))) || (await load(null));
     play(Array.isArray(sound) ? pick(sound) : sound);
   }

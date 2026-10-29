@@ -711,7 +711,8 @@
           renderGoal();
           if (msg.type === "increment" && goalState.goal && left > 0) {
             playIncrementAnimation(-Math.min(msg.delta || 1, left));
-            if (msg.milestone === goalState.goal) celebrate();
+            if (msg.milestone === goalState.goal && cursedPreset()) curse(goalState.goal);
+            else if (msg.milestone === goalState.goal) celebrate();
           }
         } else if (msg.type === "goals") {
           goalState.goal = msg.goal;
@@ -728,10 +729,11 @@
       } else if (msg.type === "increment") {
         setCount(msg.count);
         playIncrementAnimation(msg.delta || 1);
-        if (msg.milestone) celebrate();
-        const cursed = msg.curse && cursedPreset();
+        // В «Проклятом мате» особые числа и цель тоже отмечаются проклятием, а не звёздами и фанфарами
+        const cursed = cursedPreset() && (msg.curse || msg.milestone);
         if (cursed) curse(msg.count);
-        if (player) (msg.milestone ? player.playFanfare : cursed ? player.playCurse : player.play)();
+        else if (msg.milestone) celebrate();
+        if (player) (cursed ? player.playCurse : msg.milestone ? player.playFanfare : player.play)();
       } else if (msg.type === "sound") {
         if (player) player.apply(msg);
       } else if (msg.type === "style") {

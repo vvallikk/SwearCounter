@@ -179,8 +179,12 @@
           <button id="sound-test" class="secondary-btn" type="button">▶ Проверить</button>
         </div>
         <div id="sound-list" class="sound-list" role="radiogroup" aria-label="Звук оповещения"></div>
+        <p id="sound-random-note" class="note" hidden>Рандом: отметьте звуки, на каждый мат (и проклятие на Хеллоуин)
+          играет случайный из них.</p>
         <div class="row sound-actions">
           <button id="sound-upload" class="secondary-btn" type="button">Загрузить звук…</button>
+          <button id="sound-random" class="secondary-btn" type="button" aria-pressed="false"
+            title="На каждый мат — случайный звук из отмеченных">🎲 Рандом</button>
           <input id="sound-input" type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" hidden>
         </div>
         <div id="sound-status" class="status-line"></div>
