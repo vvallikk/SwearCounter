@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import threading
+import time
 import webbrowser
 from collections.abc import Callable
 from contextlib import asynccontextmanager
@@ -32,6 +33,7 @@ from .timer import NoSwearTimer
 from .stt.cloud import PROVIDERS, clean_key
 from .stt import CATALOG, ModelDownloader, ModelInfo, MicRecognizer, audio_devices, find_model, remove_model
 from .updater import Updater
+from .voice_commands import VoiceCommands, VoiceCommandsError
 from .wordlists import WordLists
 
 log = logging.getLogger(__name__)
@@ -244,6 +246,21 @@ class ObsOptions(BaseModel):
     scene_at: int = 0  # 0 — сцену не переключать
 
 
+class VoiceScene(BaseModel):
+    phrases: list[str] = []
+    scene: str = ""
+
+
+class VoiceCommandsChoice(BaseModel):
+    """Настройки голосовых команд (app/voice_commands.py)."""
+
+    enabled: bool = False
+    wake_words: list[str] = []
+    allow_reset: bool = False
+    phrases: dict[str, list[str]] = {}
+    scenes: list[VoiceScene] = []
+
+
 class PresetChoice(BaseModel):
     preset: str
 
@@ -385,6 +402,7 @@ def create_app(
     custom_presets: CustomPresets | None = None,
     hotkey_listener: hotkeys.Hotkeys | None = None,
     obs_link: ObsLink | None = None,
+    voice_commands: VoiceCommands | None = None,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -442,17 +460,21 @@ def create_app(
         from_link_thread(hub.broadcast({"type": "obs", **state}))
 
     obs_link = obs_link or ObsLink(on_obs_output, on_obs_status)
+    voice_commands = voice_commands or VoiceCommands(settings)
 
     def configure_obs_link() -> None:
-        needed = obs_link_needed(obs_options(settings))
+        needed = obs_link_needed(obs_options(settings)) or voice_commands.needs_obs()
         obs_link.configure(needed, autostart.obs_port(settings), autostart.obs_password(settings))
 
-    async def switch_scene(name: str) -> None:
+    async def switch_scene(name: str) -> str:
+        """Пустая строка — сцена переключена, иначе текст ошибки."""
         try:
             await asyncio.to_thread(obs_link.request, "SetCurrentProgramScene", {"sceneName": name})
             log.info("OBS: сцена переключена на %r", name)
+            return ""
         except obs.ObsError as e:
             log.warning("Не удалось переключить сцену OBS: %s", e)
+            return str(e)
 
     def on_count(before: int, count: int) -> None:
         options = obs_options(settings)
@@ -500,6 +522,25 @@ def create_app(
             await hub.reset()
         elif action == "pause":
             await hub.set_paused(not hub.paused)
+
+    async def on_voice_command(command: dict) -> None:
+        """Выполняет голосовую команду и сообщает о ней странице управления."""
+        error = ""
+        action = command["action"]
+        if action == "pause":
+            await hub.set_paused(True)
+        elif action == "resume":
+            await hub.set_paused(False)
+        elif action == "increment":
+            await hub.increment(1)
+        elif action == "reset":
+            await hub.reset()
+        elif action == "scene":
+            error = await switch_scene(command["scene"])
+        voice_commands.last = {**command, "ok": not error, "error": error, "time": time.time()}
+        await hub.broadcast({"type": "voice_command", **voice_commands.last})
+
+    voice_commands.on_command = on_voice_command
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -741,6 +782,22 @@ def create_app(
             return {"scenes": await asyncio.to_thread(obs.scenes, port, password)}
         except obs.ObsError as e:
             raise HTTPException(400, str(e)) from None
+
+    def voice_commands_state() -> dict:
+        return voice_commands.config() | {"last": voice_commands.last}
+
+    @app.get("/api/voice-commands")
+    async def get_voice_commands():
+        return voice_commands_state()
+
+    @app.post("/api/voice-commands")
+    async def post_voice_commands(choice: VoiceCommandsChoice):
+        try:
+            voice_commands.save(choice.model_dump())
+        except VoiceCommandsError as e:
+            raise HTTPException(400, str(e)) from None
+        configure_obs_link()  # для команд смены сцены нужна связь с OBS
+        return voice_commands_state()
 
     @app.post("/api/overlay/open")
     async def open_overlay(request: Request, show: str | None = None):

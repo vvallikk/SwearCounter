@@ -1,0 +1,26 @@
+/* --- Голосовые команды (voice_commands.js) --- */
+.voice-wake { margin-top: 8px; }
+.voice-table { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.voice-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 14px;
+}
+.voice-head { font-size: 12px; color: var(--muted); }
+.voice-row .text-input { padding: 7px 10px; font-size: 14px; }
+.voice-row .text-input:disabled { opacity: 0.5; }
+.voice-reset { gap: 6px; }
+#voice-scenes { display: contents; }
+.voice-scene-phrases-wrap { display: flex; gap: 6px; min-width: 0; }
+.voice-remove { padding: 0; width: 34px; height: 34px; }
+.voice-actions { margin-top: 8px; gap: 8px; }
+/* Выключено — таблица приглушена, но остаётся доступной для правки. */
+.voice-off .voice-table, .voice-off .voice-wake { opacity: 0.6; }
+#voice-last { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 480px) {
+  .voice-row { grid-template-columns: 1fr; gap: 4px; }
+  .voice-head { display: none; }
+}
