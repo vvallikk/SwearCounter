@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  if (window.SUBTITLES_OVERLAY) return; // ?show=subtitles: всё делает overlay/subtitles.js
 
   const RECONNECT_MS = 2000;
   // Подгонка под окно: число не уже MIN_DIGITS цифр и занимает такую долю окна,

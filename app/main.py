@@ -34,6 +34,7 @@ from .paths import (
 )
 from .profanity import SwearTracker
 from .stats import Stats
+from .subtitles import Subtitles
 from .hotkeys import Hotkeys
 from .server import Hub, create_app
 from .settings import Settings
@@ -164,10 +165,12 @@ def prepare(args: argparse.Namespace) -> Prepared:
 
     main_tracker = SwearTracker(add_swears, paused=lambda: hub.paused)
     extra_trackers = ExtraTrackers(hub.extra, add_extra, paused=lambda: hub.paused)
+    subtitles = Subtitles(settings, hub.broadcast, paused=lambda: hub.paused)
 
     async def on_text(text: str, is_final: bool) -> None:
         await main_tracker.feed(text, is_final)
         await extra_trackers.feed(text, is_final)
+        await subtitles.feed(text, is_final)
 
     # Микрофон: ключ --device, иначе выбранный на странице управления, иначе системный.
     if args.device:
@@ -203,6 +206,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
         word_lists=word_lists,
         custom_presets=CustomPresets(PRESETS_DIR, builtin_preset_ids(OVERLAY_DIR)),
         hotkey_listener=Hotkeys(lambda action: None),  # обработчик ставит сервер при запуске
+        subtitles=subtitles,
     )
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.
