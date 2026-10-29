@@ -482,6 +482,20 @@ def test_volume(client):
     assert client.get("/api/sound").json()["volume"] == 30
 
 
+def test_milestone_sound(client):
+    assert client.get("/api/sound").json()["milestone"] == "fanfare"
+    assert client.post("/api/sound/milestone", json={"id": "same"}).json()["milestone"] == "same"
+    sound_id = upload(client).json()["active"]
+    state = client.post("/api/sound/milestone", json={"id": sound_id}).json()
+    assert state["milestone"] == sound_id and state["milestone_name"] == "дзынь.wav"
+    assert client.post("/api/sound/milestone", json={"id": "nope"}).status_code == 404
+    with client.websocket_connect("ws://localhost/ws") as ws:
+        skip_greeting(ws)
+        client.post("/api/sound/milestone", json={"id": "fanfare"})
+        message = ws.receive_json()
+        assert message["type"] == "sound" and message["milestone"] == "fanfare"
+
+
 def test_sound_changes_reach_overlays(client):
     with client.websocket_connect("ws://localhost/ws") as ws:
         skip_greeting(ws)
