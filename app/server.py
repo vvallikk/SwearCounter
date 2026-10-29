@@ -17,7 +17,7 @@ from urllib.parse import unquote, urlsplit
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, preset_links
 from .counter import Counter
@@ -260,6 +260,11 @@ class LabelChoice(BaseModel):
 
 class TimerLabelChoice(BaseModel):
     text: str
+
+
+class SoundRandomChoice(BaseModel):
+    enabled: bool
+    pool: list[str] = Field(default_factory=list, max_length=64)
 
 
 class EventChoice(BaseModel):
@@ -1059,6 +1064,15 @@ def create_app(
     async def post_sound_active(choice: SoundChoice):
         try:
             sound.select(choice.id)
+        except KeyError:
+            raise HTTPException(404, "Такого звука нет") from None
+        await hub.broadcast(sound_message())
+        return sound.state()
+
+    @app.post("/api/sound/random")
+    async def post_sound_random(choice: SoundRandomChoice):
+        try:
+            sound.set_random(choice.enabled, choice.pool)
         except KeyError:
             raise HTTPException(404, "Такого звука нет") from None
         await hub.broadcast(sound_message())

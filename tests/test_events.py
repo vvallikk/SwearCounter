@@ -106,18 +106,17 @@ def test_event_sound_files_exist_and_are_documented():
     for event in EVENTS:
         for sound in event.sounds:
             assert sound.id.startswith(event.id + ":")
-            if sound.file:
-                path = ROOT / "overlay" / "sounds" / sound.file
-                assert path.is_file(), sound.file
-                assert path.stat().st_size < 200 * 1024  # короткие звуки, не раздуваем exe
-                assert Path(sound.file).name in readme  # источник и лицензия записаны
+            path = ROOT / "overlay" / "sounds" / sound.file
+            assert path.is_file(), sound.file
+            assert path.stat().st_size < 200 * 1024  # короткие звуки, не раздуваем exe
+            assert Path(sound.file).name in readme  # источник и лицензия записаны
     assert "CC0" in readme
 
 
 def test_sound_js_lists_the_same_files():
     """Случайный скример оформления в sound.js берёт файлы из того же набора."""
     text = (ROOT / "overlay" / "sound.js").read_text(encoding="utf-8")
-    files = {s.file for s in HALLOWEEN.sounds if s.file}
+    files = {s.file for s in HALLOWEEN.sounds}
     assert all(f'"{f}"' in text for f in files)
 
 
@@ -133,15 +132,15 @@ def test_event_sounds_listed_only_during_event(sound, event_day):
     assert sound.state()["event_sounds"] == []
     event_day(HALLOWEEN_DAY)
     sounds = sound.state()["event_sounds"]
-    assert sounds[0] == {"id": "halloween:random", "name": "🎃 Случайный скример", "url": None}
+    assert sounds[0] == {"id": "halloween:stab", "name": "💀 Скример", "url": "/overlay/sounds/halloween/scream-stab.ogg"}
     assert {"id": "halloween:ghost", "name": "👻 Визг призрака", "url": "/overlay/sounds/halloween/ghost-shriek.ogg"} in sounds
 
 
 def test_event_sound_can_be_selected_during_event(sound, halloween):
-    sound.select("halloween:random")
+    sound.select("halloween:banshee")
     state = sound.state()
-    assert state["active"] == "halloween:random"
-    assert state["active_name"] == "🎃 Случайный скример"
+    assert state["active"] == "halloween:banshee"
+    assert state["active_name"] == "😱 Крик банши"
 
 
 def test_event_sound_rejected_outside_event(sound):
@@ -154,6 +153,14 @@ def test_selected_event_sound_falls_back_after_event(sound, event_day):
     sound.select("halloween:ghost")
     event_day(date(2026, 11, 2))
     assert sound.state()["active"] is None  # стандартный звук
+
+
+def test_random_pool_keeps_event_sounds_only_during_event(sound, event_day):
+    event_day(HALLOWEEN_DAY)
+    sound.set_random(True, ["halloween:ghost", "standard", "halloween:ghost"])
+    assert (sound.state()["random"], sound.state()["pool"]) == (True, ["halloween:ghost", "standard"])
+    event_day(date(2026, 11, 2))
+    assert sound.state()["pool"] == ["standard"]  # звук события пропал после события
 
 
 # --- сервер ---
@@ -179,6 +186,15 @@ def test_events_api(client, halloween):
 
 def test_unknown_event_404(client):
     assert client.post("/api/events/christmas", json={"enabled": True}).status_code == 404
+
+
+def test_random_mode_api(client, halloween):
+    with client.websocket_connect("ws://localhost/ws") as ws:
+        skip_greeting(ws)
+        state = client.post("/api/sound/random", json={"enabled": True, "pool": ["halloween:stab", "halloween:door"]}).json()
+        assert state["random"] is True and state["pool"] == ["halloween:stab", "halloween:door"]
+        assert ws.receive_json()["pool"] == ["halloween:stab", "halloween:door"]
+    assert client.post("/api/sound/random", json={"enabled": True, "pool": ["нет-такого"]}).status_code == 404
 
 
 def test_halloween_preset_only_during_event(client, event_day):
