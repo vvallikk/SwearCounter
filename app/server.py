@@ -262,6 +262,12 @@ class ScaleChoice(BaseModel):
     label: int
 
 
+class MotionChoice(BaseModel):
+    transition: str
+    entrance: str
+    autohide: int
+
+
 class PageFiles(StaticFiles):
     """Страницы и скрипты: браузер сверяется с сервером перед каждым использованием.
 
@@ -296,6 +302,11 @@ DEFAULT_LABEL_POSITION = "left"
 LABEL_MAX_LENGTH = 40
 SCALE_RANGE = (25, 200)  # размер числа и подписи, проценты
 DEFAULT_SCALE = 100
+# Анимации переходов: список вариантов знает только оверлей (overlay/motion.js),
+# сервер проверяет форму id, как у пресетов. Незнакомый id оверлей заменит своим по умолчанию.
+DEFAULT_TRANSITION = "roll"
+DEFAULT_ENTRANCE = "fade"
+AUTOHIDE_MAX = 300  # секунд; 0 — счётчик виден всегда
 # Изменять состояние можно только со своих страниц: иначе любой открытый сайт
 # простым POST на localhost сбросит счёт или запустит обновление (CSRF).
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
@@ -476,6 +487,9 @@ def create_app(
             "timer_label": settings.get("overlay_timer_label", ""),
             "number_scale": settings.get("overlay_number_scale", DEFAULT_SCALE),
             "label_scale": settings.get("overlay_label_scale", DEFAULT_SCALE),
+            "transition": settings.get("overlay_transition", DEFAULT_TRANSITION),
+            "entrance": settings.get("overlay_entrance", DEFAULT_ENTRANCE),
+            "autohide": settings.get("overlay_autohide", 0),
         }
 
     def style_message() -> dict:
@@ -1074,6 +1088,18 @@ def create_app(
             raise HTTPException(400, f"Размер должен быть от {low} до {high}%")
         settings.set("overlay_number_scale", choice.number)
         settings.set("overlay_label_scale", choice.label)
+        await hub.broadcast(style_message())
+        return await get_overlay()
+
+    @app.post("/api/overlay/motion")
+    async def post_overlay_motion(choice: MotionChoice):
+        if not (PRESET_ID.fullmatch(choice.transition) and PRESET_ID.fullmatch(choice.entrance)):
+            raise HTTPException(400, "Неверный id анимации")
+        if not 0 <= choice.autohide <= AUTOHIDE_MAX:
+            raise HTTPException(400, f"Автоскрытие должно быть от 0 до {AUTOHIDE_MAX} секунд")
+        settings.set("overlay_transition", choice.transition)
+        settings.set("overlay_entrance", choice.entrance)
+        settings.set("overlay_autohide", choice.autohide)
         await hub.broadcast(style_message())
         return await get_overlay()
 

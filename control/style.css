@@ -780,3 +780,74 @@ body.offline .live-count-frame { opacity: 0.35; }
 .whatsnew-version:first-child { margin-top: 0; }
 .whatsnew-offer { margin-top: 14px; padding: 10px 12px; font-size: 14px; border: 1px solid var(--accent); border-radius: 10px; }
 .whatsnew-offer .note { margin: 4px 0 8px; }
+
+/* --- Анимации окна (control/motion.js), вариант в data-motion на <html> --- */
+/* Вкладки появляются из motion.js с учётом направления, CSS-анимация не нужна */
+:root[data-motion] .tab-panel:not([hidden]) { animation: none; }
+
+/* Ползунок выбранной вкладки переезжает к новой */
+.tabs.has-indicator .tab[aria-selected="true"] { background: none; }
+.tabs.has-indicator .tab { position: relative; z-index: 1; }
+.tab-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  transition: transform 0.25s cubic-bezier(.2, .7, .2, 1), width 0.25s cubic-bezier(.2, .7, .2, 1);
+}
+:root[data-motion="spring"] .tab-indicator {
+  transition-duration: 0.45s;
+  transition-timing-function: cubic-bezier(.34, 1.56, .64, 1);
+}
+.tab-indicator.no-transition { transition: none; }
+
+/* Раздел, который сворачивается: тело видно до конца анимации */
+.collapsible.collapsed.closing > .section-body { display: block; }
+:root[data-motion] .collapsible > .section-body { animation: none; }
+
+/* Окна (что нового, подтверждения): проявляются и тают */
+:root[data-motion] .dialog {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.2s ease, transform 0.2s ease, overlay 0.2s allow-discrete, display 0.2s allow-discrete;
+}
+:root[data-motion] .dialog[open] { opacity: 1; transform: none; }
+:root[data-motion] .dialog::backdrop {
+  opacity: 0;
+  transition: opacity 0.2s ease, overlay 0.2s allow-discrete, display 0.2s allow-discrete;
+}
+:root[data-motion] .dialog[open]::backdrop { opacity: 1; }
+@starting-style {
+  :root[data-motion] .dialog[open] { opacity: 0; transform: scale(0.95); }
+  :root[data-motion] .dialog[open]::backdrop { opacity: 0; }
+}
+:root[data-motion="spring"] .dialog { transition-duration: 0.35s; transition-timing-function: cubic-bezier(.34, 1.56, .64, 1); }
+:root[data-motion="slide"] .dialog { transform: translateY(24px); }
+:root[data-motion="slide"] .dialog[open] { transform: none; }
+@starting-style {
+  :root[data-motion="slide"] .dialog[open] { transform: translateY(24px); }
+}
+
+/* Кнопки чуть вдавливаются при нажатии */
+:root[data-motion="smooth"] .secondary-btn,
+:root[data-motion="slide"] .secondary-btn { transition: transform 0.1s ease, background-color 0.15s, border-color 0.15s; }
+:root[data-motion="spring"] .secondary-btn { transition: transform 0.25s cubic-bezier(.34, 1.56, .64, 1), background-color 0.15s, border-color 0.15s; }
+:root[data-motion]:not([data-motion="none"]) .secondary-btn:active:not(:disabled) { transform: scale(0.96); }
+
+/* «Без анимаций»: всё меняется мгновенно */
+:root[data-motion="none"] *,
+:root[data-motion="none"] *::before,
+:root[data-motion="none"] *::after,
+:root[data-motion="none"] .dialog::backdrop {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Раздел «Анимации» на вкладке «Оформление» */
+.motion-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.motion-label { margin-top: 8px; font-size: 13px; font-weight: 600; }
+.motion-label:first-child { margin-top: 0; }
+.motion-desc { margin-top: 0; min-height: 1.45em; }
+.motion-row { gap: 8px; }
