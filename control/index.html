@@ -148,6 +148,18 @@
         <p class="note">Подпись таймера стоит с той же стороны, что и подпись счётчика.
           Пустое поле — только время.</p>
         <div id="label-status" class="status-line"></div>
+        <label class="section-title" for="scale-source">Размер и подложка источника</label>
+        <div class="row">
+          <div class="select-wrap">
+            <select id="scale-source">
+              <option value="main">Счётчик</option>
+              <option value="timer">Таймер «без мата»</option>
+              <option value="goal">Отсчёт до цели</option>
+            </select>
+          </div>
+        </div>
+        <p class="note">У каждого источника в OBS свой размер и своя подложка. Пока их не меняли,
+          таймер, цель и дополнительные счётчики берут настройки основного счётчика.</p>
         <label class="section-title" for="number-scale">Размер числа</label>
         <div class="row volume-row">
           <input id="number-scale" type="range" min="25" max="200" step="5" value="100" aria-describedby="number-scale-value">
@@ -160,6 +172,21 @@
         </div>
         <p class="note">100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет:
           чтобы он был крупнее, растяните сам источник.</p>
+        <label class="section-title" for="plate">Подложка</label>
+        <div class="row">
+          <div class="select-wrap">
+            <select id="plate">
+              <option value="none">Без подложки</option>
+              <option value="under">Плашка под вебкамерой</option>
+              <option value="over">Плашка над вебкамерой</option>
+              <option value="card">Карточка со скруглёнными углами</option>
+              <option value="pill">Бейдж внутри кадра вебкамеры</option>
+            </select>
+          </div>
+        </div>
+        <p class="note">Плашка и карточка заполняют весь источник в OBS: растяните его по ширине
+          вебкамеры и поставьте вплотную к кадру. Бейдж — по размеру числа, его ставят в угол кадра.
+          Рамка — цвета оформления.</p>
         <div id="scale-status" class="status-line"></div>
       </section>
 

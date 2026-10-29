@@ -371,6 +371,7 @@
   function showCounters(counters) {
     extraCounters = counters;
     renderCounters();
+    renderSourceOptions();
   }
 
   function showExtraCount(msg) {
@@ -870,6 +871,7 @@
       label_position: labelPositionEl.value,
       number_scale: Number(numberScaleEl.value),
       label_scale: Number(labelScaleEl.value),
+      plate: plateEl.value,
       transition: transitionEl.value,
       entrance: entranceEl.value,
       visible: !$("tab-look").hidden, // на скрытой вкладке превью не анимируется
@@ -1094,23 +1096,62 @@
     timerLabelTimer = setTimeout(sendTimerLabel, 400);
   });
 
-  // Размер числа и подписи: проценты, 100 — по умолчанию
+  // Размер числа и подписи (проценты, 100 — по умолчанию) и подложка. У каждого источника
+  // в OBS свои: основной счётчик, таймер, цель и дополнительные счётчики (scale-source).
+  const scaleSourceEl = $("scale-source");
   const numberScaleEl = $("number-scale");
   const labelScaleEl = $("label-scale");
+  const plateEl = $("plate");
+  const FIXED_SOURCES = [...scaleSourceEl.options].map((o) => [o.value, o.textContent]);
+  let overlayStyle = null; // последнее сообщение "style" с сервера
   let scaleTimer = null;
   let scaleRequests = 0;
+
+  function renderSourceOptions() {
+    const chosen = scaleSourceEl.value;
+    const options = FIXED_SOURCES.concat(extraCounters.map((c) => [c.id, `Счётчик «${c.name}»`]));
+    scaleSourceEl.replaceChildren(...options.map(([value, text]) => {
+      const option = el("option", "", text);
+      option.value = value;
+      return option;
+    }));
+    scaleSourceEl.value = options.some(([value]) => value === chosen) ? chosen : "main";
+    if (scaleSourceEl.value !== chosen) showSource();
+  }
+
+  // Настройки источника; у источника без своих — как у основного счётчика
+  function sourceValues(target) {
+    const main = { number: overlayStyle.number_scale, label: overlayStyle.label_scale, plate: overlayStyle.plate || "none" };
+    const mine = (overlayStyle.sources || {})[target] || {};
+    return target === "main" ? main : { ...main, ...mine };
+  }
 
   function showScaleValues() {
     $("number-scale-value").textContent = `${numberScaleEl.value}%`;
     $("label-scale-value").textContent = `${labelScaleEl.value}%`;
   }
 
+  function showSource() {
+    if (!overlayStyle) return;
+    const values = sourceValues(scaleSourceEl.value);
+    numberScaleEl.value = values.number;
+    labelScaleEl.value = values.label;
+    plateEl.value = values.plate;
+    showScaleValues();
+    sendPreviewStyle();
+  }
+  scaleSourceEl.addEventListener("change", showSource);
+
   async function sendScale() {
     clearTimeout(scaleTimer);
     scaleTimer = null;
     scaleRequests += 1;
     try {
-      await api("POST", "/api/overlay/scale", { number: Number(numberScaleEl.value), label: Number(labelScaleEl.value) });
+      await api("POST", "/api/overlay/scale", {
+        number: Number(numberScaleEl.value),
+        label: Number(labelScaleEl.value),
+        target: scaleSourceEl.value,
+      });
       setStatus($("scale-status"), "");
     } catch (e) {
       setStatus($("scale-status"), e.message, true);
@@ -1128,13 +1169,24 @@
   numberScaleEl.addEventListener("input", onScaleInput);
   labelScaleEl.addEventListener("input", onScaleInput);
 
-  function showServerScale(number, label) {
-    if (typeof number !== "number" || typeof label !== "number") return; // сервер старее страницы
-    if (scaleRequests > 0 || scaleTimer !== null || document.activeElement === numberScaleEl || document.activeElement === labelScaleEl) return;
-    numberScaleEl.value = number;
-    labelScaleEl.value = label;
-    showScaleValues();
+  plateEl.addEventListener("change", async () => {
     sendPreviewStyle();
+    scaleRequests += 1;
+    try {
+      await api("POST", "/api/overlay/plate", { plate: plateEl.value, target: scaleSourceEl.value });
+      setStatus($("scale-status"), "");
+    } catch (e) {
+      setStatus($("scale-status"), e.message, true);
+    } finally {
+      scaleRequests -= 1;
+    }
+  });
+
+  function showServerScale(msg) {
+    if (typeof msg.number_scale !== "number" || typeof msg.label_scale !== "number") return; // сервер старее страницы
+    overlayStyle = msg;
+    if (scaleRequests > 0 || scaleTimer !== null || document.activeElement === numberScaleEl || document.activeElement === labelScaleEl) return;
+    showSource();
   }
 
   // --- Анимации переходов оверлея (overlay/motion.js) ---
@@ -2140,7 +2192,7 @@
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);
         showServerTimerLabel(msg.timer_label);
-        showServerScale(msg.number_scale, msg.label_scale);
+        showServerScale(msg);
         showServerMotion(msg);
       }
       else if (msg.count !== undefined) {

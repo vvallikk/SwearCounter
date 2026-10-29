@@ -260,6 +260,12 @@ class TimerLabelChoice(BaseModel):
 class ScaleChoice(BaseModel):
     number: int
     label: int
+    target: str = "main"
+
+
+class PlateChoice(BaseModel):
+    plate: str
+    target: str = "main"
 
 
 class MotionChoice(BaseModel):
@@ -302,6 +308,15 @@ DEFAULT_LABEL_POSITION = "left"
 LABEL_MAX_LENGTH = 40
 SCALE_RANGE = (25, 200)  # размер числа и подписи, проценты
 DEFAULT_SCALE = 100
+# Подложка под счётчиком, чтобы вписать его в рамку вебкамеры: none — без подложки (как раньше),
+# card — карточка во всё окно источника, under/over — плашка под и над камерой, pill — бейдж внутри кадра.
+PLATES = ("none", "card", "under", "over", "pill")
+DEFAULT_PLATE = "none"
+# Источники со своим размером и подложкой: таймер, отсчёт до цели и дополнительные счётчики (по id).
+# Основной счётчик хранится по-старому (overlay_number_scale, overlay_label_scale, overlay_plate),
+# а источник без своих настроек берёт их у основного.
+MAIN_SOURCE = "main"
+OWN_SOURCES = ("timer", "goal")
 # Анимации переходов: список вариантов знает только оверлей (overlay/motion.js),
 # сервер проверяет форму id, как у пресетов. Незнакомый id оверлей заменит своим по умолчанию.
 DEFAULT_TRANSITION = "roll"
@@ -487,10 +502,31 @@ def create_app(
             "timer_label": settings.get("overlay_timer_label", ""),
             "number_scale": settings.get("overlay_number_scale", DEFAULT_SCALE),
             "label_scale": settings.get("overlay_label_scale", DEFAULT_SCALE),
+            "plate": settings.get("overlay_plate", DEFAULT_PLATE),
+            "sources": overlay_sources(),
             "transition": settings.get("overlay_transition", DEFAULT_TRANSITION),
             "entrance": settings.get("overlay_entrance", DEFAULT_ENTRANCE),
             "autohide": settings.get("overlay_autohide", 0),
         }
+
+    def overlay_sources() -> dict:
+        saved = settings.get("overlay_sources")
+        return dict(saved) if isinstance(saved, dict) else {}
+
+    def check_source(target: str) -> None:
+        if target != MAIN_SOURCE and target not in OWN_SOURCES and target not in hub.extra.ids():
+            raise HTTPException(400, "Неизвестный источник")
+
+    def set_source(target: str, **fields) -> None:
+        """Размер или подложка одного источника; у основного счётчика — прежние ключи настроек."""
+        if target == MAIN_SOURCE:
+            keys = {"number": "overlay_number_scale", "label": "overlay_label_scale", "plate": "overlay_plate"}
+            for name, value in fields.items():
+                settings.set(keys[name], value)
+            return
+        sources = overlay_sources()
+        sources[target] = {**sources.get(target, {}), **fields}
+        settings.set("overlay_sources", sources)
 
     def style_message() -> dict:
         return {"type": "style", **overlay_state()}
@@ -819,6 +855,10 @@ def create_app(
     async def delete_counter(counter_id: str):
         extra_or_404(counter_id)
         hub.extra.remove(counter_id)
+        sources = overlay_sources()
+        if sources.pop(counter_id, None) is not None:
+            settings.set("overlay_sources", sources)
+            await hub.broadcast(style_message())
         return await counters_changed()
 
     @app.post("/api/counters/{counter_id}/increment")
@@ -1086,8 +1126,17 @@ def create_app(
         low, high = SCALE_RANGE
         if not (low <= choice.number <= high and low <= choice.label <= high):
             raise HTTPException(400, f"Размер должен быть от {low} до {high}%")
-        settings.set("overlay_number_scale", choice.number)
-        settings.set("overlay_label_scale", choice.label)
+        check_source(choice.target)
+        set_source(choice.target, number=choice.number, label=choice.label)
+        await hub.broadcast(style_message())
+        return await get_overlay()
+
+    @app.post("/api/overlay/plate")
+    async def post_overlay_plate(choice: PlateChoice):
+        if choice.plate not in PLATES:
+            raise HTTPException(400, "Неверная подложка")
+        check_source(choice.target)
+        set_source(choice.target, plate=choice.plate)
         await hub.broadcast(style_message())
         return await get_overlay()
 

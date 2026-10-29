@@ -504,7 +504,7 @@ def test_preset_is_saved_and_broadcast(client, settings_path):
         skip_greeting(ws)
         assert client.post("/api/overlay/preset", json={"preset": "neon"}).json()["preset"] == "neon"
         assert ws.receive_json() == {
-            "type": "style", "preset": "neon", "label": "", "label_position": "left", "timer_label": "", "number_scale": 100, "label_scale": 100,
+            "type": "style", "preset": "neon", "label": "", "label_position": "left", "timer_label": "", "number_scale": 100, "label_scale": 100, "plate": "none", "sources": {},
             "transition": "roll", "entrance": "fade", "autohide": 0,
         }
     assert client.get("/api/overlay").json()["preset"] == "neon"
@@ -513,7 +513,7 @@ def test_preset_is_saved_and_broadcast(client, settings_path):
 
 def test_default_overlay_style(client):
     assert client.get("/api/overlay").json() == {
-        "preset": "swearcounter", "label": "", "label_position": "left", "timer_label": "", "number_scale": 100, "label_scale": 100,
+        "preset": "swearcounter", "label": "", "label_position": "left", "timer_label": "", "number_scale": 100, "label_scale": 100, "plate": "none", "sources": {},
         "transition": "roll", "entrance": "fade", "autohide": 0,
     }
 
@@ -555,7 +555,7 @@ def test_label_is_saved_and_broadcast(client, settings_path):
     with client.websocket_connect("ws://localhost/ws") as ws:
         skip_greeting(ws)
         response = client.post("/api/overlay/label", json={"text": "  Маты:\n ", "position": "top"})
-        expected = {"preset": "swearcounter", "label": "Маты:", "label_position": "top", "timer_label": "", "number_scale": 100, "label_scale": 100,
+        expected = {"preset": "swearcounter", "label": "Маты:", "label_position": "top", "timer_label": "", "number_scale": 100, "label_scale": 100, "plate": "none", "sources": {},
                     "transition": "roll", "entrance": "fade", "autohide": 0}
         assert response.json() == expected
         assert ws.receive_json() == {"type": "style", **expected}
@@ -598,6 +598,32 @@ def test_scale_is_saved_and_broadcast(client, settings_path):
 def test_scale_out_of_range_rejected(client, settings_path, body):
     assert client.post("/api/overlay/scale", json=body).status_code == 400
     assert Settings(settings_path).get("overlay_number_scale") is None
+
+
+def test_source_scale_is_separate_from_main(client, settings_path):
+    client.post("/api/overlay/scale", json={"number": 150, "label": 60})
+    with client.websocket_connect("ws://localhost/ws") as ws:
+        skip_greeting(ws)
+        response = client.post("/api/overlay/scale", json={"number": 80, "label": 120, "target": "timer"})
+        assert ws.receive_json()["sources"] == {"timer": {"number": 80, "label": 120}}
+    state = response.json()
+    assert (state["number_scale"], state["label_scale"]) == (150, 60)  # основной счётчик не тронут
+    assert Settings(settings_path).get("overlay_sources") == {"timer": {"number": 80, "label": 120}}
+
+
+def test_plate_is_saved_per_source(client, settings_path):
+    assert client.post("/api/overlay/plate", json={"plate": "under"}).json()["plate"] == "under"
+    state = client.post("/api/overlay/plate", json={"plate": "pill", "target": "goal"}).json()
+    assert state["plate"] == "under"
+    assert state["sources"] == {"goal": {"plate": "pill"}}
+    assert Settings(settings_path).get("overlay_plate") == "under"
+
+
+@pytest.mark.parametrize("body", [{"plate": "round"}, {"plate": "pill", "target": "c99"}])
+def test_bad_plate_or_source_rejected(client, settings_path, body):
+    assert client.post("/api/overlay/plate", json=body).status_code == 400
+    assert client.post("/api/overlay/scale", json={"number": 100, "label": 100, "target": "c99"}).status_code == 400
+    assert Settings(settings_path).get("overlay_sources") is None
 
 
 def test_motion_defaults_in_overlay_state(client):

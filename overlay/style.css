@@ -26,6 +26,16 @@ body {
   user-select: none;
 }
 
+/* Обёртка во всё окно: без подложки её не видно, с подложкой card/under/over она и есть плашка */
+.plate {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
 /* Подпись и число — один блок; положение подписи задаёт data-label-position на <html>. */
 .counter {
   display: flex;
@@ -37,6 +47,44 @@ body {
 :root[data-label-position="right"] .counter { flex-direction: row-reverse; }
 :root[data-label-position="top"] .counter { flex-direction: column; gap: calc(var(--size) * 0.05); }
 :root[data-label-position="bottom"] .counter { flex-direction: column-reverse; gap: calc(var(--size) * 0.05); }
+
+/* ===================== Подложка (data-plate на <html>) =====================
+   Чтобы вписать счётчик в рамку вебкамеры. Тёмное стекло и полоска цвета пресета
+   с той стороны, где камера. Размер плашки во всё окно задаёт источник в OBS. */
+:root {
+  --plate-bg: rgba(12, 14, 22, 0.8);
+  --plate-line: var(--accent, var(--color));
+  --plate-radius: min(18px, 22vh);
+}
+
+:root[data-plate="card"] .plate,
+:root[data-plate="under"] .plate,
+:root[data-plate="over"] .plate {
+  background: var(--plate-bg);
+  border: 2px solid var(--plate-line);
+  border-radius: var(--plate-radius);
+}
+
+/* Под камерой: верхние углы прямые и примыкают к кадру, сверху полоса потолще */
+:root[data-plate="under"] .plate {
+  border-width: 4px 2px 2px;
+  border-radius: 0 0 var(--plate-radius) var(--plate-radius);
+}
+
+/* Над камерой — зеркально */
+:root[data-plate="over"] .plate {
+  border-width: 2px 2px 4px;
+  border-radius: var(--plate-radius) var(--plate-radius) 0 0;
+}
+
+/* Бейдж внутри кадра: «таблетка» по размеру числа и подписи */
+:root[data-plate="pill"] .counter {
+  padding: calc(var(--size) * 0.12) calc(var(--size) * 0.32);
+  background: var(--plate-bg);
+  border: calc(var(--size) * 0.04) solid var(--plate-line);
+  border-radius: calc(var(--size) * 2);
+  box-shadow: 0 calc(var(--size) * 0.04) calc(var(--size) * 0.16) rgba(0, 0, 0, 0.5);
+}
 
 /* Вокруг числа строятся вспышка, «+N» и искры */
 .number {
