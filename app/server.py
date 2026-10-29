@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, preset_links
+from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, obs_scenes, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .extra_counters import CounterError, ExtraCounters
@@ -237,9 +237,17 @@ class ObsCheck(BaseModel):
     obs_password: str | None = None  # None — сохранённый
 
 
+class SceneRule(BaseModel):
+    at: int = 0  # 0 — правило не срабатывает
+    scene: str = ""
+
+
 class ObsOptions(BaseModel):
     reset_stream: bool = False
     reset_record: bool = False
+    # Без scene_rules — старый формат: одно правило из scene/scene_at (app/obs_scenes.py).
+    scene_rules: list[SceneRule] | None = None
+    scene_return: int | None = None  # None — оставить сохранённый
     scene: str = ""
     scene_at: int = 0  # 0 — сцену не переключать
 
@@ -325,24 +333,19 @@ def foreign_origin(request: Request) -> bool:
     parts = urlsplit(origin)
     return parts.hostname not in LOCAL_HOSTS or parts.netloc != request.headers.get("host")
 
-MAX_SCENE_NAME = 256
-
-
 def obs_options(settings: Settings) -> dict:
     """Что делать по событиям OBS (app/obs_link.py); испорченное значение — выключено."""
     saved = settings.get("obs_link")
     saved = saved if isinstance(saved, dict) else {}
-    scene, scene_at = saved.get("scene"), saved.get("scene_at")
     return {
         "reset_stream": saved.get("reset_stream") is True,
         "reset_record": saved.get("reset_record") is True,
-        "scene": scene if isinstance(scene, str) else "",
-        "scene_at": scene_at if isinstance(scene_at, int) and 0 <= scene_at <= goals.MAX_VALUE else 0,
+        **obs_scenes.saved_options(saved),
     }
 
 
 def obs_link_needed(options: dict) -> bool:
-    return options["reset_stream"] or options["reset_record"] or bool(options["scene"] and options["scene_at"])
+    return options["reset_stream"] or options["reset_record"] or bool(obs_scenes.active(options["scene_rules"]))
 
 
 AUTOSTART_KEYS = ("autostart_windows", "autostart_obs", "autostart_stream", "obs_ws_port", "obs_ws_password")
@@ -447,17 +450,13 @@ def create_app(
         needed = obs_link_needed(obs_options(settings))
         obs_link.configure(needed, autostart.obs_port(settings), autostart.obs_password(settings))
 
-    async def switch_scene(name: str) -> None:
-        try:
-            await asyncio.to_thread(obs_link.request, "SetCurrentProgramScene", {"sceneName": name})
-            log.info("OBS: сцена переключена на %r", name)
-        except obs.ObsError as e:
-            log.warning("Не удалось переключить сцену OBS: %s", e)
+    scene_switcher = obs_scenes.SceneSwitcher(obs_link.request)
 
     def on_count(before: int, count: int) -> None:
         options = obs_options(settings)
-        if options["scene"] and 0 < options["scene_at"] and before < options["scene_at"] <= count:
-            task = asyncio.create_task(switch_scene(options["scene"]))
+        scene = obs_scenes.crossed_scene(options["scene_rules"], before, count)
+        if scene is not None:
+            task = asyncio.create_task(scene_switcher.switch(scene, options["scene_return"]))
             background.add(task)
             task.add_done_callback(background.discard)
 
@@ -520,6 +519,7 @@ def create_app(
                 await asyncio.to_thread(hotkey_listener.stop)
             if check_task is not None:
                 check_task.cancel()
+            scene_switcher.close()
             await asyncio.to_thread(obs_link.stop)
             loop_holder.pop("loop", None)
             await updater.stop()
@@ -528,6 +528,7 @@ def create_app(
 
     app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
     app.state.hub = hub  # трей читает отсюда, стоит ли пауза
+    app.state.scene_switcher = scene_switcher  # тесты укорачивают здесь секунду
 
     @app.middleware("http")
     async def reject_foreign_origin(request: Request, call_next):
@@ -723,11 +724,23 @@ def create_app(
 
     @app.post("/api/obs")
     async def post_obs(options: ObsOptions):
-        if not 0 <= options.scene_at <= goals.MAX_VALUE:
-            raise HTTPException(400, f"Порог — целое число от 0 до {goals.MAX_VALUE}")
-        if len(options.scene) > MAX_SCENE_NAME:
-            raise HTTPException(400, "Слишком длинное имя сцены")
-        settings.set("obs_link", options.model_dump())
+        if options.scene_rules is None:  # старый клиент: одно правило
+            rules = [(options.scene_at, options.scene)] if options.scene or options.scene_at else []
+        else:
+            rules = [(rule.at, rule.scene) for rule in options.scene_rules]
+        scene_return = obs_options(settings)["scene_return"] if options.scene_return is None else options.scene_return
+        try:
+            obs_scenes.check_options(rules, scene_return)
+        except obs_scenes.ScenesError as e:
+            raise HTTPException(400, str(e)) from None
+        scene_rules = [{"at": at, "scene": scene} for at, scene in rules]
+        settings.set("obs_link", {
+            "reset_stream": options.reset_stream,
+            "reset_record": options.reset_record,
+            "scene_rules": scene_rules,
+            "scene_return": scene_return,
+            **obs_scenes.legacy_fields(scene_rules),
+        })
         configure_obs_link()
         return obs_state()
 
