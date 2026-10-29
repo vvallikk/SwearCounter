@@ -112,6 +112,18 @@
           <button id="stats-export" class="secondary-btn" type="button">Сохранить в CSV</button>
           <button id="stats-clear" class="secondary-btn" type="button">Очистить</button>
         </div>
+        <div class="autostart-grid stats-mode">
+          <label for="stats-mode">Что записывать</label>
+          <div class="select-wrap"><select id="stats-mode">
+            <option value="full">Сессии и слова</option>
+            <option value="count">Только число слов</option>
+            <option value="off">Не вести статистику</option>
+          </select></div>
+        </div>
+        <p class="note">Статистика хранится только на этом компьютере, в файле stats.json: по каждой
+          сессии время, число слов и какие слова из списка прозвучали (корнями, без фраз).
+          «Только число слов» — без самих слов. «Не вести статистику» — новое не записывается.
+          Уже накопленное в обоих случаях остаётся, пока вы его не очистите.</p>
         <div id="stats-status" class="status-line"></div>
       </section>
     </div>
