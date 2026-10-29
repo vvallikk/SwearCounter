@@ -1,0 +1,110 @@
+<!doctype html>
+<!-- EVENT: halloween-2026 — ВРЕМЕННО. Вся папка events/halloween-2026/obs-theme удаляется после 1 ноября 2026. -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Хеллоуин: рамка камеры</title>
+<link rel="stylesheet" href="lib/theme.css">
+<style>
+  :root { --c1: var(--hw-pumpkin); --c2: var(--hw-violet); --pad: 34px; --bw: 8px; }
+  .frame {
+    position: fixed; inset: var(--pad); border-radius: 18px;
+    padding: var(--bw);
+    background: linear-gradient(135deg, var(--c1), var(--c2) 50%, var(--c1)) border-box;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    background-size: 300% 300%;
+    animation: flow 8s linear infinite;
+  }
+  @keyframes flow { to { background-position: 300% 0; } }
+  .glow {
+    position: fixed; inset: var(--pad); border-radius: 18px; pointer-events: none;
+    box-shadow: 0 0 18px 2px var(--a70), inset 0 0 26px var(--a45);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { box-shadow: 0 0 34px 6px var(--a85), inset 0 0 40px var(--a60); } }
+
+  .drips { position: fixed; left: calc(var(--pad) + 30px); right: calc(var(--pad) + 30px); top: calc(var(--pad) + var(--bw) - 2px); height: 80px; }
+  .drip { position: absolute; top: 0; width: 10px; border-radius: 0 0 6px 6px; background: var(--c1);
+    transform-origin: top; animation: drip var(--d) ease-in infinite; animation-delay: var(--delay); }
+  .drip::after { content: ""; position: absolute; left: -2px; bottom: -8px; width: 14px; height: 14px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: inherit; }
+  @keyframes drip { 0% { height: 4px; } 70% { height: var(--h); } 85% { height: var(--h); opacity: 1; } 100% { height: var(--h); opacity: 0; } }
+
+  .web { position: fixed; pointer-events: none; }
+  .web.tl { left: calc(var(--pad) - 14px); top: calc(var(--pad) - 14px); }
+  .web.br { right: calc(var(--pad) - 14px); bottom: calc(var(--pad) - 14px); }
+
+  .hang { position: fixed; right: calc(var(--pad) + 70px); top: 0; transform-origin: top center; animation: swing 4s ease-in-out infinite; }
+  .hang .thread { width: 1.5px; margin: 0 auto; background: rgba(240, 240, 255, 0.7); animation: yoyo 7s ease-in-out infinite; height: 90px; }
+  .hang .body { display: block; margin: -4px auto 0; }
+  @keyframes swing { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-4deg); } }
+  @keyframes yoyo { 0%, 100% { height: 70px; } 45% { height: 150px; } 60% { height: 140px; } }
+  .hw-tiny-spider .legs { animation: wiggle 0.5s ease-in-out infinite alternate; transform-origin: center; }
+  @keyframes wiggle { to { transform: scaleX(0.88); } }
+
+  .label {
+    position: fixed; left: calc(var(--pad) + 26px); bottom: calc(var(--pad) - 26px);
+    padding: 8px 22px 10px; border-radius: 12px; font-size: 34px; color: var(--c1);
+    background: rgba(8, 4, 12, 0.88); border: 2px solid var(--c1);
+    text-shadow: 0 0 12px var(--a80);
+    box-shadow: 0 0 18px var(--a45);
+  }
+  .label[hidden] { display: none; }
+  .label .pk { display: inline-block; vertical-align: -6px; margin-right: 10px; }
+</style>
+</head>
+<body>
+<div class="frame"></div>
+<div class="glow"></div>
+<div class="drips" id="drips"></div>
+<div class="web tl" id="wtl"></div>
+<div class="web br" id="wbr"></div>
+<div class="hang"><div class="thread"></div><span class="body" id="tiny"></span></div>
+<div class="label hw-wet" id="label" hidden></div>
+<script src="lib/event.js"></script>
+<script src="lib/decor.js"></script>
+<script>
+  // Рамка для камеры. Размер источника = размер камеры + 68 px (по 34 px с каждой стороны
+  // на паутину и подпись), например 708×428 для камеры 640×360.
+  //   ?label=Andrew  — подпись снизу     ?color=pumpkin|slime|violet|blood
+  (function () {
+    if (!HW.active) return;
+    const COLORS = { pumpkin: ["#ff7a18", "#6a1fb0"], slime: ["#9dff4f", "#6a1fb0"], violet: ["#b05cff", "#ff7a18"], blood: ["#e0102f", "#2b0008"] };
+    const [c1, c2] = COLORS[HW.param("color", "pumpkin")] || COLORS.pumpkin;
+    document.documentElement.style.setProperty("--c1", c1);
+    document.documentElement.style.setProperty("--c2", c2);
+    // Полупрозрачные оттенки основного цвета для свечения (color-mix в старом OBS не работает).
+    const rgb = [1, 3, 5].map((i) => parseInt(c1.slice(i, i + 2), 16)).join(",");
+    for (const a of [45, 60, 70, 80, 85]) document.documentElement.style.setProperty(`--a${a}`, `rgba(${rgb},${a / 100})`);
+
+    const wsize = Math.round(Math.min(innerWidth, innerHeight) * 0.38);
+    document.getElementById("wtl").innerHTML = HWDecor.cobweb(wsize, "tl", 5);
+    document.getElementById("wbr").innerHTML = HWDecor.cobweb(Math.round(wsize * 0.7), "br", 9);
+    document.getElementById("tiny").innerHTML = HWDecor.tinySpider(38);
+
+    const drips = document.getElementById("drips");
+    const n = Math.max(4, Math.round(innerWidth / 110));
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement("div");
+      d.className = "drip";
+      d.style.left = (i + 0.2 + Math.random() * 0.6) * (100 / n) + "%";
+      d.style.setProperty("--h", 14 + Math.random() * 46 + "px");
+      d.style.setProperty("--d", 4 + Math.random() * 5 + "s");
+      d.style.setProperty("--delay", -Math.random() * 8 + "s");
+      d.style.width = 6 + Math.random() * 6 + "px";
+      drips.appendChild(d);
+    }
+
+    const label = document.getElementById("label");
+    function setLabel(t) {
+      label.hidden = !t;
+      label.innerHTML = t ? `<span class="pk">${HWDecor.pumpkin(34)}</span>` : "";
+      label.append(t || "");
+    }
+    setLabel(HW.param("label", ""));
+    HW.on("frame", (m) => { if ("label" in m) setLabel(m.label); });
+    HW.start();
+  })();
+</script>
+</body>
+</html>

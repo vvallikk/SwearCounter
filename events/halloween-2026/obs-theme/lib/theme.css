@@ -1,0 +1,48 @@
+/* EVENT: halloween-2026 — ВРЕМЕННО. Вся папка events/halloween-2026/obs-theme удаляется после 1 ноября 2026. */
+
+@font-face {
+  font-family: "HW Wet";
+  src: url("../fonts/RubikWetPaint.woff2") format("woff2");
+  font-display: block;
+}
+@font-face {
+  font-family: "HW Text";
+  src: url("../fonts/Rubik.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: block;
+}
+
+:root {
+  --hw-night: #0b0612;
+  --hw-night-2: #1a0b2e;
+  --hw-violet: #6a1fb0;
+  --hw-pumpkin: #ff7a18;
+  --hw-ember: #ffb347;
+  --hw-slime: #9dff4f;
+  --hw-blood: #c3001f;
+  --hw-bone: #f3e9d2;
+  --hw-ink: #050307;
+  --hw-glow: 0 0 6px rgba(255, 122, 24, 0.9), 0 0 22px rgba(255, 122, 24, 0.55), 0 0 60px rgba(255, 60, 0, 0.35);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: "HW Text", system-ui, sans-serif;
+  color: var(--hw-bone);
+  -webkit-font-smoothing: antialiased;
+}
+
+.hw-wet {
+  font-family: "HW Wet", "HW Text", sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* После окончания евента страницы пустые и прозрачные: в OBS просто ничего не видно. */
+html.event-over body > * { display: none !important; }
+
