@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, preset_links
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
+from .events import EVENT_PRESETS, Events
 from .extra_counters import CounterError, ExtraCounters
 from .obs_link import ObsLink
 from .paths import CONTROL_DIR, OVERLAY_DIR
@@ -67,6 +68,8 @@ class Hub:
         self.count_listeners: list[Callable[[int, int], None]] = []
         # Дополнительные счётчики (app/extra_counters.py); в тестах — только в памяти.
         self.extra = ExtraCounters()
+        # (было, стало) -> «проклятие» события (app/events.py): в increment уходит curse: true.
+        self.curse: Callable[[int, int], bool] = lambda before, count: False
 
     async def connect(self, ws: WebSocket, greeting: list[dict] = (), events_only: bool = False) -> None:
         """Подключает клиента и отправляет ему счёт и сообщения greeting.
@@ -101,6 +104,8 @@ class Hub:
             milestone = goals.reached(self.milestones, self.goal, before, count)
             if milestone is not None:
                 message["milestone"] = milestone
+            if self.curse(before, count):
+                message["curse"] = True
             await self._broadcast(message)
             self.timer.hit()
             await self._broadcast(self.timer.message())
@@ -257,6 +262,10 @@ class TimerLabelChoice(BaseModel):
     text: str
 
 
+class EventChoice(BaseModel):
+    enabled: bool
+
+
 class ScaleChoice(BaseModel):
     number: int
     label: int
@@ -288,6 +297,7 @@ class WordListOpen(BaseModel):
 
 
 DEFAULT_PRESET = "swearcounter"
+EVENTS_CHECK_SECONDS = 60  # как часто проверять начало и конец события (app/events.py)
 # Список пресетов знает только оверлей (overlay/presets.js); сервер проверяет форму id.
 PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
 # Подпись рядом с числом («Маты:»): где она стоит относительно числа.
@@ -385,7 +395,12 @@ def create_app(
     custom_presets: CustomPresets | None = None,
     hotkey_listener: hotkeys.Hotkeys | None = None,
     obs_link: ObsLink | None = None,
+    events: Events | None = None,
 ) -> FastAPI:
+    events = events or Events(settings)
+    if sound.events is None:
+        sound.events = events  # звуки события в библиотеке
+    hub.curse = events.curse
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
     # после скачивания. Выбрали другую — скачанная просто останется на диске.
@@ -468,9 +483,14 @@ def create_app(
     def sound_message() -> dict:
         return {"type": "sound", **sound.state()}
 
+    def overlay_preset() -> str:
+        preset = settings.get("overlay_preset", DEFAULT_PRESET)
+        # Оформление события после его окончания сменяется на обычное само.
+        return preset if events.preset_available(preset) else DEFAULT_PRESET
+
     def overlay_state() -> dict:
         return {
-            "preset": settings.get("overlay_preset", DEFAULT_PRESET),
+            "preset": overlay_preset(),
             "label": settings.get("overlay_label", ""),
             "label_position": settings.get("overlay_label_position", DEFAULT_LABEL_POSITION),
             "timer_label": settings.get("overlay_timer_label", ""),
@@ -480,6 +500,26 @@ def create_app(
 
     def style_message() -> dict:
         return {"type": "style", **overlay_state()}
+
+    def events_message() -> dict:
+        return {"type": "events", **events.state()}
+
+    async def events_changed() -> None:
+        # Оверлеи и страница управления убирают или показывают оформление и звуки события.
+        await hub.broadcast(events_message())
+        await hub.broadcast(style_message())
+        await hub.broadcast(sound_message())
+
+    async def watch_events() -> None:
+        """Событие начинается и заканчивается в полночь: проверяем раз в минуту, без перезапуска."""
+        active = events.active_ids()
+        while True:
+            await asyncio.sleep(EVENTS_CHECK_SECONDS)
+            now = events.active_ids()
+            if now != active:
+                active = now
+                log.info("События: %s", ", ".join(now) or "нет")
+                await events_changed()
 
     def hotkey_combos() -> dict[str, str]:
         saved = settings.get("hotkeys")
@@ -509,6 +549,7 @@ def create_app(
         configure_obs_link()
         obs_link.start()
         check_task = asyncio.create_task(updater.auto_check()) if check_updates else None
+        events_task = asyncio.create_task(watch_events())
         if hotkey_listener is not None:
             loop = asyncio.get_running_loop()
             hotkey_listener.on_press = lambda action: asyncio.run_coroutine_threadsafe(on_hotkey(action), loop)
@@ -516,6 +557,7 @@ def create_app(
         try:
             yield
         finally:
+            events_task.cancel()
             if hotkey_listener is not None:
                 await asyncio.to_thread(hotkey_listener.stop)
             if check_task is not None:
@@ -1033,6 +1075,20 @@ def create_app(
         recognizer.set_monitor(choice.enabled)
         return await get_speech()
 
+    @app.get("/api/events")
+    async def get_events():
+        return events.state()
+
+    @app.post("/api/events/{event_id}")
+    async def post_event(event_id: str, choice: EventChoice):
+        try:
+            events.set_enabled(event_id, choice.enabled)
+        except KeyError:
+            raise HTTPException(404, "Такого события нет") from None
+        log.info("Событие %s: %s", event_id, "включено" if choice.enabled else "выключено")
+        await events_changed()
+        return events.state()
+
     @app.get("/api/overlay")
     async def get_overlay():
         return overlay_state()
@@ -1041,6 +1097,8 @@ def create_app(
     async def post_overlay_preset(choice: PresetChoice):
         if not PRESET_ID.fullmatch(choice.preset):
             raise HTTPException(400, "Неверный id пресета")
+        if not events.preset_available(choice.preset):
+            raise HTTPException(400, f"Это оформление события «{EVENT_PRESETS[choice.preset].title}»: оно уже закончилось")
         settings.set("overlay_preset", choice.preset)
         await hub.broadcast(style_message())
         return await get_overlay()
@@ -1193,7 +1251,7 @@ def create_app(
             return
         await ws.accept()
         try:
-            await hub.connect(ws, [sound_message(), style_message(), hub.counters_message()])
+            await hub.connect(ws, [events_message(), sound_message(), style_message(), hub.counters_message()])
             log.info("Клиент подключён, всего: %d", len(hub.clients))
             # Клиенты ничего не присылают; читаем только чтобы заметить отключение.
             while True:

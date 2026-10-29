@@ -4,6 +4,7 @@
 """
 
 import sys
+from datetime import date
 
 import pytest
 
@@ -218,7 +219,26 @@ def no_slow_refusals(monkeypatch):
 
 
 # Сообщения, которыми сервер встречает нового клиента WebSocket, по порядку.
-GREETING = ("state", "pause", "timer", "goals", "sound", "style", "counters")
+GREETING = ("state", "pause", "timer", "goals", "events", "sound", "style", "counters")
+
+
+# День вне всех временных событий (app/events.py): тесты не зависят от того, когда их запускают.
+# Тесты событий ставят свою дату через фикстуру event_day.
+QUIET_DAY = date(2026, 6, 15)
+
+
+@pytest.fixture(autouse=True)
+def event_day(monkeypatch):
+    """Сегодняшняя дата для app/events.py; event_day(date(...)) меняет её."""
+    from app import events
+
+    day = {"value": QUIET_DAY}
+    monkeypatch.setattr(events, "today", lambda: day["value"])
+
+    def set_day(value: date) -> None:
+        day["value"] = value
+
+    return set_day
 
 
 def skip_greeting(ws) -> list[dict]:
