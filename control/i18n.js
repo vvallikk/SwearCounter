@@ -378,6 +378,32 @@
 
     // Ошибки с сервера и при запросах
     "Нет связи с приложением. Проверьте, что оно запущено, и повторите": "No connection to the app. Check that it's running and try again",
+
+    // Отчёт после стрима (stream_report.js)
+    "Отчёт после стрима": "Stream report",
+    "Итоги сессии одним сообщением: длительность, счёт, частые слова, рекорд без мата и цель. Куда отправлять — вебхук канала Discord и/или бот Telegram, как их получить — в":
+      "The session summary in one message: duration, count, frequent words, clean record and goal. Where to send it — a Discord channel webhook and/or a Telegram bot; how to get them is in the",
+    "инструкции": "guide",
+    "Вебхук Discord": "Discord webhook",
+    "Токен бота Telegram": "Telegram bot token",
+    "Чат Telegram": "Telegram chat",
+    "-1001234567890 или @канал": "-1001234567890 or @channel",
+    "Отправлять сам, когда в OBS заканчивается трансляция": "Send automatically when the stream ends in OBS",
+    "Скрывать слова звёздочками": "Hide words with asterisks",
+    "Конец трансляции программа узнаёт от OBS — порт и пароль задаются в разделе «OBS».":
+      "The program learns that the stream has ended from OBS — the port and password are set in the “OBS” section.",
+    "Предпросмотр": "Preview",
+    "Отправить отчёт сейчас": "Send the report now",
+    "Отправляю…": "Sending…",
+    "отправлено": "sent",
+    "Не задано, куда отправлять: укажите вебхук Discord или бота Telegram":
+      "Nowhere to send to: enter a Discord webhook or a Telegram bot",
+    "Адрес вебхука Discord должен начинаться с https://discord.com/api/webhooks/ — скопируйте его целиком":
+      "The Discord webhook address must start with https://discord.com/api/webhooks/ — copy it in full",
+    "Токен бота Telegram выглядит как 123456789:AAE…: скопируйте его из @BotFather целиком":
+      "A Telegram bot token looks like 123456789:AAE…: copy it from @BotFather in full",
+    "Чат Telegram — число (например, -1001234567890) или @имя_канала":
+      "The Telegram chat is a number (for example, -1001234567890) or @channel_name",
     "Сервер не знает этой команды: перезапустите приложение, оно запущено со старой версией": "The server doesn't know this command: restart the app, it's running an older version",
     "Установите обязательное обновление, чтобы продолжить": "Install the required update to continue",
     "Откройте программу по адресу localhost": "Open the program at localhost",
@@ -518,8 +544,15 @@
     ["Не удалось сохранить архив: {}", "Couldn't save the archive: {}"],
     ["Не удалось открыть: {}", "Couldn't open: {}"],
     ["Не удалось записать автозапуск в реестр: {}", "Couldn't write autostart to the registry: {}"],
+    ["Сохранён: {}", "Saved: {}"],
+    ["Отправлено после трансляции: {}", "Sent after the stream: {}"],
+    ["Отправлено вручную: {}", "Sent manually: {}"],
     ["Сервер ответил ошибкой {}", "The server responded with error {}"],
     ["GitHub ответил ошибкой {}", "GitHub responded with error {}"],
+    // Общие шаблоны отчёта о стриме — последними, чтобы не перехватить точные выше.
+    ["{} ответил ошибкой {}: {}", "{} responded with error {}: {}"],
+    ["{} ответил ошибкой {}", "{} responded with error {}"],
+    ["нет связи с {} ({})", "no connection to {} ({})"],
   ];
 
   // Число со словом: «5 слов» → «5 words».

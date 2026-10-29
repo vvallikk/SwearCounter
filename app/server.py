@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, preset_links
+from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, preset_links, stream_report
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .extra_counters import CounterError, ExtraCounters
@@ -65,6 +65,8 @@ class Hub:
         self.stats = Stats()
         # Вызываются после прибавки с (было, стало): например, смена сцены в OBS по порогу.
         self.count_listeners: list[Callable[[int, int], None]] = []
+        # Вызываются после сброса счёта: например, отчёт о стриме начинает новую сессию.
+        self.reset_listeners: list[Callable[[], None]] = []
         # Дополнительные счётчики (app/extra_counters.py); в тестах — только в памяти.
         self.extra = ExtraCounters()
 
@@ -127,6 +129,8 @@ class Hub:
             await self._broadcast({"type": "state", "count": count})
             self.timer.reset()
             await self._broadcast(self.timer.message())
+            for listener in self.reset_listeners:
+                listener()
             return count
 
     def pause_message(self) -> dict:
@@ -433,7 +437,13 @@ def create_app(
             return
         asyncio.run_coroutine_threadsafe(coro, loop)
 
+    # Отчёт после стрима в Discord/Telegram (app/stream_report.py).
+    report = stream_report.StreamReport(hub, settings)
+    hub.reset_listeners.append(report.on_reset)
+
     def on_obs_output(output: str) -> None:
+        if output == "stream":
+            report.on_stream_started()
         if obs_options(settings)[f"reset_{output}"]:
             log.info("OBS: начало %s, счёт сброшен", "трансляции" if output == "stream" else "записи")
             from_link_thread(hub.reset())
@@ -441,10 +451,14 @@ def create_app(
     def on_obs_status(state: dict) -> None:
         from_link_thread(hub.broadcast({"type": "obs", **state}))
 
-    obs_link = obs_link or ObsLink(on_obs_output, on_obs_status)
+    def on_obs_output_stopped(output: str) -> None:
+        if output == "stream":
+            report.on_stream_stopped()
+
+    obs_link = obs_link or ObsLink(on_obs_output, on_obs_status, on_output_stopped=on_obs_output_stopped)
 
     def configure_obs_link() -> None:
-        needed = obs_link_needed(obs_options(settings))
+        needed = obs_link_needed(obs_options(settings)) or report.auto_enabled()
         obs_link.configure(needed, autostart.obs_port(settings), autostart.obs_password(settings))
 
     async def switch_scene(name: str) -> None:
@@ -817,6 +831,8 @@ def create_app(
         extra_or_404(counter_id)
         hub.extra.reset(counter_id)
         return await counters_changed()
+
+    app.include_router(stream_report.router(report, configure_obs_link))
 
     @app.get("/api/stats")
     async def get_stats():
