@@ -56,10 +56,19 @@
   }
   setSize(size);
 
+  // Свои размер и подложка у таймера, цели и дополнительного счётчика (msg.sources[source]);
+  // пока их не меняли, источник берёт настройки основного счётчика.
+  const source = counterId || (showTimer ? "timer" : showGoal ? "goal" : "main");
+  function own(msg, field, fallback) {
+    const mine = msg.sources && msg.sources[source];
+    return mine && mine[field] !== undefined ? mine[field] : fallback;
+  }
+
   function applyScale(msg) {
-    const number = Number(msg.number_scale) / 100;
-    const label = Number(msg.label_scale) / 100;
+    const number = Number(own(msg, "number", msg.number_scale)) / 100;
+    const label = Number(own(msg, "label", msg.label_scale)) / 100;
     if (!(number > 0) || !(label > 0)) return; // сервер старее страницы
+    applyPlate(own(msg, "plate", msg.plate));
     if (number === numberScale && label === labelScale) return;
     numberScale = number;
     labelScale = label;
@@ -68,6 +77,7 @@
   }
   if (preview) root.setAttribute("data-preview", "");
 
+  const plateEl = document.getElementById("plate");
   const counterEl = document.getElementById("counter");
   const numberEl = document.getElementById("number");
   const labelEl = document.getElementById("label");
@@ -135,7 +145,7 @@
     hideTimer = null;
     if (hidden) {
       hidden = false;
-      motion.enter(counterEl, entrance);
+      motion.enter(shell(), entrance);
     }
   }
 
@@ -144,7 +154,7 @@
     hideTimer = null;
     if (!hidden) {
       hidden = true;
-      motion.exit(counterEl, entrance);
+      motion.exit(shell(), entrance);
     }
   }
 
@@ -153,6 +163,33 @@
     if (!autohide) return;
     show();
     hideTimer = setTimeout(hide, autohide * 1000);
+  }
+
+  // --- Подложка: вписать счётчик в рамку вебкамеры ---
+  // none — как раньше, только число и подпись; pill — бейдж вокруг них; card, under, over —
+  // плашка во всё окно источника (его размер в OBS подгоняют под ширину камеры).
+  const PLATES = ["none", "card", "under", "over", "pill"];
+  const FULL_PLATES = ["card", "under", "over"];
+  let plate = "none";
+
+  // Что появляется и исчезает: плашка во всё окно — вместе со счётчиком, иначе только счётчик
+  function shell() {
+    return FULL_PLATES.includes(plate) ? plateEl : counterEl;
+  }
+
+  function applyPlate(value) {
+    const next = PLATES.includes(value) ? value : "none";
+    if (next === plate) return;
+    const before = shell();
+    plate = next;
+    root.setAttribute("data-plate", plate);
+    const after = shell();
+    if (after !== before) {
+      // Скрытое состояние переходит к новому элементу: старый снова виден, новый спрятан
+      motion.enter(before, "none");
+      if (hidden) motion.exit(after, "none");
+    }
+    fitToWindow(); // поля бейджа меняют размер счётчика
   }
 
   function applyMotion(msg) {
@@ -572,7 +609,7 @@
       const msg = event.data;
       // Показ появления: счётчик исчезает и появляется выбранной анимацией
       if (msg && msg.type === "entrance-demo") {
-        motion.exit(counterEl, entrance).then(() => setTimeout(() => motion.enter(counterEl, entrance), 250));
+        motion.exit(shell(), entrance).then(() => setTimeout(() => motion.enter(shell(), entrance), 250));
         return;
       }
       if (!msg || msg.type !== "style") return;
@@ -624,12 +661,12 @@
   // Автоскрытие из адреса: счётчик скрыт до первого мата
   if (fixedAutohide) {
     hidden = true;
-    motion.exit(counterEl, "none");
+    motion.exit(shell(), "none");
   } else {
-    motion.enter(counterEl, entrance);
+    motion.enter(shell(), entrance);
   }
   window.addEventListener("obsSourceVisibleChanged", (event) => {
-    if (event.detail && event.detail.visible && !hidden) motion.enter(counterEl, entrance);
+    if (event.detail && event.detail.visible && !hidden) motion.enter(shell(), entrance);
   });
 
   // --- WebSocket с автопереподключением ---

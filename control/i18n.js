@@ -105,6 +105,17 @@
     "Например: Без мата:": "For example: Swear-free for:",
     "Подпись таймера стоит с той же стороны, что и подпись счётчика. Пустое поле — только время.":
       "The timer label sits on the same side as the counter label. An empty field shows just the time.",
+    "Размер и подложка источника": "Source size and backing",
+    "У каждого источника в OBS свой размер и своя подложка. Пока их не меняли, таймер, цель и дополнительные счётчики берут настройки основного счётчика.":
+      "Each OBS source has its own size and backing. Until you change them, the timer, the goal and extra counters use the main counter's settings.",
+    "Подложка": "Backing",
+    "Без подложки": "No backing",
+    "Плашка под вебкамерой": "Bar under the webcam",
+    "Плашка над вебкамерой": "Bar above the webcam",
+    "Карточка со скруглёнными углами": "Card with rounded corners",
+    "Бейдж внутри кадра вебкамеры": "Badge inside the webcam frame",
+    "Плашка и карточка заполняют весь источник в OBS: растяните его по ширине вебкамеры и поставьте вплотную к кадру. Бейдж — по размеру числа, его ставят в угол кадра. Рамка — цвета оформления.":
+      "The bar and the card fill the whole OBS source: stretch it to the webcam's width and put it right against the frame. The badge fits the number; put it in a corner of the frame. The border takes the look's colour.",
     "Размер числа": "Number size",
     "Размер подписи": "Label size",
     "100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет: чтобы он был крупнее, растяните сам источник.":
@@ -485,6 +496,7 @@
   // переводе — части по номеру, если порядок другой.
   const PATTERNS = [
     ["Локальные · {}", "Local · {}"],
+    ["Счётчик «{}»", "Counter “{}”"],
     ["Облачные · {}", "Cloud · {}"],
     ["Ошибка сервера ({})", "Server error ({})"],
     ["{} (нет файла)", "{} (no file)"],

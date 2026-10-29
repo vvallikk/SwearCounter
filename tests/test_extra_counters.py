@@ -186,6 +186,19 @@ def test_api_lifecycle_and_broadcasts(client, hub):
         assert ws.receive_json() == {"type": "counters", "counters": []}
 
 
+def test_counter_has_own_size_and_plate(client, settings):
+    client.post("/api/counters", json={"name": "Паразиты", "list": "parasites.txt"})
+    client.post("/api/overlay/scale", json={"number": 70, "label": 90, "target": "c1"})
+    state = client.post("/api/overlay/plate", json={"plate": "pill", "target": "c1"}).json()
+    assert state["sources"] == {"c1": {"number": 70, "label": 90, "plate": "pill"}}
+    assert (state["number_scale"], state["plate"]) == (100, "none")
+    with client.websocket_connect("ws://localhost/ws") as ws:
+        skip_greeting(ws)
+        client.delete("/api/counters/c1")
+        assert ws.receive_json()["sources"] == {}  # удалённый счётчик не оставляет настроек
+    assert settings.get("overlay_sources") == {}
+
+
 @pytest.mark.parametrize("body", [{"preset": "Bad Id"}, {"label": "x" * 41}, {"list": "nope.txt"}, {"name": ""}])
 def test_update_rejects_bad_values(client, body):
     client.post("/api/counters", json={"name": "Паразиты", "list": "parasites.txt"})
