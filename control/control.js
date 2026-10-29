@@ -5,6 +5,10 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // Идущие временные события (app/events.py): их оформления и звуки видны только в их даты.
+  let activeEvents = [];
+  const eventAvailable = (preset) => !preset.event || activeEvents.includes(preset.event);
+
   function el(tag, className, text) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -319,7 +323,7 @@
     list.value = counter.list;
     list.addEventListener("change", () => counterRequest("POST", `/api/counters/${counter.id}`, { list: list.value }));
     const preset = el("select");
-    preset.append(...presets.map((p) => new Option(p.title, p.id)));
+    preset.append(...presets.filter(eventAvailable).map((p) => new Option(p.title, p.id)));
     if (!presets.some((p) => p.id === counter.preset)) preset.prepend(new Option(counter.preset, counter.preset));
     preset.value = counter.preset;
     preset.addEventListener("change", () => counterRequest("POST", `/api/counters/${counter.id}`, { preset: preset.value }));
@@ -680,14 +684,14 @@
   let soundState = null; // последний ответ /api/sound: список перерисовывается и при смене пресета
   let standardSound = "ding"; // стандартный звук выбранного пресета (поле sound в presets.js)
   let standardSoundName = "Стандартный звон";
-  const STANDARD_NAMES = { ding: "Стандартный звон" };
+  const STANDARD_NAMES = { ding: "Стандартный звон", halloween: "🎃 Скримеры «Проклятого мата»" };
 
   function showVolume(volume) {
     volumeEl.value = volume;
     volumeValueEl.textContent = `${volume}%`;
   }
 
-  function soundItem(id, name, active) {
+  function soundItem(id, name, active, removable = id !== null) {
     const item = el("div", active ? "sound-item active" : "sound-item");
     const pick = el("button", "sound-pick");
     pick.type = "button";
@@ -704,7 +708,7 @@
       player.preview(id);
     });
     item.append(pick, play);
-    if (id !== null) {
+    if (removable) {
       const del = el("button", "icon-btn", "🗑");
       del.type = "button";
       del.title = "Удалить";
@@ -720,13 +724,21 @@
     // Ползунок не трогаем, пока его двигают: иначе он прыгал бы назад.
     if (volumeTimer === null && document.activeElement !== volumeEl) showVolume(state.volume);
     soundState = state;
-    const key = JSON.stringify([state.sounds, state.active, standardSound, standardSoundName]);
+    const eventSounds = state.event_sounds || [];
+    const key = JSON.stringify([state.sounds, eventSounds, state.active, standardSound, standardSoundName]);
     if (key !== renderedSoundsKey) {
       renderedSoundsKey = key;
       soundListEl.replaceChildren(
         soundItem(null, standardSoundName, state.active === null),
         ...state.sounds.map((s) => soundItem(s.id, s.name, s.id === state.active))
       );
+      // Встроенные звуки события: удалить нельзя, после события пропадут сами
+      if (eventSounds.length) {
+        soundListEl.append(
+          el("div", "sound-group-title", "Хеллоуин · до 1 ноября"),
+          ...eventSounds.map((s) => soundItem(s.id, s.name, s.id === state.active, false))
+        );
+      }
     }
     return player.apply(state);
   }
@@ -827,7 +839,7 @@
 
   function renderPresetOptions() {
     const custom = presets.filter((p) => p.custom);
-    const options = builtinPresets.map((p) => new Option(p.title, p.id));
+    const options = builtinPresets.filter(eventAvailable).map((p) => new Option(p.title, p.id));
     if (custom.length) {
       const group = el("optgroup");
       group.label = "Личные оформления";
@@ -879,7 +891,7 @@
 
   function showPreset(id) {
     wantedPreset = id;
-    const preset = presets.find((p) => p.id === id) || presets[0];
+    const preset = presets.find((p) => p.id === id && eventAvailable(p)) || presets[0];
     if (!preset) return;
     $("preset-section").hidden = false;
     presetEl.value = preset.id;
@@ -2021,6 +2033,61 @@
   window.openSupport = openSupport;
   $("support-open").addEventListener("click", openSupport);
 
+  // --- Временное событие (Хеллоуин): плашка, тема страницы, оформление и звуки события ---
+
+  const eventBanner = $("event-banner");
+  const eventStatusEl = $("event-status");
+
+  // state — ответ /api/events или сообщение "events" из WebSocket.
+  function showEvents(state) {
+    const before = activeEvents.join();
+    activeEvents = state.active || [];
+    const id = eventBanner.dataset.eventId;
+    const event = (state.events || []).find((e) => e.id === id);
+    eventBanner.hidden = !event; // вне дат события плашки нет совсем
+    eventBanner.classList.toggle("disabled", Boolean(event && !event.enabled));
+    if (activeEvents.includes(id)) document.documentElement.dataset.event = id;
+    else delete document.documentElement.dataset.event;
+    if (before !== activeEvents.join()) {
+      renderPresetOptions(); // оформление события появилось или пропало
+      renderCounters();
+      if (wantedPreset !== null) showPreset(wantedPreset);
+    }
+  }
+
+  async function setEventEnabled(enabled) {
+    try {
+      showEvents(await api("POST", `/api/events/${eventBanner.dataset.eventId}`, { enabled }));
+      setStatus(eventStatusEl, "");
+    } catch (e) {
+      setStatus(eventStatusEl, e.message, true);
+    }
+  }
+
+  // Одной кнопкой: оформление «Проклятый мат» и случайный скример вместо звона
+  $("event-apply").addEventListener("click", async () => {
+    const button = $("event-apply");
+    button.disabled = true;
+    try {
+      presetRequests += 1;
+      try {
+        await api("POST", "/api/overlay/preset", { preset: "halloween" });
+      } finally {
+        presetRequests -= 1;
+      }
+      showPreset("halloween");
+      await showSound(await api("POST", "/api/sound/active", { id: "halloween:random" }));
+      player.play();
+      setStatus(eventStatusEl, "Готово: в OBS теперь «Проклятый мат» и скримеры", false, true);
+    } catch (e) {
+      setStatus(eventStatusEl, e.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+  confirmByTwoClicks($("event-off"), "Точно выключить?", () => setEventEnabled(false));
+  $("event-on").addEventListener("click", () => setEventEnabled(true));
+
   // --- WebSocket: счёт, звук, оформление и уровень микрофона ---
 
   function connect() {
@@ -2051,6 +2118,7 @@
         wakeMeter();
       }
       else if (msg.type === "sound") showSound(msg);
+      else if (msg.type === "events") showEvents(msg);
       else if (msg.type === "update") showUpdate(msg);
       else if (msg.type === "presets") loadCustomPresets();
       else if (msg.type === "pause") showPause(msg.paused);
