@@ -1,0 +1,59 @@
+/* Живые субтитры (?show=subtitles): внизу по центру, крупный текст с обводкой.
+   Размер, цвет и число строк задаёт overlay/subtitles.js по параметрам адреса. */
+:root[data-show="subtitles"] {
+  --sub-size: 48px;
+  --sub-lines: 2;
+  --sub-color: #ffffff;
+  --sub-line: 1.25;
+}
+
+:root[data-show="subtitles"] body {
+  align-items: flex-end;
+  font-family: "Segoe UI Semibold", "Segoe UI", Arial, sans-serif;
+  font-weight: 700;
+}
+
+:root[data-show="subtitles"] .counter { display: none; }
+
+.subtitles {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0 4% calc(var(--sub-size) * 0.4);
+  display: flex;
+  justify-content: center;
+}
+
+/* Окно в N строк: длинная фраза уходит вверх, видны последние слова. */
+.subtitles-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-height: calc(var(--sub-size) * var(--sub-line) * var(--sub-lines));
+  overflow: hidden;
+  font-size: var(--sub-size);
+  line-height: var(--sub-line);
+  color: var(--sub-color);
+  text-align: center;
+  overflow-wrap: anywhere;
+  /* Обводка тенями: работает в любом браузере OBS, буквы не «худеют», как от text-stroke */
+  text-shadow:
+    0.05em 0 0 #000, -0.05em 0 0 #000, 0 0.05em 0 #000, 0 -0.05em 0 #000,
+    0.035em 0.035em 0 #000, -0.035em 0.035em 0 #000, 0.035em -0.035em 0 #000, -0.035em -0.035em 0 #000,
+    0 0.08em 0.25em rgba(0, 0, 0, 0.6);
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+.subtitles-box.empty,
+.subtitles-box.faded { opacity: 0; }
+.subtitles-box.empty { transition: none; }
+
+/* ?box=1 — полупрозрачная плашка под текстом, как у субтитров в кино */
+:root[data-sub-box] .subtitles-box {
+  padding: 0.1em 0.45em;
+  border-radius: 0.2em;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* Промежуточный текст чуть прозрачнее: фраза ещё может поменяться */
+.subtitles-box.partial { color: color-mix(in srgb, var(--sub-color) 85%, transparent); }
