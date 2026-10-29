@@ -538,6 +538,8 @@
   bindOpen($("overlay-open"), "", overlayUrl);
   bindOpen($("timer-open"), "timer", timerOverlayUrl);
   bindOpen($("goal-open"), "goal", goalOverlayUrl);
+  // Для разделов в своих файлах (control/subtitles.js)
+  window.controlKit = { api, setStatus, bindCopyLink, bindOpen };
 
   // --- Состояние распознавания (микрофон и модель) ---
 
@@ -2059,6 +2061,7 @@
       else if (msg.type === "obs") showObsStatus(msg);
       else if (msg.type === "counters") showCounters(msg.counters);
       else if (msg.type === "extra_increment") showExtraCount(msg);
+      else if (msg.type === "subtitles") window.showSubtitles?.(msg);
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

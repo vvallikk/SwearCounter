@@ -167,7 +167,7 @@ def hub(counter):
 def test_api_lifecycle_and_broadcasts(client, hub):
     with client.websocket_connect("ws://localhost/ws") as ws:
         greeting = skip_greeting(ws)
-        assert greeting[-1] == {"type": "counters", "counters": []}
+        assert next(m for m in greeting if m["type"] == "counters") == {"type": "counters", "counters": []}
         resp = client.post("/api/counters", json={"name": "Паразиты", "list": "parasites.txt"})
         assert resp.json()["counters"][0]["id"] == "c1"
         assert ws.receive_json()["counters"][0]["name"] == "Паразиты"

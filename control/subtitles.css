@@ -1,0 +1,11 @@
+/* Раздел «Субтитры» (control/subtitles.js) */
+#subtitles-section .check-row { margin-top: 8px; }
+#subtitles-section .subtitles-link { margin-top: 12px; }
+#subtitles-section code {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  font-size: 12px;
+  white-space: nowrap;
+}

@@ -12,6 +12,7 @@
   </script>
   <script src="i18n.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="subtitles.css">
 </head>
 <body>
   <main class="card">
@@ -265,6 +266,30 @@
         <div id="hotkeys-status" class="status-line"></div>
       </section>
 
+      <section id="subtitles-section" class="section" hidden>
+        <h2 class="section-title">Субтитры</h2>
+        <p class="note">Распознанная речь — отдельным источником в OBS, внизу по центру. Пока выключено,
+          сказанное никуда не отправляется; на паузе субтитров нет.</p>
+        <label class="check-row"><input id="subtitles-enabled" type="checkbox">
+          Показывать субтитры</label>
+        <label class="check-row"><input id="subtitles-uncensored" type="checkbox">
+          Показывать маты как есть <span class="note">(иначе — звёздочками)</span></label>
+        <div class="obs-row subtitles-link">
+          <button id="subtitles-url" class="obs-link" type="button" title="Нажмите, чтобы скопировать">
+            <span class="obs-name">Субтитры</span>
+            <span id="subtitles-url-text" class="obs-url"></span>
+            <span class="copy-label">Копировать</span>
+          </button>
+          <button id="subtitles-open" class="obs-open" type="button" title="Открыть оверлей в браузере по умолчанию" aria-label="Открыть в браузере">↗</button>
+        </div>
+        <p class="note">В адрес можно дописать <code>&amp;lines=1</code> — одна строка,
+          <code>&amp;size=60</code> — размер букв, <code>&amp;box=1</code> — плашка под текстом.</p>
+        <div class="row">
+          <button id="subtitles-test" class="secondary-btn" type="button">Показать пример</button>
+        </div>
+        <div id="subtitles-status" class="status-line"></div>
+      </section>
+
       <section id="autostart-section" class="section" hidden>
         <h2 class="section-title">Автозапуск</h2>
         <label class="check-row"><input id="autostart-windows" type="checkbox">
@@ -394,6 +419,7 @@
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>
   <script src="control.js"></script>
+  <script src="subtitles.js"></script>
   <script src="sections.js"></script>
 </body>
 </html>

@@ -54,6 +54,8 @@ _EN = {
     "OBS запущен. Нажмите, чтобы запустить счётчик матов.": "OBS is running. Click to start Swear Counter.",
     "Трансляция началась, а счётчик матов не запущен. Нажмите, чтобы запустить.":
         "The stream has started, but Swear Counter isn't running. Click to start it.",
+    "Так будут выглядеть субтитры: фраза держится несколько секунд и гаснет":
+        "This is how subtitles will look: a phrase stays for a few seconds and fades out",
 }
 
 

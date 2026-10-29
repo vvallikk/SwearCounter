@@ -27,6 +27,7 @@ from .obs_link import ObsLink
 from .paths import CONTROL_DIR, OVERLAY_DIR
 from .settings import Settings
 from .stats import Stats
+from .subtitles import Subtitles
 from .sound import MAX_SOUND_BYTES, Sound
 from .timer import NoSwearTimer
 from .stt.cloud import PROVIDERS, clean_key
@@ -385,6 +386,7 @@ def create_app(
     custom_presets: CustomPresets | None = None,
     hotkey_listener: hotkeys.Hotkeys | None = None,
     obs_link: ObsLink | None = None,
+    subtitles: Subtitles | None = None,
 ) -> FastAPI:
     switch_lock = asyncio.Lock()
     # Модель, которую выбрали последней: если она ещё скачивается, то включится
@@ -528,6 +530,9 @@ def create_app(
 
     app = FastAPI(title="Счётчик матов", version=__version__, lifespan=lifespan)
     app.state.hub = hub  # трей читает отсюда, стоит ли пауза
+    # Живые субтитры (app/subtitles.py): текст речи подаёт main.py
+    subtitles = subtitles or Subtitles(settings, hub.broadcast, paused=lambda: hub.paused)
+    app.include_router(subtitles.router())
 
     @app.middleware("http")
     async def reject_foreign_origin(request: Request, call_next):
@@ -746,10 +751,10 @@ def create_app(
     async def open_overlay(request: Request, show: str | None = None):
         """Открывает оверлей в браузере по умолчанию: окно программы само вкладки не открывает.
 
-        show — отдельный источник оверлея (timer, goal); любое другое значение игнорируется.
+        show — отдельный источник оверлея (timer, goal, subtitles); любое другое значение игнорируется.
         """
         url = f"{request.base_url}overlay/"
-        if show in ("timer", "goal"):
+        if show in ("timer", "goal", "subtitles"):
             url += f"?show={show}"
         await asyncio.to_thread(webbrowser.open, url)
         return {"url": url}
@@ -1193,7 +1198,7 @@ def create_app(
             return
         await ws.accept()
         try:
-            await hub.connect(ws, [sound_message(), style_message(), hub.counters_message()])
+            await hub.connect(ws, [sound_message(), style_message(), hub.counters_message(), subtitles.message()])
             log.info("Клиент подключён, всего: %d", len(hub.clients))
             # Клиенты ничего не присылают; читаем только чтобы заметить отключение.
             while True:
