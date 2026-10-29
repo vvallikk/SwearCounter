@@ -54,6 +54,18 @@ _EN = {
     "OBS запущен. Нажмите, чтобы запустить счётчик матов.": "OBS is running. Click to start Swear Counter.",
     "Трансляция началась, а счётчик матов не запущен. Нажмите, чтобы запустить.":
         "The stream has started, but Swear Counter isn't running. Click to start it.",
+    # Отчёт после стрима (app/stream_report.py)
+    "Счётчик матов: итоги стрима": "Swear Counter: stream report",
+    "Длительность: {}": "Duration: {}",
+    "Счёт: {}": "Count: {}",
+    "Чаще всего: {}": "Most frequent: {}",
+    "Самая долгая серия без мата: {}": "Longest clean streak: {}",
+    "Цель {}: достигнута": "Goal {}: reached",
+    "Цель {}: не достигнута ({} из {})": "Goal {}: not reached ({} of {})",
+    "Другие счётчики: {}": "Other counters: {}",
+    "{} ч {} мин": "{} h {} min",
+    "{} мин {} с": "{} min {} s",
+    "{} с": "{} s",
 }
 
 

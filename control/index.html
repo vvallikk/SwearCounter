@@ -12,6 +12,7 @@
   </script>
   <script src="i18n.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="stream_report.css">
 </head>
 <body>
   <main class="card">
@@ -322,6 +323,40 @@
         <div id="obs-status" class="status-line"></div>
       </section>
 
+      <section id="report-section" class="section">
+        <h2 class="section-title">Отчёт после стрима</h2>
+        <p class="note">Итоги сессии одним сообщением: длительность, счёт, частые слова, рекорд без мата
+          и цель. Куда отправлять — вебхук канала Discord и/или бот Telegram, как их получить —
+          в <a href="https://github.com/vvallikk/SwearCounter/blob/main/docs/STREAM_REPORT.md"
+          target="_blank" rel="noopener noreferrer">инструкции</a>.</p>
+        <div class="autostart-grid report-grid">
+          <label for="report-discord">Вебхук Discord</label>
+          <div class="row"><input id="report-discord" class="text-input" type="password" autocomplete="off"
+            placeholder="https://discord.com/api/webhooks/…">
+            <button id="report-discord-clear" class="secondary-btn" type="button" hidden>Удалить</button></div>
+          <label for="report-tg-token">Токен бота Telegram</label>
+          <div class="row"><input id="report-tg-token" class="text-input" type="password" autocomplete="off"
+            placeholder="123456789:AAE…">
+            <button id="report-tg-clear" class="secondary-btn" type="button" hidden>Удалить</button></div>
+          <label for="report-tg-chat">Чат Telegram</label>
+          <input id="report-tg-chat" class="text-input" type="text" autocomplete="off"
+            placeholder="-1001234567890 или @канал">
+        </div>
+        <label class="check-row"><input id="report-auto" type="checkbox">
+          Отправлять сам, когда в OBS заканчивается трансляция</label>
+        <label class="check-row"><input id="report-censor" type="checkbox">
+          Скрывать слова звёздочками</label>
+        <p class="note">Конец трансляции программа узнаёт от OBS — порт и пароль задаются в разделе «OBS».</p>
+        <div class="row report-actions">
+          <button id="report-save" class="secondary-btn" type="button">Сохранить</button>
+          <button id="report-preview" class="secondary-btn" type="button">Предпросмотр</button>
+          <button id="report-send" class="secondary-btn primary-btn" type="button">Отправить отчёт сейчас</button>
+        </div>
+        <pre id="report-text" class="report-text" translate="no" hidden></pre>
+        <div id="report-last" class="report-last"></div>
+        <div id="report-status" class="status-line"></div>
+      </section>
+
       <section id="update-section" class="section" hidden>
         <h2 class="section-title">Обновления</h2>
         <div id="update-lock-note" class="update-lock-note" hidden>
@@ -394,6 +429,7 @@
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>
   <script src="control.js"></script>
+  <script src="stream_report.js"></script>
   <script src="sections.js"></script>
 </body>
 </html>

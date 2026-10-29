@@ -1,0 +1,19 @@
+/* Раздел «Отчёт после стрима» (stream_report.js). */
+.report-grid .row .secondary-btn { flex: none; }
+.report-actions { flex-wrap: wrap; margin-top: 12px; }
+.report-text {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.report-last { margin-top: 8px; }
+.report-last-head { font-size: 13px; color: var(--muted); }
+.report-last .status-line { margin-top: 2px; }

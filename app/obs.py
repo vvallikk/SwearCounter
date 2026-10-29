@@ -36,13 +36,23 @@ def auth_string(password: str, salt: str, challenge: str) -> str:
     return base64.b64encode(hashlib.sha256((secret + challenge).encode()).digest()).decode()
 
 
-def output_started(message: dict, event_type: str) -> bool:
-    """Событие «выход запущен»: StreamStateChanged — трансляция, RecordStateChanged — запись."""
+def output_state(message: dict, event_type: str) -> str | None:
+    """Состояние выхода из события event_type (OBS_WEBSOCKET_OUTPUT_…); другое сообщение — None."""
     if message.get("op") != OP_EVENT:
-        return False
+        return None
     data = message.get("d") or {}
     event = data.get("eventData") or {}
-    return data.get("eventType") == event_type and event.get("outputState") == "OBS_WEBSOCKET_OUTPUT_STARTED"
+    return event.get("outputState") if data.get("eventType") == event_type else None
+
+
+def output_started(message: dict, event_type: str) -> bool:
+    """Событие «выход запущен»: StreamStateChanged — трансляция, RecordStateChanged — запись."""
+    return output_state(message, event_type) == "OBS_WEBSOCKET_OUTPUT_STARTED"
+
+
+def output_stopped(message: dict, event_type: str) -> bool:
+    """Событие «выход остановлен» (окончательно, а не «останавливается»)."""
+    return output_state(message, event_type) == "OBS_WEBSOCKET_OUTPUT_STOPPED"
 
 
 def stream_started(message: dict) -> bool:
