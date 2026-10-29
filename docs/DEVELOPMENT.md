@@ -465,7 +465,7 @@ app/obs.py            клиент obs-websocket v5: проверка подкл
 app/obs_link.py       постоянная связь с OBS в своём потоке: автосброс, смена сцены
 app/server.py         FastAPI: /ws, /ws/events, /api/state, /api/count, /api/increment, /api/reset,
                       /api/counters, /api/speech, /api/ui-language, /api/obs, /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
-                      /api/presets/custom, статика
+                      /api/presets/custom, /api/voice-commands, статика
 app/custom_presets.py личные оформления: установка zip-наборов в presets/, упаковка и экспорт
 app/preset_links.py   установка оформления по ссылке: Яндекс Диск, Google Диск, Dropbox
 app/updater.py        проверка, скачивание и установка обновлений из GitHub Releases
@@ -477,12 +477,14 @@ app/extra_counters.py дополнительные счётчики (counters.js
 app/wordlists.py      списки слов (wordlists/): раскладка встроенных, выбор активного
 app/profanity.py      поиск корней из списка (перечитывается при изменении),
                       счёт по ходу фразы (SwearTracker)
+app/voice_commands.py голосовые команды: кодовое слово + фраза → пауза, +1, сцена OBS (docs/VOICE_COMMANDS.md)
 app/paths.py          пути к файлам (из исходников и из exe)
 app/stt/              распознавание: MicRecognizer, процесс worker, движки (engines),
                       каталог моделей, скачивание моделей (downloader),
                       список микрофонов (audio_devices)
 overlay/              оверлей для OBS; presets.js: оформления, sound.js: проигрыватель звука
-control/              страница управления (index.html, style.css, control.js; i18n.js: английский перевод)
+control/              страница управления (index.html, style.css, control.js; i18n.js: английский перевод;
+                      voice_commands.js/.css: раздел голосовых команд)
 wordlists/            встроенные списки слов
 assets/               иконка (scripts/make_icon.py)
 scripts/build.py      сборка exe и zip

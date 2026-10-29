@@ -12,6 +12,7 @@
   </script>
   <script src="i18n.js"></script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="voice_commands.css">
 </head>
 <body>
   <main class="card">
@@ -265,6 +266,48 @@
         <div id="hotkeys-status" class="status-line"></div>
       </section>
 
+      <section id="voice-section" class="section">
+        <h2 class="section-title">Голосовые команды</h2>
+        <p class="note">Скажите кодовое слово и команду, например «счётчик пауза». Без кодового слова
+          обычная речь ничего не включает. Команды слушаются и на паузе. Несколько фраз — через запятую.</p>
+        <label class="check-row"><input id="voice-enabled" type="checkbox"> Включить голосовые команды</label>
+        <div class="autostart-grid voice-wake">
+          <label for="voice-wake">Кодовое слово</label>
+          <input id="voice-wake" class="text-input" type="text" autocomplete="off" placeholder="счётчик, counter">
+        </div>
+        <div id="voice-table" class="voice-table">
+          <div class="voice-row voice-head">
+            <span>Действие</span><span>Фразы</span>
+          </div>
+          <div class="voice-row">
+            <label for="voice-pause">Пауза</label>
+            <input id="voice-pause" class="text-input" type="text" autocomplete="off" data-action="pause">
+          </div>
+          <div class="voice-row">
+            <label for="voice-resume">Продолжить</label>
+            <input id="voice-resume" class="text-input" type="text" autocomplete="off" data-action="resume">
+          </div>
+          <div class="voice-row">
+            <label for="voice-increment">+1</label>
+            <input id="voice-increment" class="text-input" type="text" autocomplete="off" data-action="increment">
+          </div>
+          <div class="voice-row">
+            <label class="check-row voice-reset"><input id="voice-allow-reset" type="checkbox"> Сброс счёта</label>
+            <input id="voice-reset" class="text-input" type="text" autocomplete="off" data-action="reset">
+          </div>
+          <div id="voice-scenes"></div>
+        </div>
+        <div class="row voice-actions">
+          <button id="voice-scene-add" class="secondary-btn" type="button">+ Сцена OBS</button>
+          <button id="voice-scenes-load" class="secondary-btn" type="button" title="Загрузить сцены из OBS">⟳</button>
+          <datalist id="voice-scene-names"></datalist>
+        </div>
+        <p class="note">Сброс счёта голосом работает, только если отметить его галочкой. Для смены сцены
+          нужна связь с OBS — порт и пароль в разделе «OBS».</p>
+        <div id="voice-last" class="status-line">Последняя команда: —</div>
+        <div id="voice-status" class="status-line"></div>
+      </section>
+
       <section id="autostart-section" class="section" hidden>
         <h2 class="section-title">Автозапуск</h2>
         <label class="check-row"><input id="autostart-windows" type="checkbox">
@@ -394,6 +437,7 @@
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>
   <script src="control.js"></script>
+  <script src="voice_commands.js"></script>
   <script src="sections.js"></script>
 </body>
 </html>

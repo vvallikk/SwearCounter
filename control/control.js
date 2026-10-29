@@ -2059,6 +2059,8 @@
       else if (msg.type === "obs") showObsStatus(msg);
       else if (msg.type === "counters") showCounters(msg.counters);
       else if (msg.type === "extra_increment") showExtraCount(msg);
+      // Голосовые команды живут в voice_commands.js.
+      else if (msg.type === "voice_command") window.dispatchEvent(new CustomEvent("voice-command", { detail: msg }));
       else if (msg.type === "style") {
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);

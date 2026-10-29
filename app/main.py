@@ -40,6 +40,7 @@ from .settings import Settings
 from .sound import Sound
 from .stt import CATALOG, MicRecognizer, find_model, installed_models
 from .updater import Updater
+from .voice_commands import VoiceCommands
 from .wordlists import WordLists
 
 HOST = "127.0.0.1"
@@ -165,7 +166,11 @@ def prepare(args: argparse.Namespace) -> Prepared:
     main_tracker = SwearTracker(add_swears, paused=lambda: hub.paused)
     extra_trackers = ExtraTrackers(hub.extra, add_extra, paused=lambda: hub.paused)
 
+    # Голосовые команды слушают и на паузе; первыми, чтобы «пауза» успела до подсчёта фразы.
+    voice_commands = VoiceCommands(settings)
+
     async def on_text(text: str, is_final: bool) -> None:
+        await voice_commands.feed(text, is_final)
         await main_tracker.feed(text, is_final)
         await extra_trackers.feed(text, is_final)
 
@@ -203,6 +208,7 @@ def prepare(args: argparse.Namespace) -> Prepared:
         word_lists=word_lists,
         custom_presets=CustomPresets(PRESETS_DIR, builtin_preset_ids(OVERLAY_DIR)),
         hotkey_listener=Hotkeys(lambda action: None),  # обработчик ставит сервер при запуске
+        voice_commands=voice_commands,  # команды выполняет сервер
     )
 
     # Сокет занимаем сами, а не через uvicorn: так можно перебрать порты.
