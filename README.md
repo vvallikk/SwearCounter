@@ -158,9 +158,14 @@
 | `color`    | цвет числа (hex без `#`)                | `color=ffcc00` |
 | `mute=1`   | без звука                               | `mute=1`       |
 | `preset`   | закрепить оформление за этим источником | `preset=neon`  |
+| `transition` | анимация смены числа для этого источника | `transition=flip` |
+| `entrance` | анимация появления и исчезновения       | `entrance=pop` |
+| `autohide` | прятать через N секунд после мата (0 — не прятать) | `autohide=10` |
 
 Например: `http://localhost:8765/overlay/?size=160&color=ffcc00`. Оформления:
 `classic`, `impact`, `neon`, `retro`, `minimal`, `explosion` и другие, полный список есть в окне программы.
+Анимации смены числа: `none`, `roll`, `flip`, `fade`, `slot`, `glitch`; появления: `none`, `fade`, `pop`,
+`slide`, `drop`, `swing`, `blur`, `glitch`. Без параметров анимации берутся из вкладки «Оформление».
 
 </details>
 

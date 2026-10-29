@@ -303,3 +303,39 @@ body {
   text-shadow: none;
   box-shadow: 0 0.06em 0.18em rgba(0, 0, 0, 0.5);
 }
+
+/* ===================== Смена числа (overlay/motion.js) =====================
+   На время анимации каждая цифра — ячейка: новая цифра в потоке, старая поверх неё. */
+.mc-cell {
+  position: relative;
+  display: inline-block;
+  perspective: 3em;
+}
+
+.mc-in {
+  display: inline-block;
+}
+
+.mc-out {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  text-align: center;
+}
+
+/* Глитч: цифра расслаивается на красный и голубой */
+.mc-glitch .mc-in,
+.mc-glitch .mc-out {
+  text-shadow:
+    calc(var(--size) * -0.04) 0 0 rgba(255, 0, 80, 0.85),
+    calc(var(--size) * 0.04) 0 0 rgba(0, 230, 255, 0.85);
+}
+
+/* EVENT: halloween-2026 — временно. Привидение: зелёное свечение на время перехода */
+.mc-spooky .mc-in,
+.mc-spooky .mc-out {
+  text-shadow:
+    0 0 calc(var(--size) * 0.08) #b6ff8f,
+    0 0 calc(var(--size) * 0.22) #3dff6e;
+}

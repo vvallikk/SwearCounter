@@ -505,6 +505,7 @@ def test_preset_is_saved_and_broadcast(client, settings_path):
         assert client.post("/api/overlay/preset", json={"preset": "neon"}).json()["preset"] == "neon"
         assert ws.receive_json() == {
             "type": "style", "preset": "neon", "label": "", "label_position": "left", "timer_label": "", "number_scale": 100, "label_scale": 100,
+            "transition": "roll", "entrance": "fade", "autohide": 0,
         }
     assert client.get("/api/overlay").json()["preset"] == "neon"
     assert Settings(settings_path).get("overlay_preset") == "neon"
@@ -513,6 +514,7 @@ def test_preset_is_saved_and_broadcast(client, settings_path):
 def test_default_overlay_style(client):
     assert client.get("/api/overlay").json() == {
         "preset": "swearcounter", "label": "", "label_position": "left", "timer_label": "", "number_scale": 100, "label_scale": 100,
+        "transition": "roll", "entrance": "fade", "autohide": 0,
     }
 
 
@@ -553,7 +555,8 @@ def test_label_is_saved_and_broadcast(client, settings_path):
     with client.websocket_connect("ws://localhost/ws") as ws:
         skip_greeting(ws)
         response = client.post("/api/overlay/label", json={"text": "  Маты:\n ", "position": "top"})
-        expected = {"preset": "swearcounter", "label": "Маты:", "label_position": "top", "timer_label": "", "number_scale": 100, "label_scale": 100}
+        expected = {"preset": "swearcounter", "label": "Маты:", "label_position": "top", "timer_label": "", "number_scale": 100, "label_scale": 100,
+                    "transition": "roll", "entrance": "fade", "autohide": 0}
         assert response.json() == expected
         assert ws.receive_json() == {"type": "style", **expected}
     assert Settings(settings_path).get("overlay_label") == "Маты:"
@@ -595,6 +598,44 @@ def test_scale_is_saved_and_broadcast(client, settings_path):
 def test_scale_out_of_range_rejected(client, settings_path, body):
     assert client.post("/api/overlay/scale", json=body).status_code == 400
     assert Settings(settings_path).get("overlay_number_scale") is None
+
+
+def test_motion_defaults_in_overlay_state(client):
+    state = client.get("/api/overlay").json()
+    assert (state["transition"], state["entrance"], state["autohide"]) == ("roll", "fade", 0)
+
+
+def test_motion_is_saved_and_broadcast(client, settings_path):
+    with client.websocket_connect("ws://localhost/ws") as ws:
+        skip_greeting(ws)
+        response = client.post("/api/overlay/motion", json={"transition": "flip", "entrance": "pop", "autohide": 10})
+        assert response.json()["transition"] == "flip"
+        message = ws.receive_json()
+        assert (message["type"], message["entrance"], message["autohide"]) == ("style", "pop", 10)
+    saved = Settings(settings_path)
+    assert (saved.get("overlay_transition"), saved.get("overlay_entrance"), saved.get("overlay_autohide")) == ("flip", "pop", 10)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"transition": "Roll!", "entrance": "fade", "autohide": 0},
+        {"transition": "roll", "entrance": "../x", "autohide": 0},
+        {"transition": "roll", "entrance": "fade", "autohide": -1},
+        {"transition": "roll", "entrance": "fade", "autohide": 301},
+    ],
+)
+def test_bad_motion_rejected(client, settings_path, body):
+    assert client.post("/api/overlay/motion", json=body).status_code == 400
+    assert Settings(settings_path).get("overlay_transition") is None
+
+
+def test_motion_ids_match_overlay():
+    """Значения по умолчанию на сервере есть в списках оверлея."""
+    script = (ROOT / "overlay" / "motion.js").read_text(encoding="utf-8")
+    assert re.search(r'const DEFAULT_TRANSITION = "roll"', script)
+    assert re.search(r'const DEFAULT_ENTRANCE = "fade"', script)
+    assert '{ id: "roll"' in script and '{ id: "fade"' in script
 
 
 def test_long_timer_label_rejected(client, settings_path):
