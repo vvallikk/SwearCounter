@@ -161,3 +161,74 @@ def test_api_export_saves_to_downloads(client, monkeypatch, tmp_path):
     data = path.read_bytes()
     assert data.startswith("﻿".encode())  # BOM для Excel
     assert "бля 2" in data.decode("utf-8-sig")
+
+
+# --- режим: что записывать ---
+
+
+def test_mode_count_keeps_sessions_without_words(tmp_path):
+    path = tmp_path / "stats.json"
+    s = Stats(path, clock=Clock())
+    s.set_mode("count")
+    s.add(2, ["бля", "хрен"])
+    assert s.sessions == [{"start": 1_700_000_000, "end": 1_700_000_000, "count": 2, "words": {}}]
+    assert Stats(path).sessions == s.sessions
+
+
+def test_mode_off_writes_nothing_and_keeps_history(tmp_path):
+    path = tmp_path / "stats.json"
+    s = Stats(path, clock=Clock())
+    s.add(1, ["бля"])
+    saved = path.read_text(encoding="utf-8")
+    s.set_mode("off")
+    s.add(3, ["хрен"])
+    s.new_session()
+    s.add(1)
+    assert [x["count"] for x in s.sessions] == [1]
+    assert path.read_text(encoding="utf-8") == saved
+    assert s.state()["top"] == [["бля", 1]] and s.state()["mode"] == "off"
+
+
+def test_mode_off_without_history_creates_no_file(tmp_path):
+    path = tmp_path / "stats.json"
+    s = Stats(path, clock=Clock())
+    s.set_mode("off")
+    s.add(1, ["бля"])
+    assert not path.exists() and s.sessions == []
+
+
+def test_turning_back_on_starts_new_session():
+    s = Stats(clock=Clock())
+    s.add(1, ["бля"])
+    s.set_mode("off")
+    s.set_mode("full")
+    s.add(1, ["бля"])
+    assert [x["count"] for x in s.sessions] == [1, 1]
+
+
+def test_bad_mode():
+    with pytest.raises(ValueError):
+        Stats().set_mode("all")
+    assert stats.clean_mode("all") == "full" and stats.clean_mode(None) == "full"
+    assert stats.clean_mode("off") == "off"
+
+
+def test_api_mode_saved_and_applied(client, settings):
+    assert client.get("/api/stats").json()["mode"] == "full"
+    state = client.post("/api/stats/mode", json={"mode": "off"}).json()
+    assert state["mode"] == "off" and state["total"] == 2  # история осталась
+    assert settings.get("stats_mode") == "off"
+    client.post("/api/increment")
+    assert client.get("/api/stats").json()["total"] == 2
+    assert client.post("/api/stats/mode", json={"mode": "nope"}).status_code == 400
+    assert settings.get("stats_mode") == "off"
+
+
+def test_saved_mode_applied_on_start(counter, models_dir, settings, tmp_path, fake_sd):
+    from app.sound import Sound
+
+    (models_dir / SMALL).mkdir()
+    settings.set("stats_mode", "count")
+    hub = Hub(counter)
+    create_app(hub, FakeRecognizer(models_dir / SMALL), settings, Sound(settings, tmp_path / "s"))
+    assert hub.stats.mode == "count"

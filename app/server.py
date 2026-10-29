@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, preset_links
+from . import SUPPORT_LINKS, __version__, autostart, goals, hotkeys, i18n, obs, preset_links, stats
 from .counter import Counter
 from .custom_presets import MAX_PACK_BYTES, CustomPresets
 from .extra_counters import CounterError, ExtraCounters
@@ -180,6 +180,10 @@ class CounterUpdate(BaseModel):
 class GoalsChoice(BaseModel):
     milestones: list[int]
     goal: int = 0
+
+
+class StatsModeChoice(BaseModel):
+    mode: str
 
 
 class ModelChoice(BaseModel):
@@ -420,6 +424,7 @@ def create_app(
         hub.goal = goals.clean_goal(settings.get("goal", 0))
     except (goals.GoalsError, TypeError):
         hub.milestones, hub.goal = list(goals.DEFAULT_MILESTONES), 0
+    hub.stats.set_mode(stats.clean_mode(settings.get(stats.SETTING)))
 
     # --- Связь с OBS: автосброс при начале трансляции или записи и смена сцены по порогу ---
     loop_holder: dict[str, asyncio.AbstractEventLoop] = {}
@@ -837,6 +842,14 @@ def create_app(
         except OSError:
             pass  # таблица сохранена, путь есть в ответе
         return {"path": str(path)}
+
+    @app.post("/api/stats/mode")
+    async def post_stats_mode(choice: StatsModeChoice):
+        if choice.mode not in stats.MODES:
+            raise HTTPException(400, "Неверный режим статистики")
+        settings.set(stats.SETTING, choice.mode)
+        hub.stats.set_mode(choice.mode)
+        return hub.stats.state()
 
     @app.delete("/api/stats")
     async def clear_stats():
