@@ -1,0 +1,99 @@
+<!doctype html>
+<!-- EVENT: halloween-2026 — ВРЕМЕННО. Вся папка events/halloween-2026/obs-theme удаляется после 1 ноября 2026. -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Хеллоуин: алерты</title>
+<link rel="stylesheet" href="lib/theme.css">
+<style>
+  .slot { position: fixed; left: 50%; top: 0; width: 0; height: 0; }
+  .hanger { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .hanger.in { animation: down 1.1s cubic-bezier(.2, 1.4, .4, 1) both, sway 3.2s ease-in-out 1.1s infinite; }
+  .hanger.out { animation: up 0.8s cubic-bezier(.6, -0.3, .8, .4) both; }
+  @keyframes down { from { transform: translateY(-110vh); } to { transform: translateY(0); } }
+  @keyframes up { from { transform: translateY(0); } to { transform: translateY(-110vh); } }
+  @keyframes sway { 0%, 100% { transform: rotate(1.6deg); } 50% { transform: rotate(-1.6deg); } }
+
+  .thread { position: absolute; left: -1px; top: -100vh; width: 2px; height: calc(100vh + 64px); background: rgba(240, 240, 255, 0.75); }
+  .spider { position: absolute; left: -24px; top: 40px; }
+  .hw-tiny-spider .legs { animation: wiggle 0.35s ease-in-out infinite alternate; transform-origin: center; }
+  @keyframes wiggle { to { transform: scaleX(0.85); } }
+
+  .card {
+    position: absolute; left: 0; top: 96px; transform: translateX(-50%);
+    width: max-content; min-width: 520px; max-width: 1200px; box-sizing: border-box; padding: 26px 48px 30px; text-align: center;
+    background: radial-gradient(120% 140% at 50% 0%, #2b1146 0%, #12081d 60%, #07030c 100%);
+    border: 3px solid var(--hw-pumpkin); border-radius: 26px;
+    box-shadow: 0 0 30px rgba(255, 122, 24, 0.55), 0 18px 50px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(255, 122, 24, 0.18);
+  }
+  .card .pk { position: absolute; left: -54px; top: -40px; transform: rotate(-14deg); filter: drop-shadow(0 0 18px rgba(255, 130, 20, 0.7)); }
+  .card .web { position: absolute; right: -3px; top: -3px; opacity: 0.85; }
+  .kind { font-size: 28px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--hw-slime); text-shadow: 0 0 10px rgba(157, 255, 79, 0.6); }
+  .name { margin-top: 6px; font-size: 76px; line-height: 1.05; color: var(--hw-pumpkin); text-shadow: var(--hw-glow); overflow-wrap: anywhere; }
+  .msg { margin-top: 12px; font-size: 26px; color: var(--hw-bone); opacity: 0.9; }
+  .msg:empty { display: none; }
+  .name.shake { animation: shake 0.6s 1.1s both; }
+  @keyframes shake { 20%, 60% { transform: translateX(-6px) rotate(-1deg); } 40%, 80% { transform: translateX(6px) rotate(1deg); } }
+</style>
+</head>
+<body>
+<div class="slot" id="slot"></div>
+<script src="lib/event.js"></script>
+<script src="lib/decor.js"></script>
+<script>
+  // Алерты: открытка спускается на паутине вместе с пауком.
+  // Источник 1920×1080 (или уже, но не ниже 520 px). Сами события Twitch и YouTube
+  // приходят из Streamer.bot, ничего настраивать не нужно. Свой алерт:
+  //   {"action":"alert","kind":"donation","user":"Вася","amount":"500 ₽","message":"Бу!"}
+  //   ?lang=en   ?duration=7 (секунд)   ?sound=файл.mp3&volume=0.6
+  (function () {
+    if (!HW.active) return;
+    const lang = HW.param("lang", "ru") === "en" ? "en" : "ru";
+    const T = {
+      ru: { follow: "Новый фолловер", sub: "Подписка", gift: "Дарит подписки", cheer: "Битсы", raid: "Рейд", donation: "Донат", months: "мес.", viewers: "зрителей" },
+      en: { follow: "New follower", sub: "New subscriber", gift: "Gifted subs", cheer: "Cheer", raid: "Raid", donation: "Donation", months: "months", viewers: "viewers" },
+    }[lang];
+    const dur = HW.numParam("duration", 7) * 1000;
+    const sound = HW.param("sound", "");
+    const volume = HW.numParam("volume", 0.6);
+    const queue = [];
+    let busy = false;
+
+    function heading(a) {
+      const base = a.title || T[a.kind] || T.follow;
+      if (!a.amount) return base;
+      if (a.kind === "sub") return `${base} · ${a.amount} ${T.months}`;
+      if (a.kind === "raid") return `${base} · ${a.amount} ${T.viewers}`;
+      if (a.kind === "gift") return `${base} · ×${a.amount}`;
+      return `${base} · ${a.amount}`;
+    }
+
+    function show(a) {
+      busy = true;
+      const h = document.createElement("div");
+      h.className = "hanger in";
+      h.innerHTML = `<div class="thread"></div><div class="spider">${HWDecor.tinySpider(48)}</div>
+        <div class="card"><div class="pk">${HWDecor.pumpkin(96)}</div><div class="web">${HWDecor.cobweb(110, "tr", 4)}</div>
+        <div class="kind"></div><div class="name hw-wet shake"></div><div class="msg"></div></div>`;
+      h.querySelector(".kind").textContent = heading(a);
+      const name = h.querySelector(".name");
+      name.textContent = a.user || "";
+      // Длинные ники уменьшаем, чтобы помещались в одну строку.
+      const len = name.textContent.length;
+      if (len > 14) name.style.fontSize = Math.max(40, Math.round(76 * 14 / len)) + "px";
+      h.querySelector(".msg").textContent = a.message || "";
+      document.getElementById("slot").appendChild(h);
+      if (sound) { const au = new Audio(sound); au.volume = volume; au.play().catch(() => {}); }
+      setTimeout(() => {
+        h.className = "hanger out";
+        setTimeout(() => { h.remove(); busy = false; next(); }, 900);
+      }, dur);
+    }
+    function next() { if (!busy && queue.length) show(queue.shift()); }
+
+    HW.on("alert", (a) => { queue.push(a); next(); });
+    HW.start();
+  })();
+</script>
+</body>
+</html>

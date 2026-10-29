@@ -1,0 +1,45 @@
+<!doctype html>
+<!-- EVENT: halloween-2026 — ВРЕМЕННО. Вся папка events/halloween-2026/obs-theme удаляется после 1 ноября 2026. -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Хеллоуин: пауки</title>
+<link rel="stylesheet" href="lib/theme.css">
+<style>
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="lib/event.js"></script>
+<script src="lib/spider.js"></script>
+<script>
+  // Браузерный источник 1920×1080 поверх всей сцены.
+  //   ?mode=run|swarm|drop|big — что делать, когда источник показали в OBS (по умолчанию run)
+  //   ?ambient=90 — сам выпускать паука примерно раз в 90 секунд (0 — выключено)
+  //   ?autoplay=1 — выпустить паука сразу после загрузки
+  // Команда из Streamer.bot / OBS WebSocket: {"action":"spider","mode":"swarm","count":12}
+  (function () {
+    if (!HW.active) return;
+    const swarm = HWSpider.Swarm(document.getElementById("c"));
+    const play = (o) => (swarm[o.mode] || swarm.run)(o);
+    HW.on("spider", play);
+    HW.on("shown", () => play({ mode: HW.param("mode", "run") }));
+    HW.start();
+
+    if (HW.param("autoplay", "") === "1") setTimeout(() => play({ mode: HW.param("mode", "run") }), 400);
+    const every = HW.numParam("ambient", 0);
+    if (every > 0) {
+      (function next() {
+        setTimeout(() => { swarm.run({ scale: 0.6 + Math.random() * 0.4 }); next(); }, every * 1000 * (0.6 + Math.random() * 0.8));
+      })();
+    }
+    // Проверка руками в браузере (в OBS — «Взаимодействовать»): 1 2 3 4.
+    window.addEventListener("keydown", (e) => {
+      const m = { "1": "run", "2": "swarm", "3": "drop", "4": "big" }[e.key];
+      if (m) play({ mode: m });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!doctype html>
+<!-- EVENT: halloween-2026 — ВРЕМЕННО. Вся папка events/halloween-2026/obs-theme удаляется после 1 ноября 2026. -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Хеллоуин: заставка</title>
+<link rel="stylesheet" href="lib/theme.css">
+<style>
+  body { background: radial-gradient(120% 90% at 70% 10%, #2a1147 0%, #150a26 45%, #07030c 100%); }
+  .stage { position: fixed; inset: 0; overflow: hidden; }
+  .stars { position: absolute; inset: 0; }
+  .star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: twinkle 3s ease-in-out infinite; }
+  @keyframes twinkle { 50% { opacity: 0.2; } }
+
+  .moon {
+    position: absolute; right: 9vw; top: 8vh; width: 22vh; height: 22vh; border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%, #fffbe8 0%, #f6e7b4 45%, #d9c27e 100%);
+    box-shadow: 0 0 60px 20px rgba(255, 236, 170, 0.35), 0 0 200px 80px rgba(255, 200, 120, 0.15);
+  }
+  .moon::before, .moon::after { content: ""; position: absolute; border-radius: 50%; background: rgba(170, 140, 80, 0.28); }
+  .moon::before { width: 22%; height: 22%; left: 52%; top: 26%; }
+  .moon::after { width: 14%; height: 14%; left: 30%; top: 60%; }
+
+  .land { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 38vh; }
+  canvas.fog, canvas.spiders { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .web-tl { position: absolute; left: 0; top: 0; }
+  .web-tr { position: absolute; right: 0; top: 0; }
+
+  .pk { position: absolute; bottom: 4vh; filter: drop-shadow(0 0 30px rgba(255, 130, 20, 0.55)); }
+  .pk.l { left: 6vw; } .pk.r { right: 7vw; bottom: 3vh; }
+  .hw-flicker { animation: flicker 2.2s infinite; }
+  @keyframes flicker { 0%, 100% { opacity: 1; } 8% { opacity: 0.75; } 10% { opacity: 1; } 47% { opacity: 0.85; } 50% { opacity: 0.6; } 53% { opacity: 1; } }
+
+  .bat-fly { position: absolute; left: 0; top: 0; will-change: transform; }
+  .hw-bat .wing { transform-box: fill-box; animation: flap 0.28s ease-in-out infinite alternate; }
+  .hw-bat .wl { transform-origin: right center; } .hw-bat .wr { transform-origin: left center; }
+  @keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(-0.4); } }
+
+  .ember { position: absolute; bottom: -10px; width: 6px; height: 6px; border-radius: 50%;
+    background: radial-gradient(circle, #ffe08a, #ff7a18 60%, transparent 70%); animation: rise linear forwards; }
+  @keyframes rise { to { transform: translate(var(--dx), -105vh); opacity: 0; } }
+
+  .center { position: absolute; left: 0; right: 0; top: 30vh; text-align: center; }
+  .title {
+    font-size: 15vh; line-height: 1; color: var(--hw-pumpkin); margin: 0;
+    text-shadow: var(--hw-glow); animation: breathe 4s ease-in-out infinite;
+  }
+  @keyframes breathe { 50% { text-shadow: 0 0 8px rgba(255, 140, 30, 1), 0 0 34px rgba(255, 110, 10, 0.75), 0 0 90px rgba(255, 50, 0, 0.5); } }
+  .sub { margin-top: 2.6vh; font-size: 3.6vh; font-weight: 500; letter-spacing: 0.08em; color: var(--hw-bone); opacity: 0.9; text-transform: uppercase; }
+  .timer {
+    margin: 4vh auto 0; display: inline-block; min-width: 18vh; padding: 1.2vh 3.4vh;
+    font-size: 7vh; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--hw-slime);
+    text-shadow: 0 0 14px rgba(157, 255, 79, 0.7); border: 2px solid rgba(157, 255, 79, 0.45); border-radius: 2vh;
+    background: rgba(5, 3, 7, 0.55); box-shadow: 0 0 30px rgba(157, 255, 79, 0.25) inset;
+  }
+  .timer[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="stars" id="stars"></div>
+  <div class="moon"></div>
+  <canvas class="fog" id="fog"></canvas>
+  <svg class="land" viewBox="0 0 1920 410" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="hill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#140a1f"/><stop offset="1" stop-color="#030105"/></linearGradient>
+    </defs>
+    <path d="M0 260 C240 200 420 230 640 250 C900 275 1100 210 1340 220 C1560 230 1740 260 1920 230 L1920 410 L0 410 Z" fill="#0d0716"/>
+    <!-- Мёртвое дерево -->
+    <g fill="#050208">
+      <path d="M210 300 C205 230 215 170 200 110 C190 70 160 50 120 30 L126 24 C160 40 186 56 200 80 C204 50 220 30 250 10 L256 16 C232 36 218 60 214 96 C230 80 260 72 300 70 L300 78 C262 82 234 96 220 120 C226 180 230 240 236 300 Z"/>
+      <path d="M150 60 L120 70 L118 64 L146 54 Z M250 50 L290 36 L292 42 L254 58 Z"/>
+    </g>
+    <!-- Ограда и надгробия -->
+    <g fill="#050208">
+      <path d="M1080 330 L1080 250 Q1110 214 1140 250 L1140 330 Z"/>
+      <path d="M1180 330 L1180 268 Q1200 244 1220 268 L1220 330 Z"/>
+      <path d="M1290 330 L1290 280 L1276 280 L1276 268 L1290 268 L1290 252 L1302 252 L1302 268 L1316 268 L1316 280 L1302 280 L1302 330 Z"/>
+      <path d="M720 330 L720 262 Q748 232 776 262 L776 330 Z"/>
+      <g id="fence">
+        <path d="M380 340 L1900 340 L1900 348 L380 348 Z M380 300 L1900 300 L1900 306 L380 306 Z"/>
+      </g>
+    </g>
+    <g fill="#050208" id="pickets"></g>
+    <path d="M0 330 C320 300 640 320 960 330 C1280 340 1600 310 1920 320 L1920 410 L0 410 Z" fill="url(#hill)"/>
+  </svg>
+  <div class="web-tl" id="webtl"></div>
+  <div class="web-tr" id="webtr"></div>
+  <div class="pk l" id="pk1"></div>
+  <div class="pk r" id="pk2"></div>
+  <div class="center">
+    <h1 class="title hw-wet" id="title"></h1>
+    <div class="sub" id="sub"></div>
+    <div class="timer" id="timer" hidden></div>
+  </div>
+  <canvas class="spiders" id="spiders"></canvas>
+</div>
+<script src="lib/event.js"></script>
+<script src="lib/decor.js"></script>
+<script src="lib/spider.js"></script>
+<script>
+  // Полноэкранная заставка 1920×1080.
+  //   ?mode=starting|brb|ending   ?lang=ru|en
+  //   ?title=...&sub=...          — свой текст
+  //   ?minutes=5 или ?until=19:00 — обратный отсчёт
+  // Команды: {"action":"screen","mode":"brb"}, {"action":"countdown","minutes":10}
+  (function () {
+    if (!HW.active) return;
+    const TEXT = {
+      ru: {
+        starting: ["Скоро начнём", "Зажигаем тыквы и проверяем, кто под кроватью"],
+        brb: ["Сейчас вернусь", "Не оборачивайтесь…"],
+        ending: ["Спасибо за стрим", "Счастливого Хеллоуина!"],
+        go: "Уже начинаем!",
+      },
+      en: {
+        starting: ["Starting soon", "Lighting the pumpkins and checking under the bed"],
+        brb: ["Be right back", "Don't look behind you…"],
+        ending: ["Thanks for watching", "Happy Halloween!"],
+        go: "Here we go!",
+      },
+    };
+    const lang = HW.param("lang", "ru") === "en" ? "en" : "ru";
+    const $ = (id) => document.getElementById(id);
+
+    function setMode(mode) {
+      const t = TEXT[lang][mode] || TEXT[lang].starting;
+      $("title").textContent = HW.param("title", t[0]);
+      $("sub").textContent = HW.param("sub", t[1]);
+    }
+    setMode(HW.param("mode", "starting"));
+
+    // Обратный отсчёт
+    let deadline = 0;
+    function setCountdown(minutes, until) {
+      if (until) {
+        const [h, m] = until.split(":").map(Number);
+        const d = new Date(); d.setHours(h, m || 0, 0, 0);
+        if (d < Date.now()) d.setDate(d.getDate() + 1);
+        deadline = d.getTime();
+      } else deadline = minutes > 0 ? Date.now() + minutes * 60000 : 0;
+      tick();
+    }
+    function tick() {
+      const el = $("timer");
+      if (!deadline) { el.hidden = true; return; }
+      el.hidden = false;
+      const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      el.textContent = left ? `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}` : TEXT[lang].go;
+    }
+    setInterval(tick, 250);
+    setCountdown(HW.numParam("minutes", 0), HW.param("until", ""));
+
+    // Украшения
+    $("webtl").innerHTML = HWDecor.cobweb(300, "tl", 3);
+    $("webtr").innerHTML = HWDecor.cobweb(200, "tr", 11);
+    $("pk1").innerHTML = HWDecor.pumpkin(230);
+    $("pk2").innerHTML = HWDecor.pumpkin(170);
+    let pickets = "";
+    for (let x = 390; x < 1900; x += 34) pickets += `<path d="M${x} 352 L${x} 290 L${x + 6} 278 L${x + 12} 290 L${x + 12} 352 Z"/>`;
+    document.getElementById("pickets").innerHTML = pickets;
+
+    const stars = $("stars");
+    for (let i = 0; i < 120; i++) {
+      const s = document.createElement("div");
+      s.className = "star";
+      s.style.left = Math.random() * 100 + "%";
+      s.style.top = Math.random() * 60 + "%";
+      s.style.opacity = 0.3 + Math.random() * 0.7;
+      s.style.animationDelay = -Math.random() * 3 + "s";
+      stars.appendChild(s);
+    }
+
+    // Летучие мыши: пролетают волной через экран.
+    const stage = document.querySelector(".stage");
+    function flyBat() {
+      const el = document.createElement("div");
+      el.className = "bat-fly";
+      const size = 40 + Math.random() * 70;
+      el.innerHTML = HWDecor.bat(size);
+      stage.insertBefore(el, $("spiders"));
+      const W = innerWidth, H = innerHeight, ltr = Math.random() < 0.5;
+      const y0 = H * (0.08 + Math.random() * 0.4), amp = 30 + Math.random() * 60, dur = 6000 + Math.random() * 5000;
+      const t0 = performance.now();
+      (function step(now) {
+        const k = (now - t0) / dur;
+        if (k >= 1) { el.remove(); return; }
+        const x = ltr ? -150 + (W + 300) * k : W + 150 - (W + 300) * k;
+        const y = y0 + Math.sin(k * 12) * amp - k * 80;
+        el.style.transform = `translate(${x}px, ${y}px) rotate(${Math.sin(k * 12) * 8}deg)`;
+        requestAnimationFrame(step);
+      })(t0);
+    }
+    (function batLoop() { flyBat(); if (Math.random() < 0.4) setTimeout(flyBat, 300); setTimeout(batLoop, 2500 + Math.random() * 4000); })();
+
+    // Искры от тыкв
+    setInterval(() => {
+      const e = document.createElement("div");
+      e.className = "ember";
+      e.style.left = (Math.random() < 0.5 ? 8 + Math.random() * 10 : 80 + Math.random() * 10) + "vw";
+      e.style.setProperty("--dx", (Math.random() - 0.5) * 300 + "px");
+      e.style.animationDuration = 5 + Math.random() * 5 + "s";
+      stage.insertBefore(e, $("spiders"));
+      setTimeout(() => e.remove(), 11000);
+    }, 380);
+
+    // Туман: несколько мягких пятен медленно плывут у земли.
+    const fog = $("fog"), g = fog.getContext("2d");
+    const blobs = Array.from({ length: 14 }, () => ({ x: Math.random(), y: 0.62 + Math.random() * 0.4, r: 0.15 + Math.random() * 0.2, v: (Math.random() - 0.5) * 0.012, a: 0.06 + Math.random() * 0.08 }));
+    function fogFrame() {
+      if (fog.width !== innerWidth || fog.height !== innerHeight) { fog.width = innerWidth; fog.height = innerHeight; }
+      const W = fog.width, H = fog.height;
+      g.clearRect(0, 0, W, H);
+      for (const b of blobs) {
+        b.x += b.v / 60;
+        if (b.x < -0.3) b.x = 1.3; if (b.x > 1.3) b.x = -0.3;
+        const gr = g.createRadialGradient(b.x * W, b.y * H, 0, b.x * W, b.y * H, b.r * W);
+        gr.addColorStop(0, `rgba(190,170,230,${b.a})`); gr.addColorStop(1, "rgba(190,170,230,0)");
+        g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      }
+      requestAnimationFrame(fogFrame);
+    }
+    fogFrame();
+
+    // Иногда с паутины спускается паук.
+    const spiders = HWSpider.Swarm($("spiders"));
+    setTimeout(function dropLoop() { spiders.drop({ x: 0.06 + Math.random() * 0.08, y: 0.22 + Math.random() * 0.1, scale: 1.1 }); setTimeout(dropLoop, 20000 + Math.random() * 15000); }, 2500);
+
+    HW.on("screen", (m) => setMode(m.mode));
+    HW.on("countdown", (m) => setCountdown(Number(m.minutes) || 0, m.until));
+    HW.on("spider", (m) => (spiders[m.mode] || spiders.run)(m));
+    HW.start();
+  })();
+</script>
+</body>
+</html>

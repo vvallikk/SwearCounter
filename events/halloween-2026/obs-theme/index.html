@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- EVENT: halloween-2026 — ВРЕМЕННО. Вся папка events/halloween-2026/obs-theme удаляется после 1 ноября 2026. -->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Хеллоуин-тема для OBS</title>
+<link rel="stylesheet" href="lib/theme.css">
+<style>
+  html, body { overflow: auto; height: auto; }
+  body { background: #0e0816; padding: 28px 24px 60px; max-width: 1280px; margin: 0 auto; box-sizing: border-box; }
+  h1 { font-size: 54px; margin: 0 0 6px; color: var(--hw-pumpkin); text-shadow: var(--hw-glow); }
+  .lead { margin: 0 0 28px; opacity: 0.8; font-size: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: 22px; }
+  .card { background: #170d24; border: 1px solid #2c1a44; border-radius: 16px; padding: 16px; }
+  .card h2 { margin: 0 0 4px; font-size: 20px; }
+  .card p { margin: 0 0 12px; font-size: 14px; opacity: 0.75; }
+  .view { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px;
+    background: repeating-conic-gradient(#2a2f38 0 25%, #353b45 0 50%) 0 0 / 28px 28px; }
+  .view iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; }
+  code { display: block; margin-top: 10px; padding: 8px 10px; background: #0a0610; border-radius: 8px; font-size: 13px; color: var(--hw-slime); overflow-wrap: anywhere; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 10px; border: 1px solid #ff7a18; background: #24112f; color: var(--hw-bone); cursor: pointer; }
+  button:hover { background: #3a1a4a; }
+</style>
+</head>
+<body>
+<h1 class="hw-wet">Хеллоуин-тема для OBS</h1>
+<p class="lead">Временная тема на Хеллоуин 2026. После 1 ноября страницы сами становятся пустыми. Кнопки ниже — проверка без Streamer.bot.</p>
+<div class="grid">
+  <section class="card">
+    <h2>Пауки</h2>
+    <p>Прозрачный слой 1920×1080 поверх всей сцены.</p>
+    <div class="view" data-w="1920" data-h="1080"><iframe id="spider" src="spider.html?sb=off&obs=off"></iframe></div>
+    <div class="btns">
+      <button data-to="spider" data-msg='{"action":"spider","mode":"run"}'>Пробежка</button>
+      <button data-to="spider" data-msg='{"action":"spider","mode":"swarm","count":12}'>Стая</button>
+      <button data-to="spider" data-msg='{"action":"spider","mode":"drop"}'>Спуск на паутине</button>
+      <button data-to="spider" data-msg='{"action":"spider","mode":"big"}'>Скример: огромный паук</button>
+    </div>
+    <code>spider.html?ambient=90</code>
+  </section>
+  <section class="card">
+    <h2>Алерты</h2>
+    <p>Открытка спускается на паутине. Twitch и YouTube приходят из Streamer.bot сами.</p>
+    <div class="view" data-w="1920" data-h="1080"><iframe id="alerts" src="alerts.html?sb=off&obs=off&duration=4"></iframe></div>
+    <div class="btns">
+      <button data-to="alerts" data-msg='{"action":"alert","kind":"follow","user":"Тыковка"}'>Фолловер</button>
+      <button data-to="alerts" data-msg='{"action":"alert","kind":"sub","user":"Night_Owl","amount":6}'>Подписка</button>
+      <button data-to="alerts" data-msg='{"action":"alert","kind":"raid","user":"GhostStreamer","amount":42}'>Рейд</button>
+      <button data-to="alerts" data-msg='{"action":"alert","kind":"donation","user":"ПризрачныйВася","amount":"500 ₽","message":"Бу! С Хеллоуином!"}'>Донат</button>
+    </div>
+    <code>alerts.html</code>
+  </section>
+  <section class="card">
+    <h2>Заставка</h2>
+    <p>Скоро начнём, отошёл, конец стрима. Луна, туман, мыши и спускающийся паук.</p>
+    <div class="view" data-w="1920" data-h="1080"><iframe id="screen" src="screen.html?sb=off&obs=off&minutes=5"></iframe></div>
+    <div class="btns">
+      <button data-to="screen" data-msg='{"action":"screen","mode":"starting"}'>Скоро начнём</button>
+      <button data-to="screen" data-msg='{"action":"screen","mode":"brb"}'>Сейчас вернусь</button>
+      <button data-to="screen" data-msg='{"action":"screen","mode":"ending"}'>Конец стрима</button>
+      <button data-to="screen" data-msg='{"action":"countdown","minutes":1}'>Отсчёт 1 мин</button>
+    </div>
+    <code>screen.html?mode=starting&amp;minutes=10</code>
+  </section>
+  <section class="card">
+    <h2>Рамка камеры</h2>
+    <p>Источник на 68 px больше камеры: 708×428 для 640×360.</p>
+    <div class="view" data-w="708" data-h="428"><iframe id="frame" src="frame.html?sb=off&obs=off&label=Andrew"></iframe></div>
+    <div class="btns">
+      <button data-to="frame" data-src="frame.html?sb=off&obs=off&label=Andrew">Тыква</button>
+      <button data-to="frame" data-src="frame.html?sb=off&obs=off&label=Andrew&color=slime">Слизь</button>
+      <button data-to="frame" data-src="frame.html?sb=off&obs=off&label=Andrew&color=violet">Фиолет</button>
+      <button data-to="frame" data-src="frame.html?sb=off&obs=off&label=Andrew&color=blood">Кровь</button>
+    </div>
+    <code>frame.html?label=Andrew&amp;color=pumpkin</code>
+  </section>
+</div>
+<script>
+  // Масштабируем превью: страница внутри рисуется в своём настоящем размере.
+  function fit() {
+    for (const v of document.querySelectorAll(".view")) {
+      const f = v.querySelector("iframe"), w = +v.dataset.w, h = +v.dataset.h;
+      v.style.aspectRatio = `${w} / ${h}`;
+      f.style.width = w + "px"; f.style.height = h + "px";
+      f.style.transform = `scale(${v.clientWidth / w})`;
+    }
+  }
+  addEventListener("resize", fit); fit();
+  for (const b of document.querySelectorAll("button")) {
+    b.addEventListener("click", () => {
+      const f = document.getElementById(b.dataset.to);
+      if (b.dataset.src) f.src = b.dataset.src;
+      else f.contentWindow.postMessage(JSON.parse(b.dataset.msg), "*");
+    });
+  }
+</script>
+</body>
+</html>
