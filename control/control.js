@@ -675,6 +675,8 @@
   const soundStatusEl = $("sound-status");
   const soundInput = $("sound-input");
   const soundUploadBtn = $("sound-upload");
+  const milestoneSoundEl = $("milestone-sound");
+  let renderedMilestoneKey = "";
   let volumeTimer = null;
   let renderedSoundsKey = "";
   let soundState = null; // последний ответ /api/sound: список перерисовывается и при смене пресета
@@ -728,8 +730,45 @@
         ...state.sounds.map((s) => soundItem(s.id, s.name, s.id === state.active))
       );
     }
+    showMilestoneSound(state);
     return player.apply(state);
   }
+
+  // Звук на особом числе и цели: фанфары, как обычный, стандартный или любой из библиотеки.
+  function showMilestoneSound(state) {
+    const key = JSON.stringify([state.sounds, state.milestone, standardSoundName]);
+    if (key === renderedMilestoneKey || document.activeElement === milestoneSoundEl) return;
+    renderedMilestoneKey = key;
+    const options = [
+      ["fanfare", "Фанфары"],
+      ["same", "Как обычный звук"],
+      ["standard", standardSoundName],
+      ...state.sounds.map((s) => [s.id, s.name]),
+    ];
+    milestoneSoundEl.replaceChildren(...options.map(([value, name]) => {
+      const option = el("option", "", name);
+      option.value = value;
+      return option;
+    }));
+    milestoneSoundEl.value = state.milestone || "fanfare";
+  }
+
+  milestoneSoundEl.addEventListener("change", async () => {
+    const id = milestoneSoundEl.value;
+    try {
+      renderedMilestoneKey = ""; // перерисовать по ответу, даже если фокус ещё на списке
+      milestoneSoundEl.blur();
+      await showSound(await api("POST", "/api/sound/milestone", { id }));
+      setStatus(soundStatusEl, "");
+      player.playMilestone();
+    } catch (e) {
+      setStatus(soundStatusEl, e.message, true);
+    }
+  });
+  $("milestone-sound-test").addEventListener("click", () => {
+    setStatus(soundStatusEl, "");
+    player.previewMilestone(milestoneSoundEl.value);
+  });
 
   async function selectSound(id) {
     try {

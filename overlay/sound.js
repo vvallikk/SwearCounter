@@ -3,6 +3,8 @@
 // Какой звук играет, по порядку: звук, выбранный в библиотеке на странице управления
 // (/api/sound/file/<id>); стандартный звук пресета — синтезированный звон, у личного оформления —
 // файл из набора (/overlay/custom/<id>/<файл>); если файла нет — звон.
+// На особом числе и цели — свой выбор (milestone в /api/sound): фанфары, тот же звук, что обычно,
+// стандартный или звук из библиотеки (если он не загрузился — фанфары).
 window.createDingPlayer = function createDingPlayer() {
   "use strict";
 
@@ -10,6 +12,7 @@ window.createDingPlayer = function createDingPlayer() {
   let buffer = null; // выбранный звук из библиотеки
   let volume = 1;
   let activeId = null;
+  let milestone = "fanfare"; // fanfare, same, standard или id звука из библиотеки
   // Раскодированные звуки: id -> Promise<AudioBuffer | null>. Id у каждого файла свой,
   // поэтому звук скачивается и раскодируется один раз, а «Прослушать» играет сразу.
   const buffers = new Map();
@@ -82,6 +85,7 @@ window.createDingPlayer = function createDingPlayer() {
     ids.forEach(load); // заранее, чтобы «Прослушать» не ждал загрузки
     const id = state.active || null;
     activeId = id;
+    milestone = state.milestone || "fanfare";
     loadStandard(standardName);
     const sound = id && (await load(id));
     // Пока грузили, могли выбрать другой звук.
@@ -168,6 +172,15 @@ window.createDingPlayer = function createDingPlayer() {
     synthFanfare(ctx, out);
   }
 
+  // Звук на особом числе: value — как поле milestone в /api/sound.
+  async function playMilestoneOf(value) {
+    if (value === "same") return playActive();
+    if (value === "standard") return play(standardsReady.get(standardName) || null);
+    const sound = value !== "fanfare" && (await load(value));
+    if (sound) play(sound);
+    else playFanfare();
+  }
+
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
   async function preview(id) {
     context(); // запускаем звук сразу по клику, пока файл догружается
@@ -189,5 +202,18 @@ window.createDingPlayer = function createDingPlayer() {
   // В обычном браузере звук разрешается только после клика по странице (в OBS это не нужно)
   document.addEventListener("pointerdown", () => context());
 
-  return { apply, play: playActive, playFanfare, preview, setStandard, canDecode, setVolume: (v) => (volume = v / 100) };
+  return {
+    apply,
+    play: playActive,
+    playFanfare,
+    playMilestone: () => playMilestoneOf(milestone),
+    previewMilestone: (value) => {
+      context(); // запускаем звук сразу по клику, пока файл догружается
+      return playMilestoneOf(value);
+    },
+    preview,
+    setStandard,
+    canDecode,
+    setVolume: (v) => (volume = v / 100),
+  };
 };
