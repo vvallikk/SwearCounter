@@ -360,6 +360,27 @@ select:focus-visible { border-color: var(--accent); outline-offset: 0; }
   border-radius: 50%;
 }
 .sound-item.active .radio { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
+/* Режим «рандом»: галочки вместо радиокнопок */
+.sound-pick .check {
+  flex: none;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--muted);
+  border-radius: 4px;
+}
+.sound-item.active .check { border-color: var(--accent); background: var(--accent); }
+.sound-item.active .check::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 3px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
 .sound-pick .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .icon-btn {
   flex: none;

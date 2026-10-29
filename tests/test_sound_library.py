@@ -143,3 +143,21 @@ def test_migrates_single_custom_sound_from_previous_version(tmp_path):
     assert [s["name"] for s in state["sounds"]] == ["старый.wav"]
     assert sound.path(state["active"]).read_bytes() == WAV
     assert settings.get("sound_custom") is None
+
+
+def test_random_mode_off_by_default(sound):
+    state = sound.state()
+    assert (state["random"], state["pool"]) == (False, [])
+
+
+def test_random_pool_with_library_and_standard(sound):
+    first = sound.add(WAV, "audio/wav", "1.wav")
+    sound.set_random(True, [first, "standard"])
+    assert sound.state()["pool"] == [first, "standard"]
+    sound.delete(first)
+    assert sound.state()["pool"] == ["standard"]  # удалённый звук пропадает из рандома
+
+
+def test_random_pool_rejects_unknown_sound(sound):
+    with pytest.raises(KeyError):
+        sound.set_random(True, ["нет-такого"])

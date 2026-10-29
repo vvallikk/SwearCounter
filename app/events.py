@@ -38,7 +38,7 @@ def today() -> date:
 class EventSound:
     id: str  # "<событие>:<имя>"
     name: str
-    file: str | None  # путь от overlay/sounds/; None — случайный из остальных звуков события
+    file: str  # путь от overlay/sounds/
 
 
 @dataclass(frozen=True)
@@ -65,8 +65,9 @@ HALLOWEEN = Event(
     end=(11, 1),
     preset="halloween",
     sounds=(
-        EventSound("halloween:random", "🎃 Случайный скример", None),
+        EventSound("halloween:stab", "💀 Скример", "halloween/scream-stab.ogg"),
         EventSound("halloween:ghost", "👻 Визг призрака", "halloween/ghost-shriek.ogg"),
+        EventSound("halloween:banshee", "😱 Крик банши", "halloween/banshee.ogg"),
         EventSound("halloween:hit", "💥 Удар-скример", "halloween/jumpscare-hit.ogg"),
         EventSound("halloween:hit-low", "💥 Удар-скример (низкий)", "halloween/jumpscare-low.ogg"),
         EventSound("halloween:moan", "👻 Стон призрака", "halloween/ghost-moan.ogg"),
