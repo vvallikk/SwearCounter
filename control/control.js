@@ -870,6 +870,8 @@
       label_position: labelPositionEl.value,
       number_scale: Number(numberScaleEl.value),
       label_scale: Number(labelScaleEl.value),
+      transition: transitionEl.value,
+      entrance: entranceEl.value,
       visible: !$("tab-look").hidden, // на скрытой вкладке превью не анимируется
     };
     win.postMessage(message, location.origin);
@@ -1132,6 +1134,81 @@
     numberScaleEl.value = number;
     labelScaleEl.value = label;
     showScaleValues();
+    sendPreviewStyle();
+  }
+
+  // --- Анимации переходов оверлея (overlay/motion.js) ---
+  const MOTION = window.OVERLAY_MOTION;
+  const transitionEl = $("transition");
+  const entranceEl = $("entrance");
+  const autohideEl = $("autohide");
+  let motionRequests = 0;
+  let shownMotion = null; // последнее, что прислал сервер
+
+  // Сезонные варианты видны только во время события, но выбранный остаётся в списке
+  function fillMotionSelect(select, list, keep) {
+    const options = list
+      .filter((item) => MOTION.available(item) || item.id === keep)
+      .map((item) => new Option(item.title, item.id));
+    select.replaceChildren(...options);
+  }
+
+  function showMotionDescriptions() {
+    const find = (list, id) => list.find((item) => item.id === id);
+    $("transition-desc").textContent = (find(MOTION.TRANSITIONS, transitionEl.value) || {}).description || "";
+    $("entrance-desc").textContent = (find(MOTION.ENTRANCES, entranceEl.value) || {}).description || "";
+  }
+
+  async function sendMotion() {
+    motionRequests += 1;
+    try {
+      await api("POST", "/api/overlay/motion", {
+        transition: transitionEl.value,
+        entrance: entranceEl.value,
+        autohide: Number(autohideEl.value),
+      });
+      setStatus($("motion-status"), "");
+    } catch (e) {
+      setStatus($("motion-status"), e.message, true);
+    } finally {
+      motionRequests -= 1;
+    }
+  }
+
+  function onMotionChange() {
+    showMotionDescriptions();
+    sendPreviewStyle();
+    sendMotion();
+  }
+  transitionEl.addEventListener("change", onMotionChange);
+  entranceEl.addEventListener("change", () => {
+    onMotionChange();
+    playEntranceDemo();
+  });
+  autohideEl.addEventListener("change", sendMotion);
+
+  // Превью оформления исчезает и появляется выбранной анимацией
+  function playEntranceDemo() {
+    const win = presetPreviewEl.contentWindow;
+    if (win) win.postMessage({ type: "entrance-demo" }, location.origin);
+  }
+  $("entrance-demo").addEventListener("click", playEntranceDemo);
+
+  function showServerMotion(msg) {
+    if (!MOTION || typeof msg.transition !== "string") return; // сервер старее страницы
+    $("motion-section").hidden = false;
+    if (motionRequests > 0) return;
+    const key = `${msg.transition}|${msg.entrance}|${msg.autohide}`;
+    if (key === shownMotion) return;
+    shownMotion = key;
+    fillMotionSelect(transitionEl, MOTION.TRANSITIONS, msg.transition);
+    fillMotionSelect(entranceEl, MOTION.ENTRANCES, msg.entrance);
+    transitionEl.value = MOTION.resolveTransition(msg.transition);
+    entranceEl.value = MOTION.resolveEntrance(msg.entrance);
+    const hide = String(msg.autohide);
+    if (![...autohideEl.options].some((o) => o.value === hide)) autohideEl.append(new Option(`Прятать через ${hide} с после мата`, hide));
+    autohideEl.value = hide;
+    showMotionDescriptions();
     sendPreviewStyle();
   }
 
@@ -2064,6 +2141,7 @@
         showServerLabel(msg.label, msg.label_position);
         showServerTimerLabel(msg.timer_label);
         showServerScale(msg.number_scale, msg.label_scale);
+        showServerMotion(msg);
       }
       else if (msg.count !== undefined) {
         showCount(msg.count);
