@@ -337,6 +337,30 @@
     "в чате Twitch и другие связки — через Streamer.bot, см.": "Twitch chat command and other integrations — via Streamer.bot, see the",
     "инструкцию": "guide",
 
+    // Голосовые команды
+    "Голосовые команды": "Voice commands",
+    "Скажите кодовое слово и команду, например «счётчик пауза». Без кодового слова обычная речь ничего не включает. Команды слушаются и на паузе. Несколько фраз — через запятую.":
+      "Say the wake word and a command, for example “counter pause”. Without the wake word, ordinary speech triggers nothing. Commands are heard even while paused. Separate several phrases with commas.",
+    "Включить голосовые команды": "Turn on voice commands",
+    "Кодовое слово": "Wake word",
+    "счётчик, counter": "counter, счётчик",
+    "Действие": "Action",
+    "Фразы": "Phrases",
+    "Продолжить": "Resume",
+    "Сброс счёта": "Reset the count",
+    "+ Сцена OBS": "+ OBS scene",
+    "Сцена OBS": "OBS scene",
+    "Сцена": "Scene",
+    "Например: сцена игра": "For example: scene game",
+    "Удалить команду": "Delete the command",
+    "Сброс счёта голосом работает, только если отметить его галочкой. Для смены сцены нужна связь с OBS — порт и пароль в разделе «OBS».":
+      "Resetting the count by voice works only if you tick it. Switching scenes needs the connection to OBS — the port and password are in the “OBS” section.",
+    "Последняя команда: —": "Last command: —",
+    "не выполнена": "not done",
+    "Задайте кодовое слово": "Set a wake word",
+    "Слишком длинное кодовое слово": "The wake word is too long",
+    "Выберите сцену OBS для команды": "Choose an OBS scene for the command",
+
     // Обновления и «О программе»
     "Обновления": "Updates",
     "Нужно обязательное обновление.": "A required update is needed.",
@@ -436,6 +460,11 @@
     ["{} (нет файла)", "{} (no file)"],
     ["{} (не найден)", "{} (not found)"],
     ["Сохранено: {}", "Saved: {}"],
+    ["Последняя команда: {}", "Last command: {}"],
+    ["Сцена «{}»", "Scene “{}”"],
+    ["Сцен в OBS: {}", "Scenes in OBS: {}"],
+    ["У команды до {} фраз, каждая до {} символов", "A command can have up to {} phrases, each up to {} characters"],
+    ["Не больше {} команд для сцен", "No more than {} scene commands"],
     ["Архив сохранён: {}", "Archive saved: {}"],
     ["чаще всего: {}", "most frequent: {}"],
     ["всего {}", "{} in total"],
