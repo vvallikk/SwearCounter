@@ -607,7 +607,7 @@
         setCount(msg.count);
         playIncrementAnimation(msg.delta || 1);
         if (msg.milestone) celebrate();
-        if (player) (msg.milestone ? player.playFanfare : player.play)();
+        if (player) (msg.milestone ? player.playMilestone : player.play)();
       } else if (msg.type === "sound") {
         if (player) player.apply(msg);
       } else if (msg.type === "style") {

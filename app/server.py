@@ -203,6 +203,10 @@ class SoundChoice(BaseModel):
     id: str | None  # звук из библиотеки; None — стандартный
 
 
+class MilestoneSoundChoice(BaseModel):
+    id: str  # fanfare, same, standard или id звука из библиотеки (app/sound.py)
+
+
 class MonitorChoice(BaseModel):
     enabled: bool
 
@@ -1017,6 +1021,16 @@ def create_app(
     async def post_sound_active(choice: SoundChoice):
         try:
             sound.select(choice.id)
+        except KeyError:
+            raise HTTPException(404, "Такого звука нет") from None
+        await hub.broadcast(sound_message())
+        return sound.state()
+
+    @app.post("/api/sound/milestone")
+    async def post_sound_milestone(choice: MilestoneSoundChoice):
+        """Звук на особом числе и цели."""
+        try:
+            sound.select_milestone(choice.id)
         except KeyError:
             raise HTTPException(404, "Такого звука нет") from None
         await hub.broadcast(sound_message())

@@ -143,3 +143,51 @@ def test_migrates_single_custom_sound_from_previous_version(tmp_path):
     assert [s["name"] for s in state["sounds"]] == ["старый.wav"]
     assert sound.path(state["active"]).read_bytes() == WAV
     assert settings.get("sound_custom") is None
+
+
+def test_milestone_sound_is_fanfare_by_default(sound):
+    state = sound.state()
+    assert state["milestone"] == "fanfare"
+    assert state["milestone_name"] is None
+
+
+@pytest.mark.parametrize("value", ["fanfare", "same", "standard"])
+def test_milestone_can_be_special_value(sound, value):
+    sound.select_milestone(value)
+    assert sound.state()["milestone"] == value
+
+
+def test_milestone_can_be_library_sound_and_survives_restart(tmp_path):
+    settings_file = tmp_path / "settings.json"
+    sound = Sound(Settings(settings_file), tmp_path / "sounds")
+    sound_id = sound.add(WAV, "audio/wav", "ура.wav")
+    version = sound.state()["version"]
+    sound.select_milestone(sound_id)
+    state = Sound(Settings(settings_file), tmp_path / "sounds").state()
+    assert state["milestone"] == sound_id
+    assert state["milestone_name"] == "ура.wav"
+    assert state["version"] > version
+    # Обычный звук при этом не меняется
+    assert state["active"] == sound_id
+    sound.select(None)
+    assert sound.state()["milestone"] == sound_id
+
+
+def test_milestone_rejects_unknown_sound(sound):
+    with pytest.raises(KeyError):
+        sound.select_milestone("nope")
+    assert sound.state()["milestone"] == "fanfare"
+
+
+def test_deleting_milestone_sound_returns_fanfare(sound):
+    sound_id = sound.add(WAV, "audio/wav", "a.wav")
+    sound.select_milestone(sound_id)
+    sound.delete(sound_id)
+    assert sound.state()["milestone"] == "fanfare"
+
+
+def test_milestone_sound_removed_by_hand_falls_back_to_fanfare(sound):
+    sound_id = sound.add(WAV, "audio/wav", "a.wav")
+    sound.select_milestone(sound_id)
+    sound.path(sound_id).unlink()
+    assert sound.state()["milestone"] == "fanfare"

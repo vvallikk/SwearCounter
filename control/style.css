@@ -375,6 +375,11 @@ select:focus-visible { border-color: var(--accent); outline-offset: 0; }
 .icon-btn:hover { border-color: var(--border); color: var(--text); }
 .icon-btn.confirm { width: auto; padding: 0 8px; font-size: 12px; font-weight: 600; color: #fff; background: var(--danger); }
 .sound-actions { margin-top: 10px; }
+.milestone-sound-row { margin-top: 10px; flex-wrap: wrap; }
+.milestone-sound-row label { font-size: 14px; color: var(--muted); }
+/* Список и кнопка переносятся вместе, если подпись длинная */
+.milestone-sound-pick { flex: 1; min-width: 200px; display: flex; gap: 8px; }
+.milestone-sound-pick .select-wrap { flex: 1; min-width: 0; }
 .words-actions { margin-top: 10px; flex-wrap: wrap; }
 
 /* --- Оформление счётчика: выпадающий список и превью выбранного стиля --- */
