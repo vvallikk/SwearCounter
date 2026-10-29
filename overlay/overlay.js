@@ -34,8 +34,15 @@
   const timerLabel = params.get("label") || "";
   // ?counter=<id> — дополнительный счётчик со своим счётом, оформлением и подписью.
   const counterId = params.get("counter") || null;
+  // ?transition=roll, ?entrance=pop, ?autohide=10 закрепляют анимации (overlay/motion.js);
+  // без них анимации приходят по WebSocket со страницы управления.
+  const fixedTransition = params.get("transition");
+  const fixedEntrance = params.get("entrance");
+  const autohideParam = parseInt(params.get("autohide"), 10);
+  const fixedAutohide = autohideParam >= 0 ? autohideParam : null;
 
   const root = document.documentElement;
+  const motion = window.OVERLAY_MOTION;
   // Размер числа и подписи со страницы управления: проценты от базового размера.
   // baseSize — размер после подгонки под окно; size — число с учётом своего масштаба.
   let baseSize = size;
@@ -70,6 +77,7 @@
   // Во сколько раз можно увеличить счётчик при размере FIT_BASE_PX, чтобы он влез в окно.
   // Размеры без transform (offsetWidth), поэтому идущая анимация не мешает.
   function fitScale() {
+    motion.settle(valueEl); // посреди смены числа в нём лишние цифры
     const text = valueEl.textContent;
     setSize(FIT_BASE_PX);
     valueEl.textContent = text.padStart(FIT_MIN_DIGITS, "0");
@@ -102,16 +110,65 @@
   window.addEventListener("resize", fitToWindow);
   if (document.fonts) document.fonts.ready.then(fitToWindow);
 
-  function setCount(n) {
+  // animate — сыграть смену числа (overlay/motion.js), calm — спокойный вариант для таймера
+  let shownText = valueEl.textContent;
+  function setCount(n, animate, calm) {
     const text = String(n);
+    const from = shownText;
+    shownText = text;
+    motion.settle(valueEl);
     const grew = text.length !== valueEl.textContent.length;
     valueEl.textContent = text;
     if (grew) fitToWindow();
+    if (animate && from !== text) motion.changeNumber(valueEl, from, text, transition, { calm });
+  }
+
+  // --- Анимации переходов (overlay/motion.js) ---
+  let transition = motion.resolveTransition(fixedTransition);
+  let entrance = motion.resolveEntrance(fixedEntrance);
+  let autohide = fixedAutohide ?? 0; // секунд до исчезновения после мата; 0 — всегда виден
+  let hidden = false;
+  let hideTimer = null;
+
+  function show() {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+    if (hidden) {
+      hidden = false;
+      motion.enter(counterEl, entrance);
+    }
+  }
+
+  function hide() {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+    if (!hidden) {
+      hidden = true;
+      motion.exit(counterEl, entrance);
+    }
+  }
+
+  // Новый мат: при автоскрытии счётчик появляется и снова прячется через autohide секунд
+  function wake() {
+    if (!autohide) return;
+    show();
+    hideTimer = setTimeout(hide, autohide * 1000);
+  }
+
+  function applyMotion(msg) {
+    if (fixedTransition === null && typeof msg.transition === "string") transition = motion.resolveTransition(msg.transition);
+    if (fixedEntrance === null && typeof msg.entrance === "string") entrance = motion.resolveEntrance(msg.entrance);
+    if (fixedAutohide === null && typeof msg.autohide === "number" && msg.autohide !== autohide) {
+      autohide = msg.autohide;
+      if (!autohide) show();
+      else if (!hidden && hideTimer === null) hide();
+    }
   }
 
   // --- Пресеты (overlay/presets.js) ---
   const PRESETS = window.OVERLAY_PRESETS || [{ id: "classic", color: "#ffffff" }];
   let currentPreset = "classic";
+  let presetApplied = false;
   let player = null; // звук (создаётся ниже, если оверлей не в превью и не без звука)
 
   function findPreset(id) {
@@ -120,6 +177,17 @@
 
   function applyPreset(id) {
     const preset = findPreset(id);
+    // Смена оформления на лету — мягкий переход, а не резкая подмена
+    if (preset.id !== currentPreset && presetApplied && !hidden) {
+      counterEl.animate(
+        [
+          { opacity: 0, filter: "blur(6px)", transform: "scale(0.94)" },
+          { opacity: 1, filter: "blur(0)", transform: "scale(1)" },
+        ],
+        { duration: 350, easing: "ease-out" }
+      );
+    }
+    presetApplied = true;
     currentPreset = preset.id;
     root.setAttribute("data-preset", preset.id);
     root.style.setProperty("--color", colorOverride || preset.color || "#ffffff");
@@ -440,6 +508,8 @@
   function handleStyle(msg) {
     if (fixedPreset === null && typeof msg.preset === "string") applyPreset(msg.preset);
     applyScale(msg);
+    if (!showTimer) applyMotion(msg); // таймер идёт всё время, автоскрытие ему ни к чему
+    else if (fixedTransition === null && typeof msg.transition === "string") transition = motion.resolveTransition(msg.transition);
     // Подпись со страницы управления относится к счёту. У цели она из адреса,
     // у таймера — из адреса, а если её там нет, то со страницы управления.
     if (showTimer) applyLabel(timerLabel || msg.timer_label || "", msg.label_position);
@@ -460,14 +530,14 @@
 
   function renderTimer() {
     const now = timerState.elapsed + (timerState.running ? (performance.now() - timerState.at) / 1000 : 0);
-    setCount(formatDuration(now));
+    setCount(formatDuration(now), true, true);
   }
 
   // --- Отсчёт до цели (?show=goal): «—», пока цель не задана ---
   let goalState = { count: 0, goal: 0 };
 
-  function renderGoal() {
-    setCount(goalState.goal ? Math.max(goalState.goal - goalState.count, 0) : "—");
+  function renderGoal(animate) {
+    setCount(goalState.goal ? Math.max(goalState.goal - goalState.count, 0) : "—", animate);
   }
 
   applyPreset(fixedPreset || "classic");
@@ -484,7 +554,7 @@
       if (run && timer === null) {
         timer = setInterval(() => {
           count += 1;
-          setCount(count);
+          setCount(count, true);
           playIncrementAnimation(1);
         }, PREVIEW_INTERVAL_MS);
       } else if (!run && timer !== null) {
@@ -500,9 +570,16 @@
     window.addEventListener("message", (event) => {
       if (event.origin !== location.origin) return;
       const msg = event.data;
+      // Показ появления: счётчик исчезает и появляется выбранной анимацией
+      if (msg && msg.type === "entrance-demo") {
+        motion.exit(counterEl, entrance).then(() => setTimeout(() => motion.enter(counterEl, entrance), 250));
+        return;
+      }
       if (!msg || msg.type !== "style") return;
       if (typeof msg.preset === "string") applyPreset(msg.preset); // в превью ?preset — только начальный
       applyScale(msg);
+      if (typeof msg.transition === "string") transition = motion.resolveTransition(msg.transition);
+      if (typeof msg.entrance === "string") entrance = motion.resolveEntrance(msg.entrance);
       if (typeof msg.label === "string") applyLabel(msg.label, msg.label_position);
       if (typeof msg.visible === "boolean") {
         // Пока iframe был скрыт, мерить было нечего: подгоняем размер, когда его показали.
@@ -530,7 +607,8 @@
       setCount("—"); // счётчик удалили
       return;
     }
-    setCount(counter.count);
+    setCount(counter.count, hadState);
+    hadState = true;
     if (fixedPreset === null) applyPreset(counter.preset);
     extraLabel = counter.label;
     applyLabel(extraLabel, labelPosition);
@@ -540,6 +618,19 @@
     player = window.createDingPlayer();
     player.setStandard(findPreset(currentPreset).sound);
   }
+
+  // --- Появление: при загрузке и когда источник в OBS снова становится видимым ---
+  let hadState = false;
+  // Автоскрытие из адреса: счётчик скрыт до первого мата
+  if (fixedAutohide) {
+    hidden = true;
+    motion.exit(counterEl, "none");
+  } else {
+    motion.enter(counterEl, entrance);
+  }
+  window.addEventListener("obsSourceVisibleChanged", (event) => {
+    if (event.detail && event.detail.visible && !hidden) motion.enter(counterEl, entrance);
+  });
 
   // --- WebSocket с автопереподключением ---
   function connect() {
@@ -557,7 +648,8 @@
         if (msg.type === "counters") {
           handleCounters(msg.counters);
         } else if (msg.type === "extra_increment" && msg.id === counterId) {
-          setCount(msg.count);
+          setCount(msg.count, true);
+          wake();
           playIncrementAnimation(msg.delta || 1);
           if (player) player.play();
         } else if (msg.type === "sound") {
@@ -565,6 +657,7 @@
         } else if (msg.type === "style") {
           labelPosition = msg.label_position;
           applyScale(msg);
+          applyMotion(msg);
           applyLabel(extraLabel, labelPosition);
         } else if (msg.type === "presets") {
           location.reload();
@@ -586,7 +679,9 @@
         if (msg.type === "state" || msg.type === "increment") {
           const left = goalState.goal - goalState.count;
           goalState.count = msg.count;
-          renderGoal();
+          renderGoal(hadState);
+          hadState = true;
+          if (msg.type === "increment") wake();
           if (msg.type === "increment" && goalState.goal && left > 0) {
             playIncrementAnimation(-Math.min(msg.delta || 1, left));
             if (msg.milestone === goalState.goal) celebrate();
@@ -602,9 +697,11 @@
         return;
       }
       if (msg.type === "state") {
-        setCount(msg.count);
+        setCount(msg.count, hadState); // первое состояние после подключения — без анимации
+        hadState = true;
       } else if (msg.type === "increment") {
-        setCount(msg.count);
+        setCount(msg.count, true);
+        wake();
         playIncrementAnimation(msg.delta || 1);
         if (msg.milestone) celebrate();
         if (player) (msg.milestone ? player.playFanfare : player.play)();
