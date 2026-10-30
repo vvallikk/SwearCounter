@@ -219,6 +219,37 @@
     "Взрыв": "Explosion",
     "Огненные цифры, резкое увеличение и разлетающиеся искры.": "Fiery digits, a sharp zoom and flying sparks.",
 
+    // Событие «Хеллоуин» (временное, app/events.py): после 1 ноября эти строки не показываются
+    "🎃 Проклятый мат": "🎃 Cursed Swear",
+    "Хеллоуин, только до 1 ноября: светящиеся тыквенные цифры, летучие мыши и скримеры. Каждый 13-й мат — проклятие: зелёный огонь, череп и злой смех. Подпись к нему: «Душ продано:».":
+      "Halloween, until November 1 only: glowing pumpkin digits, bats and screamers. Every 13th swear is a curse: green fire, a skull and an evil laugh. Label idea: “Souls sold:”.",
+    "🎃 Хеллоуин до 1 ноября": "🎃 Halloween until November 1",
+    "Оформление «Проклятый мат», скримеры вместо звона и проклятие на каждом 13-м мате. После 1 ноября всё это пропадёт само.":
+      "The “Cursed Swear” look, screamers instead of the ding and a curse on every 13th swear. After November 1 it all disappears by itself.",
+    "🦇 Включить Хеллоуин в OBS": "🦇 Turn on Halloween in OBS",
+    "Выключить событие": "Turn the event off",
+    "Точно выключить?": "Really turn off?",
+    "Хеллоуин выключен.": "Halloween is off.",
+    "Включить обратно": "Turn it back on",
+    "Готово: в OBS теперь «Проклятый мат» и рандом из скримеров": "Done: OBS now shows “Cursed Swear” with random screamers",
+    "Хеллоуин · до 1 ноября": "Halloween · until November 1",
+    "🎃 Скримеры «Проклятого мата»": "🎃 “Cursed Swear” screamers",
+    "💀 Скример": "💀 Screamer",
+    "😱 Крик банши": "😱 Banshee scream",
+    "🎲 Рандом": "🎲 Random",
+    "На каждый мат — случайный звук из отмеченных": "Each swear plays a random sound from the checked ones",
+    "Рандом: отметьте звуки, на каждый мат (и проклятие на Хеллоуин) играет случайный из них.":
+      "Random: check the sounds; each swear (and the Halloween curse) plays a random one of them.",
+    "👻 Визг призрака": "👻 Ghost shriek",
+    "💥 Удар-скример": "💥 Jumpscare hit",
+    "💥 Удар-скример (низкий)": "💥 Jumpscare hit (low)",
+    "👻 Стон призрака": "👻 Ghost moan",
+    "🧙 Смех ведьмы": "🧙 Witch cackle",
+    "😈 Злой смех": "😈 Evil laugh",
+    "😈 Демонический хохот": "😈 Demonic laughter",
+    "🚪 Скрип двери": "🚪 Creaking door",
+    "Такого события нет": "No such event",
+
     // Вкладка «Настройки»: слова и модель
     "Что считать": "What to count",
     "Обновить списки": "Refresh lists",
@@ -501,6 +532,7 @@
     ["Распакованное оформление больше {}", "The unpacked look is larger than {}"],
     ["Личное оформление для: {}", "Personal look for: {}"],
     ["Звук оформления «{}»", "Sound of the “{}” look"],
+    ["Это оформление события «{}»: оно уже закончилось", "This is the “{}” event look: the event is over"],
     ["Оформление «{}» установлено и включено", "The “{}” look is installed and on"],
     ["Скачано {} из {}", "Downloaded {} of {}"],
     ["Облако: {}", "Cloud: {}"],
