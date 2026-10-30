@@ -466,10 +466,13 @@
     const n = state.session_count;
     let text = n
       ? `${n} ${pluralize(n, "сессия", "сессии", "сессий")} · всего ${state.total} ${pluralize(state.total, "слово", "слова", "слов")}`
-      : "Пока пусто: сессия начинается с первого слова после запуска или сброса.";
+      : state.mode === "off"
+        ? "Пусто: статистика не ведётся."
+        : "Пока пусто: сессия начинается с первого слова после запуска или сброса.";
     if (state.top.length) text += ` · чаще всего: ${state.top.slice(0, 5).map(([w, c]) => `${w} ${c}`).join(", ")}`;
     $("stats-summary").textContent = text;
     $("stats-export").disabled = $("stats-clear").disabled = !n;
+    if (state.mode) $("stats-mode").value = state.mode;  // старый сервер режима не знает
   }
 
   async function loadStats() {
@@ -491,6 +494,15 @@
       setStatus(statsStatusEl, `Сохранено: ${path}`, false, true);
     } catch (e) {
       setStatus(statsStatusEl, e.message, true);
+    }
+  });
+  $("stats-mode").addEventListener("change", async (e) => {
+    try {
+      showStats(await api("POST", "/api/stats/mode", { mode: e.target.value }));
+      setStatus(statsStatusEl, "Сохранено", false, true);
+    } catch (err) {
+      setStatus(statsStatusEl, err.message, true);
+      loadStats();  // вернуть в списке сохранённый режим
     }
   });
   confirmByTwoClicks($("stats-clear"), "Точно очистить?", async () => {

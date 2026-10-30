@@ -97,6 +97,13 @@
     "Очистить": "Clear",
     "Точно очистить?": "Really clear?",
     "Пока пусто: сессия начинается с первого слова после запуска или сброса.": "Nothing yet: a session starts with the first word after launch or a reset.",
+    "Пусто: статистика не ведётся.": "Empty: statistics are off.",
+    "Что записывать": "What to record",
+    "Сессии и слова": "Sessions and words",
+    "Только число слов": "Word count only",
+    "Не вести статистику": "Don't keep statistics",
+    "Статистика хранится только на этом компьютере, в файле stats.json: по каждой сессии время, число слов и какие слова из списка прозвучали (корнями, без фраз). «Только число слов» — без самих слов. «Не вести статистику» — новое не записывается. Уже накопленное в обоих случаях остаётся, пока вы его не очистите.":
+      "Statistics are kept only on this computer, in stats.json: for each session the time, the word count and which words from the list were said (as roots, without phrases). “Word count only” leaves out the words themselves. “Don’t keep statistics” records nothing new. In both cases what's already saved stays until you clear it.",
 
     // Вкладка «Оформление»
     "Подпись к счётчику": "Counter label",
@@ -471,6 +478,7 @@
     "Это сочетание уже назначено другому действию": "This shortcut is already assigned to another action",
     "Добавьте Ctrl, Alt, Shift или Win: без них клавиша мешала бы печатать": "Add Ctrl, Alt, Shift or Win: without them the key would get in the way of typing",
     "Неверный режим автозапуска": "Invalid autostart mode",
+    "Неверный режим статистики": "Invalid statistics mode",
     "Порт — число от 1 до 65535": "The port is a number from 1 to 65535",
     "Слишком длинное имя сцены": "The scene name is too long",
     "Такого счётчика нет": "No such counter",

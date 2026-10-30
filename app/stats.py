@@ -3,6 +3,10 @@
 Сессия — с запуска программы или сброса счёта. Она заводится при первом слове, поэтому
 пустые запуски в историю не попадают. Слова хранятся корнями из списка, а не сказанными
 формами; прибавки кнопкой «+1» и горячей клавишей идут в счёт сессии без слова.
+
+Режим (настройка stats_mode) решает, что записывать: всё, только число слов в сессиях
+(без самих слов) или ничего. Уже накопленная история от режима не зависит: она остаётся,
+пока её не очистят.
 """
 
 import csv
@@ -22,6 +26,16 @@ MAX_SESSIONS = 500  # старые сессии отбрасываются, чт
 RECENT_SESSIONS = 30  # столько последних сессий видно на странице управления
 TOP_WORDS = 10
 
+SETTING = "stats_mode"
+# full — сессии и корни слов, count — сессии с числом слов, но без самих слов, off — ничего.
+MODES = ("full", "count", "off")
+DEFAULT_MODE = "full"
+
+
+def clean_mode(value) -> str:
+    """Режим из settings.json; испорченное значение — по умолчанию."""
+    return value if value in MODES else DEFAULT_MODE
+
 
 class Stats:
     def __init__(self, path: Path | None = None, clock: Callable[[], float] = time.time):
@@ -30,8 +44,21 @@ class Stats:
         self._clock = clock
         self.sessions: list[dict] = self._load()
         self._current: dict | None = None  # текущая сессия, заводится при первом слове
+        self.mode = DEFAULT_MODE
+
+    def set_mode(self, mode: str) -> None:
+        if mode not in MODES:
+            raise ValueError(mode)
+        self.mode = mode
+        if mode == "off":
+            # После включения слова пойдут в новую сессию, а не допишутся к прерванной.
+            self._current = None
 
     def add(self, delta: int, words: list[str] = ()) -> None:
+        if self.mode == "off":
+            return
+        if self.mode == "count":
+            words = ()
         now = round(self._clock())
         if self._current is None:
             self._current = {"start": now, "end": now, "count": 0, "words": {}}
@@ -66,6 +93,7 @@ class Stats:
             "top": self.top_words(),
             "total": sum(s["count"] for s in self.sessions),
             "session_count": len(self.sessions),
+            "mode": self.mode,
         }
 
     def csv(self) -> str:
