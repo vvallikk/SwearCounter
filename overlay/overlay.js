@@ -171,11 +171,19 @@
   let presetApplied = false;
   let player = null; // звук (создаётся ниже, если оверлей не в превью и не без звука)
 
+  // Идущие временные события (app/events.py, сообщение "events"); null — ещё не знаем.
+  let activeEvents = null;
+  let wantedPreset = "classic"; // пресет, который просили: если это оформление события, оно вернётся
+
+  // Оформление события после его окончания не показывается: вместо него — фирменное (первое).
   function findPreset(id) {
-    return PRESETS.find((p) => p.id === id) || PRESETS[0];
+    const preset = PRESETS.find((p) => p.id === id);
+    if (preset && preset.event && activeEvents && !activeEvents.includes(preset.event)) return PRESETS[0];
+    return preset || PRESETS[0];
   }
 
   function applyPreset(id) {
+    wantedPreset = id;
     const preset = findPreset(id);
     // Смена оформления на лету — мягкий переход, а не резкая подмена
     if (preset.id !== currentPreset && presetApplied && !hidden) {
@@ -420,6 +428,107 @@
     ], { duration: 1200, easing: "ease-out" });
   }
 
+  // 🎃 Проклятый мат (событие «Хеллоуин», временное): число вздрагивает, как от испуга,
+  // от него разлетаются летучие мыши и призраки, «+N» стекает зелёной слизью.
+  const SPOOKS = ["🦇", "🦇", "👻", "💀", "🦇"];
+
+  function spook(glyph, angle, dist, duration, delay = 0) {
+    const el = document.createElement("span");
+    el.className = "spook";
+    el.textContent = glyph;
+    numberEl.appendChild(el);
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    const flip = dx < 0 ? -1 : 1;
+    const anim = el.animate(
+      [
+        { transform: `translate(-50%, -50%) scale(0.3) scaleX(${flip})`, opacity: 0 },
+        { transform: `translate(calc(-50% + ${dx * 0.3}px), calc(-50% + ${dy * 0.3 - size * 0.1}px)) scale(1) scaleX(${flip})`, opacity: 1, offset: 0.25 },
+        { transform: `translate(calc(-50% + ${dx * 0.7}px), calc(-50% + ${dy * 0.7 + size * 0.08}px)) scale(0.9) scaleX(${flip})`, opacity: 1, offset: 0.6 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy - size * 0.1}px)) scale(0.6) scaleX(${flip})`, opacity: 0 },
+      ],
+      { duration, delay, easing: "ease-out", fill: "backwards" }
+    );
+    anim.onfinish = () => el.remove();
+  }
+
+  function animateHalloween(delta) {
+    valueEl.animate(
+      [
+        { transform: "translate(0, 0) scale(1) skewX(0)" },
+        { transform: "translate(-2%, -4%) scale(1.22) skewX(-6deg)", offset: 0.12 },
+        { transform: "translate(3%, 1%) scale(1.15) skewX(5deg)", offset: 0.24 },
+        { transform: "translate(-2%, 0) scale(1.1) skewX(-3deg)", offset: 0.36 },
+        { transform: "translate(1%, 0) scale(1.04) skewX(2deg)", offset: 0.5 },
+        { transform: "translate(0, 0) scale(1) skewX(0)" },
+      ],
+      { duration: 650, easing: "ease-out" }
+    );
+    glowEl.animate(
+      [
+        { opacity: 0, transform: "scale(0.5)" },
+        { opacity: 0.75, transform: "scale(1)", offset: 0.2 },
+        { opacity: 0.3, transform: "scale(1.1)", offset: 0.5 },
+        { opacity: 0, transform: "scale(1.35)" },
+      ],
+      { duration: 900, easing: "ease-out" }
+    );
+    const count = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < count; i++) {
+      // Вверх-влево и вверх-вправо, чтобы не улетать за низ окна
+      const angle = -Math.PI / 2 + (i % 2 ? 1 : -1) * (0.5 + Math.random() * 0.9);
+      spook(SPOOKS[Math.floor(Math.random() * SPOOKS.length)], angle, size * (0.8 + Math.random() * 0.5), 1300 + Math.random() * 400, i * 90);
+    }
+    floatPlus(delta, [
+      { transform: "translate(-50%, -30%) scaleY(0.6)", opacity: 0 },
+      { transform: "translate(-50%, -70%) scaleY(1.15)", opacity: 1, offset: 0.2 },
+      { transform: "translate(-50%, -85%) scaleY(1.3) scaleX(0.9)", opacity: 1, offset: 0.55 },
+      { transform: "translate(-50%, -150%) scaleY(1.6) scaleX(0.7)", opacity: 0 },
+    ], { duration: 1300, easing: "ease-in-out" });
+  }
+
+  // Проклятие (каждое 13-е ругательство во время события): зелёный огонь, тряска, черепа и «☠ 13 ☠»
+  const CURSE_MS = 2600;
+  let curseTimer = null;
+
+  function curse(count) {
+    root.setAttribute("data-cursed", "");
+    clearTimeout(curseTimer);
+    curseTimer = setTimeout(() => root.removeAttribute("data-cursed"), CURSE_MS);
+    const shake = [];
+    for (let i = 0; i <= 16; i++) {
+      const k = 1 - i / 16;
+      shake.push({ transform: `translate(${(i % 2 ? 1 : -1) * 4 * k}%, ${(i % 3 - 1) * 3 * k}%) rotate(${(i % 2 ? -1 : 1) * 4 * k}deg) scale(${1 + 0.35 * k})` });
+    }
+    valueEl.animate(shake, { duration: 1100, delay: 450, easing: "linear" });
+    glowEl.animate(
+      [
+        { opacity: 0, transform: "scale(0.4)", filter: "hue-rotate(80deg)" },
+        { opacity: 1, transform: "scale(1.3)", filter: "hue-rotate(80deg)", offset: 0.2 },
+        { opacity: 0.6, transform: "scale(1.1)", filter: "hue-rotate(80deg)", offset: 0.6 },
+        { opacity: 0, transform: "scale(1.6)", filter: "hue-rotate(80deg)" },
+      ],
+      { duration: CURSE_MS, easing: "ease-out" }
+    );
+    for (let i = 0; i < 8; i++) {
+      spook(i % 2 ? "💀" : "👻", (2 * Math.PI * i) / 8, size * 0.9, 1700, 400 + i * 60);
+    }
+    const bubble = document.createElement("span");
+    bubble.className = "plus curse-bubble";
+    bubble.textContent = `☠ ${count} ☠`;
+    numberEl.appendChild(bubble);
+    const anim = bubble.animate(
+      [
+        { transform: "translate(-50%, 20%) scale(0.2)", opacity: 0 },
+        { transform: "translate(-50%, -45%) scale(1.4)", opacity: 1, offset: 0.2 },
+        { transform: "translate(-50%, -60%) scale(1.25)", opacity: 1, offset: 0.75 },
+        { transform: "translate(-50%, -110%) scale(1)", opacity: 0 },
+      ],
+      { duration: CURSE_MS, delay: 300, easing: "ease-out", fill: "backwards" }
+    );
+    anim.onfinish = () => bubble.remove();
+  }
+
   // id пресета → анимация прибавления
   const INCREMENT_ANIMATIONS = {
     swearcounter: animateCensor,
@@ -429,7 +538,13 @@
     retro: animateRetro,
     minimal: animateMinimal,
     explosion: animateExplosion,
+    halloween: animateHalloween,
   };
+
+  // Проклятие события показывает только его оформление: на остальных счёт идёт как обычно.
+  function cursedPreset() {
+    return findPreset(currentPreset).event === "halloween";
+  }
 
   // Что получает анимация личного оформления (animation.js набора, см. docs/PRESETS.md)
   function animationApi(preset) {
@@ -556,6 +671,7 @@
           count += 1;
           setCount(count, true);
           playIncrementAnimation(1);
+          if (count % 13 === 0 && cursedPreset()) curse(count); // превью проклятия на 52, 65…
         }, PREVIEW_INTERVAL_MS);
       } else if (!run && timer !== null) {
         clearInterval(timer);
@@ -644,6 +760,12 @@
       } catch (e) {
         return;
       }
+      if (msg.type === "events") {
+        // Событие началось или закончилось: оформление события появляется или пропадает
+        activeEvents = Array.isArray(msg.active) ? msg.active : [];
+        applyPreset(wantedPreset);
+        return;
+      }
       if (counterId) {
         if (msg.type === "counters") {
           handleCounters(msg.counters);
@@ -684,7 +806,8 @@
           if (msg.type === "increment") wake();
           if (msg.type === "increment" && goalState.goal && left > 0) {
             playIncrementAnimation(-Math.min(msg.delta || 1, left));
-            if (msg.milestone === goalState.goal) celebrate();
+            if (msg.milestone === goalState.goal && cursedPreset()) curse(goalState.goal);
+            else if (msg.milestone === goalState.goal) celebrate();
           }
         } else if (msg.type === "goals") {
           goalState.goal = msg.goal;
@@ -703,8 +826,11 @@
         setCount(msg.count, true);
         wake();
         playIncrementAnimation(msg.delta || 1);
-        if (msg.milestone) celebrate();
-        if (player) (msg.milestone ? player.playFanfare : player.play)();
+        // В «Проклятом мате» особые числа и цель тоже отмечаются проклятием, а не звёздами и фанфарами
+        const cursed = cursedPreset() && (msg.curse || msg.milestone);
+        if (cursed) curse(msg.count);
+        else if (msg.milestone) celebrate();
+        if (player) (cursed ? player.playCurse : msg.milestone ? player.playFanfare : player.play)();
       } else if (msg.type === "sound") {
         if (player) player.apply(msg);
       } else if (msg.type === "style") {

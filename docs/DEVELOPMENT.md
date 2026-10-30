@@ -495,3 +495,13 @@ docs/                 документация, скриншоты, заметк
 LICENSE               лицензия программы (GNU GPL v3)
 .github/workflows/    tests.yml для тестов, release.yml для релиза по тегу
 ```
+
+## Временные события (Хеллоуин)
+
+События описаны в `app/events.py`: окно дат, оформление оверлея (`event` в `overlay/presets.js`),
+звуки в `overlay/sounds/<событие>/` и стили страницы управления под `[data-event="<событие>"]`.
+Вне окна дат ничего из этого не видно. Посмотреть событие в другой день:
+
+```
+SWEARCOUNTER_EVENT_DATE=2026-10-31 python swearcounter.py --console
+```

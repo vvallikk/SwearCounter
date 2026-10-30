@@ -67,6 +67,19 @@ EXTRAS = [
         [],
     ),
     (
+        "Шрифт Rubik Wet Paint (overlay/fonts/rubik-wet-paint.woff2, событие «Хеллоуин»)",
+        "Copyright 2020 The Rubik Filtered Project Authors. SIL Open Font License 1.1.\n"
+        "https://github.com/NaN-xyz/Rubik-Filtered",
+        ["OFL-RubikWetPaint.txt"],
+    ),
+    (
+        "Звуки события «Хеллоуин» (overlay/sounds/halloween/)",
+        "CC0 1.0 (общественное достояние), авторы: Fupi, psychhead_, qubodup, AntumDeluge,\n"
+        "Eldritch Grim, w.forster.1. Источники каждого файла — в overlay/sounds/halloween/README.md.\n"
+        "https://opengameart.org",
+        [],
+    ),
+    (
         "Microsoft Edge WebView2 SDK (Microsoft.Web.WebView2.*.dll из пакета pywebview)",
         "Copyright Microsoft Corporation. Распространяется на условиях лицензии WebView2 SDK:\n"
         "https://www.nuget.org/packages/Microsoft.Web.WebView2/ (License Info)",
