@@ -615,6 +615,12 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 .counter-body .copy-link > :first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .counter-body .copy-link .copy-label { white-space: nowrap; }
 .obs-scene-row .goal-input { width: 90px; }
+.obs-rules { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.obs-rules:empty { display: none; }
+.obs-rules .obs-scene-row { flex-wrap: nowrap; margin-top: 0; }
+.obs-rules .goal-input { width: 72px; }
+.obs-rules-actions { margin-top: 8px; }
+.obs-scene-row .obs-return { width: 72px; }
 .obs-ws-row .text-input { min-width: 160px; }
 .obs-ws-row .obs-port { flex: 0 0 100px; min-width: 0; }
 

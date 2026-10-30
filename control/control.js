@@ -1878,7 +1878,6 @@
   // --- OBS: порт и пароль, сброс при начале трансляции или записи, смена сцены по порогу ---
 
   const obsStatusEl = $("obs-status");
-  const obsSceneEl = $("obs-scene");
 
   $("obs-ws-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -1900,12 +1899,62 @@
     }
   });
 
+  // --- Правила смены сцены: «при N словах → сцена X», до MAX_SCENE_RULES строк ---
+
+  const MAX_SCENE_RULES = 5;
+  const obsRulesEl = $("obs-rules");
+  let sceneNames = []; // загруженные из OBS
+
   // Выбранная сцена есть в списке, даже если список из OBS ещё не загружен.
-  function setSceneOptions(names, selected) {
-    const all = selected && !names.includes(selected) ? [selected, ...names] : names;
-    obsSceneEl.replaceChildren(obsSceneEl.options[0]);
-    for (const name of all) obsSceneEl.add(new Option(name, name));
-    obsSceneEl.value = selected;
+  function fillSceneSelect(select, selected) {
+    const all = selected && !sceneNames.includes(selected) ? [selected, ...sceneNames] : sceneNames;
+    select.replaceChildren(new Option("не переключать", ""));
+    for (const name of all) select.add(new Option(name, name));
+    select.value = selected;
+  }
+
+  function ruleRow(rule, index) {
+    const row = el("div", "row obs-scene-row obs-rule");
+    const at = el("input", "text-input goal-input");
+    Object.assign(at, { id: `obs-rule-at-${index}`, type: "number", min: "0", placeholder: "—" });
+    at.setAttribute("aria-label", "Сколько слов до смены сцены");
+    at.value = rule.at || "";
+    const atLabel = el("label", "", "При");
+    atLabel.htmlFor = at.id;
+    const select = el("select");
+    select.id = `obs-rule-scene-${index}`;
+    fillSceneSelect(select, rule.scene);
+    const sceneLabel = el("label", "", "слов — сцена");
+    sceneLabel.htmlFor = select.id;
+    const wrap = el("div", "select-wrap");
+    wrap.append(select);
+    const remove = el("button", "icon-btn", "✕");
+    remove.type = "button";
+    remove.title = "Удалить правило";
+    remove.setAttribute("aria-label", "Удалить правило");
+    remove.addEventListener("click", () => {
+      row.remove();
+      saveObs();
+    });
+    at.addEventListener("change", saveObs);
+    select.addEventListener("change", saveObs);
+    row.append(atLabel, at, sceneLabel, wrap, remove);
+    return row;
+  }
+
+  function readRules() {
+    return [...obsRulesEl.querySelectorAll(".obs-rule")].map((row) => ({
+      at: Number(row.querySelector("input").value) || 0,
+      scene: row.querySelector("select").value,
+    }));
+  }
+
+  function showRules(rules) {
+    // Те же правила — не перерисовывать: пропал бы фокус в поле, которое сейчас правят.
+    if (JSON.stringify(rules) !== JSON.stringify(readRules())) {
+      obsRulesEl.replaceChildren(...rules.map(ruleRow));
+    }
+    $("obs-rule-add").disabled = obsRulesEl.children.length >= MAX_SCENE_RULES;
   }
 
   function showObsStatus(status) {
@@ -1917,9 +1966,9 @@
   function showObs(state) {
     $("obs-reset-stream").checked = state.reset_stream;
     $("obs-reset-record").checked = state.reset_record;
-    if (document.activeElement !== $("obs-scene-at")) $("obs-scene-at").value = state.scene_at || "";
-    const names = [...obsSceneEl.options].slice(1).map((o) => o.value);
-    setSceneOptions(names, state.scene);
+    const back = $("obs-scene-return");
+    if (document.activeElement !== back) back.value = state.scene_return || "";
+    showRules(state.scene_rules || []);
     showObsStatus(state.status);
   }
 
@@ -1928,8 +1977,8 @@
       showObs(await api("POST", "/api/obs", {
         reset_stream: $("obs-reset-stream").checked,
         reset_record: $("obs-reset-record").checked,
-        scene: obsSceneEl.value,
-        scene_at: Number($("obs-scene-at").value) || 0,
+        scene_rules: readRules(),
+        scene_return: Number($("obs-scene-return").value) || 0,
       }));
     } catch (e) {
       setStatus(obsStatusEl, e.message, true);
@@ -1937,14 +1986,22 @@
     }
   }
 
-  for (const id of ["obs-reset-stream", "obs-reset-record", "obs-scene", "obs-scene-at"]) {
+  for (const id of ["obs-reset-stream", "obs-reset-record", "obs-scene-return"]) {
     $(id).addEventListener("change", saveObs);
   }
+  $("obs-rule-add").addEventListener("click", () => {
+    if (obsRulesEl.children.length >= MAX_SCENE_RULES) return;
+    const row = ruleRow({ at: 0, scene: "" }, Date.now());
+    obsRulesEl.append(row);
+    $("obs-rule-add").disabled = obsRulesEl.children.length >= MAX_SCENE_RULES;
+    row.querySelector("input").focus();
+  });
   $("obs-scenes-load").addEventListener("click", async () => {
     const button = $("obs-scenes-load");
     button.disabled = true;
     try {
-      setSceneOptions((await api("GET", "/api/obs/scenes")).scenes, obsSceneEl.value);
+      sceneNames = (await api("GET", "/api/obs/scenes")).scenes;
+      for (const select of obsRulesEl.querySelectorAll("select")) fillSceneSelect(select, select.value);
     } catch (e) {
       setStatus(obsStatusEl, e.message, true);
     } finally {

@@ -463,6 +463,7 @@ app/main.py           точка входа, ключи запуска, логи
 app/desktop.py        окно (pywebview), трей (pystray), сервер в потоке, один экземпляр
 app/obs.py            клиент obs-websocket v5: проверка подключения, события выходов, запросы
 app/obs_link.py       постоянная связь с OBS в своём потоке: автосброс, смена сцены
+app/obs_scenes.py     правила смены сцены по порогам счёта и возврат прежней сцены
 app/server.py         FastAPI: /ws, /ws/events, /api/state, /api/count, /api/increment, /api/reset,
                       /api/counters, /api/speech, /api/ui-language, /api/obs, /api/devices, /api/sound, /api/overlay, /api/words, /api/update,
                       /api/presets/custom, статика
