@@ -48,6 +48,10 @@ class Stats:
         """Сброс счёта: следующие слова пойдут в новую сессию."""
         self._current = None
 
+    def current(self) -> dict | None:
+        """Текущая сессия; None — с запуска или сброса ещё не было ни одного слова."""
+        return self._current
+
     def clear(self) -> None:
         self.sessions.clear()
         self._current = None

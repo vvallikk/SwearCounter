@@ -10,7 +10,7 @@ import logging
 import threading
 from collections.abc import Callable
 
-from .obs import OP_EVENT, OP_REQUEST_RESPONSE, ObsClient, ObsError, output_started, response_data
+from .obs import OP_EVENT, OP_REQUEST_RESPONSE, ObsClient, ObsError, output_started, output_stopped, response_data
 
 log = logging.getLogger(__name__)
 
@@ -28,12 +28,15 @@ class ObsLink:
         on_status: Callable[[dict], None] = lambda state: None,
         client_factory: Callable[[int, str], ObsClient] = ObsClient,
         retry: float = RETRY,
+        on_output_stopped: Callable[[str], None] = lambda output: None,
     ):
-        """on_output("stream" | "record") — выход запустился; on_status — подключились или отвалились.
+        """on_output("stream" | "record") — выход запустился; on_output_stopped — остановился;
+        on_status — подключились или отвалились.
 
-        Оба вызываются из потока связи.
+        Все вызываются из потока связи.
         """
         self._on_output = on_output
+        self._on_output_stopped = on_output_stopped
         self._on_status = on_status
         self._client_factory = client_factory
         self._retry = retry
@@ -123,6 +126,9 @@ class ObsLink:
                 if output_started(message, event_type):
                     log.info("OBS: запущен выход %s", output)
                     self._on_output(output)
+                elif output_stopped(message, event_type):
+                    log.info("OBS: остановлен выход %s", output)
+                    self._on_output_stopped(output)
 
     def _fail_pending(self) -> None:
         with self._pending_lock:
