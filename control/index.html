@@ -9,6 +9,13 @@
     try {
       if (localStorage.getItem("theme") === "light") document.documentElement.dataset.theme = "light";
     } catch (e) {}
+    // Анимации окна (control/motion.js): тоже до отрисовки, чтобы первая же вкладка открылась как надо
+    try {
+      document.documentElement.dataset.motion = localStorage.getItem("uiMotion") ||
+        (matchMedia("(prefers-reduced-motion: reduce)").matches ? "none" : "smooth");
+    } catch (e) {
+      document.documentElement.dataset.motion = "smooth";
+    }
   </script>
   <script src="i18n.js"></script>
   <link rel="stylesheet" href="style.css">
@@ -48,7 +55,7 @@
       </section>
       <div class="live-count">
         <!-- Тот же оверлей, что в OBS (без звука): оформление, подпись и анимации выбранного стиля -->
-        <iframe id="live-count" class="live-count-frame" src="/overlay/?mute=1" title="Счётчик" tabindex="-1"></iframe>
+        <iframe id="live-count" class="live-count-frame" src="/overlay/?mute=1&autohide=0" title="Счётчик" tabindex="-1"></iframe>
         <div id="count" class="count sr-only">—</div>
       </div>
       <div class="timer-line" title="Сколько удалось продержаться без нужных слов. Рекорд — с запуска программы или сброса счёта; на паузе таймер стоит.">
@@ -219,6 +226,49 @@
           Устанавливайте только оформления из надёжных источников: анимация в них работает как
           небольшая программа внутри оверлея.</p>
         <div id="preset-status" class="status-line"></div>
+      </section>
+
+      <section id="motion-section" class="section" hidden>
+        <h2 class="section-title">Анимации</h2>
+        <div class="motion-grid">
+          <label class="motion-label" for="transition">Смена числа</label>
+          <div class="select-wrap"><select id="transition"></select></div>
+          <p id="transition-desc" class="note motion-desc"></p>
+
+          <label class="motion-label" for="entrance">Появление и исчезновение</label>
+          <div class="row motion-row">
+            <div class="select-wrap"><select id="entrance"></select></div>
+            <button id="entrance-demo" class="secondary-btn" type="button">▶ Показать</button>
+          </div>
+          <p id="entrance-desc" class="note motion-desc"></p>
+
+          <label class="motion-label" for="autohide">Автоскрытие</label>
+          <div class="select-wrap">
+            <select id="autohide">
+              <option value="0">Счётчик виден всегда</option>
+              <option value="5">Прятать через 5 секунд после мата</option>
+              <option value="10">Прятать через 10 секунд после мата</option>
+              <option value="20">Прятать через 20 секунд после мата</option>
+              <option value="30">Прятать через 30 секунд после мата</option>
+              <option value="60">Прятать через минуту после мата</option>
+            </select>
+          </div>
+          <p class="note motion-desc">Счётчик появляется на экране только при новом мате и сам прячется.
+            Таймер «без мата» не прячется никогда.</p>
+
+          <label class="motion-label" for="ui-motion">Анимации окна программы</label>
+          <div class="select-wrap">
+            <select id="ui-motion">
+              <option value="smooth">Плавные</option>
+              <option value="spring">Пружинистые</option>
+              <option value="slide">Перелистывание</option>
+              <option value="none">Без анимаций</option>
+            </select>
+          </div>
+          <p class="note motion-desc">Переходы между вкладками, раскрытие разделов и окна.
+            Только для этого компьютера, на оверлей в OBS не влияет.</p>
+        </div>
+        <div id="motion-status" class="status-line"></div>
       </section>
     </div>
 
@@ -412,7 +462,9 @@
 
   <script src="/overlay/presets.js"></script>
   <script src="/overlay/sound.js"></script>
+  <script src="/overlay/motion.js"></script>
   <script src="control.js"></script>
   <script src="sections.js"></script>
+  <script src="motion.js"></script>
 </body>
 </html>
