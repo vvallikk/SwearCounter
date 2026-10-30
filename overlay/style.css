@@ -304,6 +304,100 @@ body {
   box-shadow: 0 0.06em 0.18em rgba(0, 0, 0, 0.5);
 }
 
+/* --- 🎃 Проклятый мат: оформление события «Хеллоуин» (app/events.py) ---
+   Временное: после 1 ноября оверлей сам переключается на обычное оформление.
+   Шрифт Rubik Wet Paint (SIL OFL 1.1, scripts/third_party/OFL-RubikWetPaint.txt), с кириллицей. */
+@font-face {
+  font-family: "Rubik Wet Paint";
+  src: url("fonts/rubik-wet-paint.woff2") format("woff2");
+  font-display: block;
+}
+
+:root[data-preset="halloween"] {
+  --pumpkin-dark: #3a0d5c;
+  --curse: #7dff4f;
+}
+
+:root[data-preset="halloween"] body {
+  font-family: "Rubik Wet Paint", "Segoe UI Black", "Arial Black", sans-serif;
+  font-weight: 400;
+}
+
+:root[data-preset="halloween"] .value,
+:root[data-preset="halloween"] .label {
+  -webkit-text-stroke: calc(var(--size) * 0.06) var(--pumpkin-dark);
+  text-shadow:
+    0 0 calc(var(--size) * 0.08) rgba(255, 138, 31, 0.9),
+    0 0 calc(var(--size) * 0.25) rgba(255, 90, 0, 0.6),
+    0 calc(var(--size) * 0.05) calc(var(--size) * 0.08) rgba(0, 0, 0, 0.8);
+}
+
+/* Свеча внутри тыквы: цифры всё время чуть мерцают */
+:root[data-preset="halloween"] .value {
+  animation: pumpkin-candle 2.6s ease-in-out infinite;
+}
+
+@keyframes pumpkin-candle {
+  0%, 100% { filter: brightness(1); }
+  18% { filter: brightness(1.18); }
+  22% { filter: brightness(0.85); }
+  40% { filter: brightness(1.08); }
+  63% { filter: brightness(0.92); }
+  70% { filter: brightness(1.15); }
+}
+
+/* Тыква рядом с числом */
+:root[data-preset="halloween"] .number::before {
+  content: "🎃";
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: calc(var(--size) * 0.08);
+  font-size: calc(var(--size) * 0.55);
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  -webkit-text-stroke: 0;
+  animation: pumpkin-wobble 3.4s ease-in-out infinite;
+}
+
+@keyframes pumpkin-wobble {
+  0%, 100% { transform: translateY(0) rotate(-10deg); }
+  50% { transform: translateY(-12%) rotate(6deg); }
+}
+
+:root[data-preset="halloween"] .glow {
+  background: radial-gradient(circle, #ff8a1f 0%, rgba(120, 30, 160, 0.5) 40%, transparent 68%);
+}
+
+:root[data-preset="halloween"] .plus {
+  color: var(--curse);
+  -webkit-text-stroke: calc(var(--size) * 0.025) var(--pumpkin-dark);
+  text-shadow: 0 0 calc(var(--size) * 0.08) rgba(125, 255, 79, 0.8);
+}
+
+/* Летучие мыши и призраки, которые разлетаются от числа */
+:root[data-preset="halloween"] .spook {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  font-size: calc(var(--size) * 0.32);
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Проклятие (каждое 13-е): цифры горят зелёным огнём */
+:root[data-preset="halloween"][data-cursed] .value {
+  color: var(--curse);
+  text-shadow:
+    0 0 calc(var(--size) * 0.1) rgba(125, 255, 79, 1),
+    0 0 calc(var(--size) * 0.3) rgba(40, 200, 40, 0.8),
+    0 0 calc(var(--size) * 0.6) rgba(20, 120, 20, 0.6);
+}
+
+:root[data-preset="halloween"] .curse-bubble {
+  font-size: calc(var(--size) * 0.3);
+  color: var(--curse);
+  letter-spacing: 0.06em;
+
 /* ===================== Смена числа (overlay/motion.js) =====================
    На время анимации каждая цифра — ячейка: новая цифра в потоке, старая поверх неё. */
 .mc-cell {

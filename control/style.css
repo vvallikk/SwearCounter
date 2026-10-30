@@ -360,6 +360,27 @@ select:focus-visible { border-color: var(--accent); outline-offset: 0; }
   border-radius: 50%;
 }
 .sound-item.active .radio { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
+/* Режим «рандом»: галочки вместо радиокнопок */
+.sound-pick .check {
+  flex: none;
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--muted);
+  border-radius: 4px;
+}
+.sound-item.active .check { border-color: var(--accent); background: var(--accent); }
+.sound-item.active .check::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 3px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
 .sound-pick .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .icon-btn {
   flex: none;
@@ -780,6 +801,95 @@ body.offline .live-count-frame { opacity: 0.35; }
 .whatsnew-version:first-child { margin-top: 0; }
 .whatsnew-offer { margin-top: 14px; padding: 10px 12px; font-size: 14px; border: 1px solid var(--accent); border-radius: 10px; }
 .whatsnew-offer .note { margin: 4px 0 8px; }
+
+/* ===================== 🎃 Событие «Хеллоуин» (временное, app/events.py) =====================
+   data-event="halloween" на <html> ставит control.js, только пока событие идёт и включено.
+   После 1 ноября атрибута нет, и всё ниже не действует. */
+:root[data-event="halloween"] {
+  --accent: #ff7a18;
+  --bg: #120d18;
+  --card: #1c1424;
+  --border: #33243f;
+  --meter-off: #33243f;
+  --shadow: 0 8px 32px rgba(120, 40, 200, 0.25), 0 0 0 1px rgba(255, 122, 24, 0.08);
+}
+:root[data-event="halloween"][data-theme="light"] {
+  --accent: #e8620a;
+  --bg: #fbf3ea;
+  --card: #fffaf4;
+  --border: #f0dcc6;
+  --meter-off: #f0dcc6;
+  --shadow: 0 8px 28px rgba(160, 80, 20, 0.14);
+}
+:root[data-event="halloween"] body {
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(120, 40, 200, 0.22), transparent 70%),
+    radial-gradient(600px 300px at 50% 110%, rgba(255, 122, 24, 0.12), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+:root[data-event="halloween"][data-theme="light"] body {
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(255, 140, 40, 0.18), transparent 70%),
+    var(--bg);
+}
+:root[data-event="halloween"] h1::before { content: "🎃 "; }
+:root[data-event="halloween"] .tab[aria-selected="true"] {
+  background: linear-gradient(135deg, #ff7a18, #c2410c);
+  box-shadow: 0 0 14px rgba(255, 122, 24, 0.35);
+}
+/* Летучая мышь иногда пролетает над шапкой */
+:root[data-event="halloween"] .header { position: relative; }
+:root[data-event="halloween"] .header::after {
+  content: "🦇";
+  position: absolute;
+  top: -6px;
+  left: 0;
+  font-size: 16px;
+  opacity: 0;
+  pointer-events: none;
+  animation: event-bat 14s linear 2s infinite;
+}
+@keyframes event-bat {
+  0% { transform: translate(-30px, 10px) scale(0.8); opacity: 0; }
+  2% { opacity: 1; }
+  6% { transform: translate(90px, -4px) scale(1) rotate(-8deg); }
+  10% { transform: translate(200px, 8px) scale(0.9) rotate(6deg); }
+  14% { transform: translate(330px, -6px) scale(1) rotate(-6deg); opacity: 1; }
+  16%, 100% { transform: translate(380px, 0) scale(0.8); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-event="halloween"] .header::after { animation: none; }
+}
+
+.event-banner {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, transparent), color-mix(in srgb, #7c3aed 14%, transparent));
+}
+.event-title { font-size: 15px; font-weight: 700; }
+.event-text { margin: 6px 0 10px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.event-actions { flex-wrap: wrap; gap: 8px; }
+.event-apply {
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #ff7a18, #c2410c);
+  border: 0;
+  border-radius: 8px;
+}
+.event-apply:hover:not(:disabled) { filter: brightness(1.1); }
+.event-apply:disabled { opacity: 0.7; }
+.event-off-line { font-size: 13px; color: var(--muted); }
+.event-banner:not(.disabled) .event-off-line,
+.event-banner.disabled .event-on { display: none; }
+.event-banner.disabled { padding: 8px 14px; background: none; border-style: dashed; }
+.link-btn { padding: 0; font-size: inherit; color: var(--accent); background: none; border: 0; text-decoration: underline; }
+.sound-group-title { padding: 8px 12px 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 
 /* --- Анимации окна (control/motion.js), вариант в data-motion на <html> --- */
 /* Вкладки появляются из motion.js с учётом направления, CSS-анимация не нужна */

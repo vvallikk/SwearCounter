@@ -496,7 +496,7 @@ def test_sound_changes_reach_overlays(client):
 def test_ws_greeting_includes_sound_and_style(client):
     with client.websocket_connect("ws://localhost/ws") as ws:
         types_ = [ws.receive_json()["type"] for _ in GREETING]
-    assert types_ == ["state", "pause", "timer", "goals", "sound", "style", "counters"]
+    assert types_ == ["state", "pause", "timer", "goals", "events", "sound", "style", "counters"]
 
 
 def test_preset_is_saved_and_broadcast(client, settings_path):
@@ -535,9 +535,10 @@ def test_default_style_is_not_written_to_settings(client, settings_path):
 
 
 PRESET_IDS = re.findall(r'id: "([^"]+)"', (ROOT / "overlay" / "presets.js").read_text(encoding="utf-8"))
+EVENT_PRESET_IDS = {"halloween"}  # видны только во время события (tests/test_events.py)
 
 
-@pytest.mark.parametrize("preset", PRESET_IDS)
+@pytest.mark.parametrize("preset", [p for p in PRESET_IDS if p not in EVENT_PRESET_IDS])
 def test_every_overlay_preset_is_accepted(client, preset):
     assert client.post("/api/overlay/preset", json={"preset": preset}).json()["preset"] == preset
 

@@ -38,6 +38,21 @@
     </nav>
 
     <div id="tab-counter" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-counter">
+      <!-- Временное событие (app/events.py): видно только в его даты -->
+      <section id="event-banner" class="event-banner" data-event-id="halloween" hidden>
+        <div class="event-on">
+          <div class="event-title">🎃 Хеллоуин до 1 ноября</div>
+          <p class="event-text">Оформление «Проклятый мат», скримеры вместо звона и проклятие на каждом 13-м мате.
+            После 1 ноября всё это пропадёт само.</p>
+          <div class="row event-actions">
+            <button id="event-apply" class="event-apply" type="button">🦇 Включить Хеллоуин в OBS</button>
+            <button id="event-off" class="secondary-btn" type="button">Выключить событие</button>
+          </div>
+        </div>
+        <div class="event-off-line">Хеллоуин выключен.
+          <button id="event-on" class="link-btn" type="button">Включить обратно</button></div>
+        <div id="event-status" class="status-line"></div>
+      </section>
       <div class="live-count">
         <!-- Тот же оверлей, что в OBS (без звука): оформление, подпись и анимации выбранного стиля -->
         <iframe id="live-count" class="live-count-frame" src="/overlay/?mute=1&autohide=0" title="Счётчик" tabindex="-1"></iframe>
@@ -171,8 +186,12 @@
           <button id="sound-test" class="secondary-btn" type="button">▶ Проверить</button>
         </div>
         <div id="sound-list" class="sound-list" role="radiogroup" aria-label="Звук оповещения"></div>
+        <p id="sound-random-note" class="note" hidden>Рандом: отметьте звуки, на каждый мат (и проклятие на Хеллоуин)
+          играет случайный из них.</p>
         <div class="row sound-actions">
           <button id="sound-upload" class="secondary-btn" type="button">Загрузить звук…</button>
+          <button id="sound-random" class="secondary-btn" type="button" aria-pressed="false"
+            title="На каждый мат — случайный звук из отмеченных">🎲 Рандом</button>
           <input id="sound-input" type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" hidden>
         </div>
         <div id="sound-status" class="status-line"></div>
