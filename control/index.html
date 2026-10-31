@@ -58,9 +58,9 @@
         <iframe id="live-count" class="live-count-frame" src="/overlay/?mute=1&autohide=0" title="Счётчик" tabindex="-1"></iframe>
         <div id="count" class="count sr-only">—</div>
       </div>
-      <div class="timer-line" title="Сколько удалось продержаться без нужных слов. Рекорд — с запуска программы или сброса счёта; на паузе таймер стоит.">
+      <div class="timer-line" data-source="timer" title="Сколько удалось продержаться без нужных слов. Рекорд — с запуска программы или сброса счёта; на паузе таймер стоит.">
         Без мата: <b id="timer-now">0:00</b> · рекорд <b id="timer-record">0:00</b></div>
-      <div id="goal-line" class="timer-line" hidden>До цели: <b id="goal-left"></b></div>
+      <div id="goal-line" class="timer-line" data-source="goal" hidden>До цели: <b id="goal-left"></b></div>
       <div class="buttons">
         <button id="inc" type="button">+1 (тест)</button>
         <button id="pause" type="button" aria-pressed="false">⏸ Пауза</button>
@@ -72,6 +72,10 @@
           <span class="obs-sources-title">Источники для OBS</span>
           <span class="obs-sources-sub">Вставьте ссылку в источник «Браузер»</span>
         </div>
+        <div class="obs-toggles">
+          <label class="check-row"><input id="source-timer" type="checkbox" checked> Таймер «без мата»</label>
+          <label class="check-row"><input id="source-goal" type="checkbox"> Отсчёт до цели</label>
+        </div>
         <div class="obs-row">
           <button id="overlay-url" class="obs-link" type="button" title="Нажмите, чтобы скопировать">
             <span class="obs-name">Счётчик</span>
@@ -80,7 +84,7 @@
           </button>
           <button id="overlay-open" class="obs-open" type="button" title="Открыть оверлей в браузере по умолчанию" aria-label="Открыть в браузере">↗</button>
         </div>
-        <div class="obs-row">
+        <div class="obs-row" data-source="timer">
           <button id="timer-url" class="obs-link" type="button" title="Нажмите, чтобы скопировать">
             <span class="obs-name">Таймер «без мата»</span>
             <span id="timer-url-text" class="obs-url"></span>
@@ -88,7 +92,7 @@
           </button>
           <button id="timer-open" class="obs-open" type="button" title="Открыть оверлей в браузере по умолчанию" aria-label="Открыть в браузере">↗</button>
         </div>
-        <div id="goal-links" class="obs-row" hidden>
+        <div id="goal-links" class="obs-row" data-source="goal" hidden>
           <button id="goal-url" class="obs-link" type="button" title="Нажмите, чтобы скопировать">
             <span class="obs-name">Отсчёт до цели</span>
             <span id="goal-url-text" class="obs-url"></span>
@@ -101,7 +105,7 @@
       <section id="counters-section" class="section" hidden>
         <h2 class="section-title">Дополнительные счётчики</h2>
         <p class="note">Свой список слов, счёт и оверлей — например, слова-паразиты отдельно от матов.
-          Цели, таймер, статистика и OBS — только у основного счётчика.</p>
+          Статистика и OBS — только у основного счётчика.</p>
         <div id="counters-list" class="counters-list"></div>
         <form id="counter-add" class="row">
           <input id="counter-name" class="text-input" maxlength="40" required placeholder="Название"
@@ -140,42 +144,68 @@
 
     <div id="tab-look" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-look" hidden>
       <section id="label-section" class="section" hidden>
-        <label class="section-title" for="label-text">Подпись к счётчику</label>
-        <div class="row">
-          <input id="label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
-                 placeholder="Например: Маты за стрим: или Слова-паразиты:">
-          <div class="select-wrap label-position">
-            <select id="label-position" aria-label="Где подпись">
-              <option value="left">Слева</option>
-              <option value="right">Справа</option>
-              <option value="top">Сверху</option>
-              <option value="bottom">Снизу</option>
-            </select>
+        <h2 class="section-title">Подпись и размер</h2>
+        <p class="note size-hint">Свои для каждого источника в OBS. Оформление и звук ниже — общие.</p>
+        <div class="size-card">
+        <div class="size-tabs" role="tablist" aria-label="Источник">
+          <span class="size-tabs-label">Источник:</span>
+          <button class="size-tab" type="button" role="tab" data-size-tab="counter" aria-selected="true">Счётчик</button>
+          <button class="size-tab" type="button" role="tab" data-size-tab="timer" data-source="timer" aria-selected="false">Таймер</button>
+          <button class="size-tab" type="button" role="tab" data-size-tab="goal" data-source="goal" aria-selected="false" hidden>Цель</button>
+        </div>
+        <iframe id="size-preview" class="size-preview" title="Предпросмотр" tabindex="-1"></iframe>
+
+        <div data-size-panel="counter">
+          <label class="section-title" for="label-text">Подпись к счётчику</label>
+          <div class="row">
+            <input id="label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
+                   placeholder="Например: Маты за стрим: или Слова-паразиты:">
+            <div class="select-wrap label-position">
+              <select id="label-position" aria-label="Где подпись">
+                <option value="left">Слева</option>
+                <option value="right">Справа</option>
+                <option value="top">Сверху</option>
+                <option value="bottom">Снизу</option>
+              </select>
+            </div>
+          </div>
+          <p class="note">Подпись и число — один источник в OBS: двигаются и масштабируются вместе.
+            Пустое поле — только число.</p>
+          <label class="section-title" for="scale-counter">Размер счётчика</label>
+          <div class="row volume-row">
+            <input id="scale-counter" type="range" min="25" max="200" step="5" value="100" aria-describedby="scale-counter-value">
+            <span id="scale-counter-value" class="volume-value"></span>
           </div>
         </div>
-        <p class="note">Подпись и число — один источник в OBS: двигаются и масштабируются вместе.
-          Пустое поле — только число. Как это выглядит — в превью оформления ниже.</p>
-        <label class="section-title" for="timer-label-text">Подпись к таймеру «без мата»</label>
-        <div class="row">
-          <input id="timer-label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
-                 placeholder="Например: Без мата:">
+
+        <div data-size-panel="timer" hidden>
+          <label class="section-title" for="timer-label-text">Подпись к таймеру «без мата»</label>
+          <div class="row">
+            <input id="timer-label-text" class="text-input" type="text" maxlength="40" autocomplete="off"
+                   placeholder="Например: Без мата:">
+          </div>
+          <p class="note">Подпись таймера стоит с той же стороны, что и подпись счётчика.
+            Пустое поле — только время.</p>
+          <label class="section-title" for="scale-timer">Размер таймера «без мата»</label>
+          <div class="row volume-row">
+            <input id="scale-timer" type="range" min="25" max="200" step="5" value="100" aria-describedby="scale-timer-value">
+            <span id="scale-timer-value" class="volume-value"></span>
+          </div>
         </div>
-        <p class="note">Подпись таймера стоит с той же стороны, что и подпись счётчика.
-          Пустое поле — только время.</p>
-        <div id="label-status" class="status-line"></div>
-        <label class="section-title" for="number-scale">Размер числа</label>
-        <div class="row volume-row">
-          <input id="number-scale" type="range" min="25" max="200" step="5" value="100" aria-describedby="number-scale-value">
-          <span id="number-scale-value" class="volume-value"></span>
+
+        <div data-size-panel="goal" hidden>
+          <label class="section-title" for="scale-goal">Размер отсчёта до цели</label>
+          <div class="row volume-row">
+            <input id="scale-goal" type="range" min="25" max="200" step="5" value="100" aria-describedby="scale-goal-value">
+            <span id="scale-goal-value" class="volume-value"></span>
+          </div>
         </div>
-        <label class="section-title" for="label-scale">Размер подписи</label>
-        <div class="row volume-row">
-          <input id="label-scale" type="range" min="25" max="200" step="5" value="100" aria-describedby="label-scale-value">
-          <span id="label-scale-value" class="volume-value"></span>
-        </div>
-        <p class="note">100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет:
+
+        <p class="note">Размер числа и подписи меняется вместе. Размер дополнительных счётчиков — в их настройках. 100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет:
           чтобы он был крупнее, растяните сам источник.</p>
+        <div id="label-status" class="status-line"></div>
         <div id="scale-status" class="status-line"></div>
+        </div>
       </section>
 
       <section id="sound-section" class="section" hidden>
@@ -192,6 +222,7 @@
           <button id="sound-upload" class="secondary-btn" type="button">Загрузить звук…</button>
           <button id="sound-random" class="secondary-btn" type="button" aria-pressed="false"
             title="На каждый мат — случайный звук из отмеченных">🎲 Рандом</button>
+          <button id="sound-pool-all" class="secondary-btn" type="button" hidden></button>
           <input id="sound-input" type="file" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg" hidden>
         </div>
         <div id="sound-status" class="status-line"></div>
@@ -254,7 +285,7 @@
             </select>
           </div>
           <p class="note motion-desc">Счётчик появляется на экране только при новом мате и сам прячется.
-            Таймер «без мата» не прячется никогда.</p>
+            <span data-source="timer">Таймер «без мата» не прячется никогда.</span></p>
 
           <label class="motion-label" for="ui-motion">Анимации окна программы</label>
           <div class="select-wrap">
@@ -314,11 +345,11 @@
         <div class="autostart-grid">
           <label for="milestones">Особые числа</label>
           <input id="milestones" class="text-input" type="text" autocomplete="off" placeholder="Например: 10, 50, 100">
-          <label for="goal">Цель</label>
-          <input id="goal" class="text-input goal-input" type="number" min="0" placeholder="Без цели">
+          <label for="goal" data-source="goal">Цель</label>
+          <input id="goal" class="text-input goal-input" type="number" min="0" placeholder="Без цели" data-source="goal">
         </div>
-        <p class="note">На особых числах и на цели оверлей празднует: звёзды и фанфары. До цели идёт
-          отсчёт «осталось N» — на вкладке «Счётчик» и отдельным источником для OBS.</p>
+        <p class="note">На особых числах оверлей «пикает» число: цифры на секунду заменяются значками цензуры.
+          <span data-source="goal">До цели идёт отсчёт «осталось N» — на вкладке «Счётчик» и отдельным источником для OBS.</span></p>
         <div id="goals-status" class="status-line"></div>
       </section>
 

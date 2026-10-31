@@ -141,16 +141,16 @@
     // EVENT: halloween-2026
     spooky: () => ({
       out: [
-        { transform: "translateY(0) scale(1, 1)", opacity: 1, filter: "blur(0)" },
-        { transform: "translateY(25%) scale(0.9, 1.35)", opacity: 0.8, filter: "blur(0.02em)", offset: 0.4 },
-        { transform: "translateY(70%) scale(0.6, 1.8)", opacity: 0, filter: "blur(0.08em)" },
+        { transform: "translateY(0) scale(1, 1)", opacity: 1, filter: "blur(0) drop-shadow(0 0 0 rgba(125, 255, 90, 0))" },
+        { transform: "translateY(25%) scale(0.9, 1.35)", opacity: 0.8, filter: "blur(0.02em) drop-shadow(0 0 0.14em rgba(125, 255, 90, 0.7))", offset: 0.4 },
+        { transform: "translateY(70%) scale(0.6, 1.8)", opacity: 0, filter: "blur(0.08em) drop-shadow(0 0 0.2em rgba(125, 255, 90, 0))" },
       ],
       in: [
-        { transform: "translateY(60%) rotate(0) scale(0.7)", opacity: 0, filter: "blur(0.15em)" },
-        { transform: "translateY(-12%) rotate(-7deg) scale(1.08)", opacity: 0.85, filter: "blur(0.03em)", offset: 0.45 },
-        { transform: "translateY(4%) rotate(5deg) scale(1)", opacity: 1, filter: "blur(0)", offset: 0.7 },
-        { transform: "translateY(-2%) rotate(-2deg)", opacity: 1, filter: "blur(0)", offset: 0.85 },
-        { transform: "translateY(0) rotate(0)", opacity: 1, filter: "blur(0)" },
+        { transform: "translateY(60%) rotate(0) scale(0.7)", opacity: 0, filter: "blur(0.15em) drop-shadow(0 0 0.1em rgba(125, 255, 90, 0))" },
+        { transform: "translateY(-12%) rotate(-7deg) scale(1.08)", opacity: 0.85, filter: "blur(0.03em) drop-shadow(0 0 0.16em rgba(125, 255, 90, 0.75))", offset: 0.4 },
+        { transform: "translateY(4%) rotate(5deg) scale(1)", opacity: 1, filter: "blur(0) drop-shadow(0 0 0.12em rgba(125, 255, 90, 0.5))", offset: 0.7 },
+        { transform: "translateY(-2%) rotate(-2deg)", opacity: 1, filter: "blur(0) drop-shadow(0 0 0.05em rgba(125, 255, 90, 0.2))", offset: 0.88 },
+        { transform: "translateY(0) rotate(0)", opacity: 1, filter: "blur(0) drop-shadow(0 0 0 rgba(125, 255, 90, 0))" },
       ],
       duration: 900,
       stagger: 110,
