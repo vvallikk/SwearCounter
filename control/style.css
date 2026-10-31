@@ -68,6 +68,7 @@ h1 { margin: 0 0 4px; font-size: 20px; }
 .update-badge {
   margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
   color: #fff; background: var(--accent); text-decoration: none; vertical-align: middle;
+  display: inline-block; white-space: nowrap; /* узкое окно: плашка переносится целиком, а не рвётся посреди */
 }
 .update-row { flex-wrap: wrap; }
 .update-notes { margin-top: 8px; font-size: 13px; }
@@ -89,6 +90,7 @@ body.update-locked #update-section {
 body.update-locked .update-auto { display: none; }
 .theme-btn {
   position: absolute;
+  z-index: 2; /* выше шапки с событийными украшениями: она позиционирована и иначе перехватывает клики */
   top: 14px;
   right: 14px;
   width: 36px;
@@ -574,6 +576,7 @@ a.secondary-btn { display: inline-flex; align-items: center; text-decoration: no
 .primary-btn:hover:not(:disabled) { border-color: var(--accent); filter: brightness(1.1); }
 
 /* Автозапуск: подписи слева от выбора, на узком окне — над ним. */
+.obs-toggles { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 14px; }
 .check-row { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
 .check-row .note { margin: 0; }
 .autostart-grid {
@@ -961,3 +964,32 @@ body.offline .live-count-frame { opacity: 0.35; }
 .motion-label:first-child { margin-top: 0; }
 .motion-desc { margin-top: 0; min-height: 1.45em; }
 .motion-row { gap: 8px; }
+
+/* --- Подпись и размер: карточка источника с отдельным предпросмотром ---
+   Выглядит иначе, чем вкладки страницы: рамка, «таблетки» и подпись «Источник:», чтобы не путать
+   с общими настройками оформления и звука ниже. */
+.size-hint { margin: 2px 0 10px; }
+.size-card {
+  padding: 12px;
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.size-card .section-title:first-child { margin-top: 0; }
+.size-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.size-tabs-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.size-tab {
+  padding: 3px 12px; font-size: 12.5px; font-weight: 600;
+  color: var(--muted); background: none; border: 1px solid var(--border, rgba(127, 127, 127, 0.35));
+  border-radius: 999px; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+.size-tab:hover { color: var(--text); }
+.size-tab[aria-selected="true"] {
+  color: var(--accent); border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.size-preview {
+  display: block; width: 100%; height: 150px; margin-bottom: 8px;
+  border: 1px dashed var(--border); border-radius: 10px; background: transparent; color-scheme: normal;
+}

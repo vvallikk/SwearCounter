@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 MAX_COUNTERS = 5
 NAME_MAX_LENGTH = 40
 DEFAULT_PRESET = "swearcounter"
+DEFAULT_SCALE = 100  # размер числа и подписи, проценты
 # Счётчик из файла без оформления был создан, когда по умолчанию было «Классика»: оставляем его таким.
 LEGACY_PRESET = "classic"
 
@@ -57,6 +58,7 @@ class ExtraCounters:
             "list": "",
             "preset": DEFAULT_PRESET,
             "label": "",
+            "scale": DEFAULT_SCALE,
             "count": 0,
         }
         self._apply(counter, {"name": name, "list": list_id})
@@ -132,6 +134,8 @@ class ExtraCounters:
             counter["preset"] = fields["preset"]
         if "label" in fields:
             counter["label"] = fields["label"]
+        if "scale" in fields:
+            counter["scale"] = fields["scale"]
 
     def _load(self) -> list[dict]:
         if self._path is None:
@@ -146,6 +150,7 @@ class ExtraCounters:
                     "list": str(item["list"]),
                     "preset": str(item.get("preset") or LEGACY_PRESET),
                     "label": str(item.get("label") or ""),
+                    "scale": int(item.get("scale") or DEFAULT_SCALE),
                     "count": max(0, int(item.get("count", 0))),
                 })
             return counters

@@ -75,6 +75,22 @@ def crack(length: float = 0.08, seed: int = 2) -> np.ndarray:
     return noise / np.abs(noise).max() * envelope(n, 0.0005, 0.015)
 
 
+def distort(x: np.ndarray, drive: float = 6.0) -> np.ndarray:
+    """Перегруз, как у скримеров в играх: настоящий крик становится рваным и хриплым."""
+    x = x / (np.abs(x).max() or 1)
+    return np.tanh(drive * x) / np.tanh(drive)
+
+
+def loudest(x: np.ndarray, seconds: float) -> np.ndarray:
+    """Самый громкий кусок записи: скример начинается сразу с пика, а не с нарастания."""
+    n = int(seconds * RATE)
+    if len(x) <= n:
+        return x
+    power = np.convolve(x.astype(np.float64) ** 2, np.ones(n), "valid")
+    start = int(np.argmax(power))
+    return trim_silence(x[start:start + n])
+
+
 def mix(*layers: tuple[np.ndarray, float]) -> np.ndarray:
     n = max(len(x) for x, _ in layers)
     out = np.zeros(n)
@@ -103,20 +119,27 @@ def save(name: str, x: np.ndarray, fade: float = 0.3) -> None:
 
 
 def main(src: Path) -> None:
-    shriek = load(src / "scaryhighpitchedghost_0.ogg", 11.3, 2.4)
+    # Настоящие крики (CC0), перегруженные и с жёстким ударом в начале.
+    # Скример короткий: 1–1,3 с, пик сразу, без тональных «пищалок» — они звучат как сирена, а не крик.
+    woman = trim_silence(load(src / "female_scream_1.ogg"))
+    wail = loudest(load(src / "screams_0.ogg"), 1.6)
+    shrill = loudest(load(src / "high_pitch_scream.mp3"), 1.0)
     hit = trim_silence(load(src / HITS / "Bassy/Bassy 5.wav", 0, 3))
     low = trim_silence(load(src / HITS / "Very Bassy/Very Bassy 1.wav", 0, 3))
+    sec = lambda x, seconds: x[: int(seconds * RATE)]  # noqa: E731
 
-    save("scream-stab.ogg", mix((crack(), 0.6), (stab(1.8), 1.0), (shriek[: int(1.8 * RATE)], 0.8), (hit[: int(1.8 * RATE)], 0.9)), 0.5)
-    save("ghost-shriek.ogg", mix((crack(), 0.5), (shriek[: int(2.0 * RATE)], 1.0), (stab(2.0, 1568, 0.25, 3), 0.35)), 0.5)
-    save("banshee.ogg", mix((crack(), 0.5), (speed(shriek, 1.3)[: int(1.8 * RATE)], 1.0), (stab(1.8, 2093, 0.4, 4), 0.5)), 0.5)
-    save("jumpscare-hit.ogg", mix((crack(), 0.8), (hit[: int(2.0 * RATE)], 1.0), (stab(1.2, 1046.5, 0.25, 5), 0.7)), 0.6)
-    save("jumpscare-low.ogg", mix((crack(), 0.7), (low[: int(2.2 * RATE)], 1.0), (stab(1.5, 261.6, 0.35, 6), 0.6)), 0.6)
+    save("scream-stab.ogg", mix((crack(), 0.7), (distort(sec(woman, 1.2), 7), 1.0), (sec(hit, 1.2), 0.8)), 0.25)
+    # Визг призрака: хриплый вопль без чистого тона, шум и удар вместо «звона»; обрезан до 1 с,
+    # чтобы в конце записи не было второго визга
+    save("ghost-shriek.ogg", mix((crack(), 0.8), (distort(sec(wail, 1.0), 10), 1.0), (sec(low, 0.9), 0.5)), 0.25)
+    save("banshee.ogg", mix((crack(), 0.6), (distort(speed(sec(woman, 1.4), 1.2), 8), 1.0), (distort(sec(shrill, 0.9), 12), 0.35)), 0.3)
+    save("jumpscare-hit.ogg", mix((crack(), 0.9), (sec(hit, 0.9), 1.0), (distort(sec(woman, 0.6), 9), 0.8)), 0.25)
+    save("jumpscare-low.ogg", mix((crack(), 0.8), (sec(low, 1.1), 1.0), (distort(sec(speed(wail, 0.75), 0.9), 8), 0.7)), 0.3)
     save("witch-cackle.ogg", trim_silence(load(src / "witch_cackle-1_0.ogg")), 0.15)
-    save("evil-laugh.ogg", trim_silence(load(src / "laugh-evil-1_0.ogg")), 0.3)
-    save("demon-laugh.ogg", trim_silence(load(src / "evil_laughs/Evil Laughs/Laugh 7.mp3", 1.3, 3.9)), 0.6)
-    save("ghost-moan.ogg", trim_silence(load(src / "qubodup-GhostMoans/qubodup-GhostMoans/mp3/qubodup-GhostMoan01.mp3")), 0.4)
-    save("door-creak.ogg", trim_silence(load(src / "creaky_door_hinge.wav", 0, 3.15)), 0.4)
+    save("evil-laugh.ogg", trim_silence(load(src / "laugh-evil-1_0.ogg"))[: int(1.6 * RATE)], 0.3)
+    save("demon-laugh.ogg", trim_silence(load(src / "evil_laughs/Evil Laughs/Laugh 7.mp3", 1.3, 1.8)), 0.4)
+    save("ghost-moan.ogg", trim_silence(load(src / "qubodup-GhostMoans/qubodup-GhostMoans/mp3/qubodup-GhostMoan01.mp3"))[: int(1.6 * RATE)], 0.4)
+    save("door-creak.ogg", trim_silence(load(src / "creaky_door_hinge.wav", 0, 1.6)), 0.4)
 
 
 if __name__ == "__main__":
