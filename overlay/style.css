@@ -3,7 +3,7 @@
   --size: 120px;
   --color: #ffffff;
   /* Подпись меньше числа; объявлено здесь, чтобы считаться от --size числа */
-  --label-size: calc(var(--size) * 0.4);
+  --label-size: calc(var(--size) * 0.85);
 }
 
 /* Полностью прозрачный фон для OBS */
@@ -28,6 +28,8 @@ body {
 
 /* Подпись и число — один блок; положение подписи задаёт data-label-position на <html>. */
 .counter {
+  position: relative;
+  isolation: isolate; /* вспышка лежит за подписью и числом, но не уходит за страницу */
   display: flex;
   align-items: center;
   gap: calc(var(--size) * 0.15);
@@ -70,6 +72,7 @@ body {
 
 /* Вспышка за числом */
 .glow {
+  z-index: -1;
   position: absolute;
   inset: -40%;
   border-radius: 50%;
@@ -346,16 +349,44 @@ body {
   70% { filter: brightness(1.15); }
 }
 
-/* Тыква рядом с числом */
-:root[data-preset="halloween"] .number::before {
-  content: "🎃";
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: calc(var(--size) * 0.08);
+/* Две тыквы по краям: одна слева от текста (или от числа, если подписи нет), вторая справа от числа.
+   Подпись сверху или снизу — обе по бокам числа. Число и тыквы — flex-элементы,
+   поэтому смена цифр не двигает тыквы. */
+:root[data-preset="halloween"] .number {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--size) * 0.08);
+}
+
+:root[data-preset="halloween"] :is(.counter, .number)::before,
+:root[data-preset="halloween"] :is(.counter, .number)::after {
+  content: none;
   font-size: calc(var(--size) * 0.55);
   font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   -webkit-text-stroke: 0;
   animation: pumpkin-wobble 3.4s ease-in-out infinite;
+}
+
+:root[data-preset="halloween"] .number::after { animation-delay: -1.7s; animation-direction: reverse; }
+
+/* Подпись слева (и по умолчанию): тыква перед подписью и тыква после числа */
+:root[data-preset="halloween"]:not([data-label-position="right"], [data-label-position="top"], [data-label-position="bottom"]) .counter::before,
+:root[data-preset="halloween"]:not([data-label-position="right"], [data-label-position="top"], [data-label-position="bottom"]) .number::after {
+  content: "🎃";
+}
+
+/* Подпись справа (порядок обратный): тыква справа от подписи и слева от числа */
+:root[data-preset="halloween"][data-label-position="right"] .counter::before,
+:root[data-preset="halloween"][data-label-position="right"] .number::before {
+  content: "🎃";
+}
+
+/* Подпись сверху или снизу: тыквы по бокам числа */
+:root[data-preset="halloween"][data-label-position="top"] .number::before,
+:root[data-preset="halloween"][data-label-position="top"] .number::after,
+:root[data-preset="halloween"][data-label-position="bottom"] .number::before,
+:root[data-preset="halloween"][data-label-position="bottom"] .number::after {
+  content: "🎃";
 }
 
 @keyframes pumpkin-wobble {
@@ -364,7 +395,16 @@ body {
 }
 
 :root[data-preset="halloween"] .glow {
-  background: radial-gradient(circle, #ff8a1f 0%, rgba(120, 30, 160, 0.5) 40%, transparent 68%);
+  /* Мягкий туман без границы: цвет плавно растворяется к краю блока.
+     Окутывает подпись и число вместе (вспышка лежит в .counter), поэтому по бокам запас меньше. */
+  inset: -80% -15%;
+  background: radial-gradient(closest-side,
+    rgba(255, 140, 30, 0.84) 0%,
+    rgba(255, 100, 10, 0.66) 25%,
+    rgba(160, 50, 200, 0.44) 52%,
+    rgba(100, 30, 160, 0.18) 78%,
+    rgba(100, 30, 160, 0) 100%);
+  filter: blur(calc(var(--size) * 0.08));
 }
 
 :root[data-preset="halloween"] .plus {
@@ -397,6 +437,7 @@ body {
   font-size: calc(var(--size) * 0.3);
   color: var(--curse);
   letter-spacing: 0.06em;
+}
 
 /* ===================== Смена числа (overlay/motion.js) =====================
    На время анимации каждая цифра — ячейка: новая цифра в потоке, старая поверх неё. */
@@ -424,12 +465,4 @@ body {
   text-shadow:
     calc(var(--size) * -0.04) 0 0 rgba(255, 0, 80, 0.85),
     calc(var(--size) * 0.04) 0 0 rgba(0, 230, 255, 0.85);
-}
-
-/* EVENT: halloween-2026 — временно. Привидение: зелёное свечение на время перехода */
-.mc-spooky .mc-in,
-.mc-spooky .mc-out {
-  text-shadow:
-    0 0 calc(var(--size) * 0.08) #b6ff8f,
-    0 0 calc(var(--size) * 0.22) #3dff6e;
 }

@@ -332,6 +332,21 @@
     label.value = counter.label;
     label.placeholder = "без подписи";
     label.addEventListener("change", () => counterRequest("POST", `/api/counters/${counter.id}`, { label: label.value }));
+    const scale = el("input");
+    scale.type = "range";
+    scale.min = "25";
+    scale.max = "200";
+    scale.step = "5";
+    scale.value = counter.scale ?? 100;
+    const scaleValue = el("span", "volume-value", `${scale.value}%`);
+    let scaleTimer = null;
+    scale.addEventListener("input", () => {
+      scaleValue.textContent = `${scale.value}%`;
+      clearTimeout(scaleTimer);
+      scaleTimer = setTimeout(() => counterRequest("POST", `/api/counters/${counter.id}`, { scale: Number(scale.value) }), 250);
+    });
+    const scaleRow = el("div", "row volume-row");
+    scaleRow.append(scale, scaleValue);
     const wrap = (select) => {
       const node = el("div", "select-wrap");
       node.append(select);
@@ -352,6 +367,7 @@
       counterSetting(counter, "Список слов", wrap(list)),
       counterSetting(counter, "Оформление", wrap(preset)),
       counterSetting(counter, "Подпись", label),
+      counterSetting(counter, "Размер", scaleRow),
       el("div", "note", "Оверлей этого счётчика:"),
       link,
       remove,
@@ -393,6 +409,89 @@
     if (result) $("counter-name").value = "";
   });
 
+  // --- Какие источники показывать: таймер и отсчёт до цели включаются галочками ---
+  // Пока галочка выключена, их ссылок, подписей, размеров и строк на странице нет.
+
+  const sourceEls = { timer: $("source-timer"), goal: $("source-goal") };
+  let sourcesRequests = 0;
+  let activeSizeTab = "counter"; // вкладка «Подпись и размер»: счётчик, таймер или цель
+
+  function applySources() {
+    for (const [name, input] of Object.entries(sourceEls)) {
+      for (const node of document.querySelectorAll(`[data-source="${name}"]`)) node.hidden = !input.checked;
+    }
+    renderGoalLeft(); // строка «До цели» зависит и от самой цели
+    if (activeSizeTab !== "counter" && !sourceEls[activeSizeTab].checked) selectSizeTab("counter");
+  }
+
+  async function sendSources() {
+    sourcesRequests += 1;
+    try {
+      await api("POST", "/api/overlay/sources", { timer: sourceEls.timer.checked, goal: sourceEls.goal.checked });
+    } catch (e) {
+      setStatus($("scale-status"), e.message, true);
+    } finally {
+      sourcesRequests -= 1;
+    }
+  }
+
+  for (const input of Object.values(sourceEls)) {
+    input.addEventListener("change", () => {
+      applySources();
+      sendSources();
+    });
+  }
+
+  function showServerSources(msg) {
+    if (typeof msg.timer_enabled !== "boolean" || typeof msg.goal_enabled !== "boolean") return; // сервер старее страницы
+    if (sourcesRequests > 0) return;
+    sourceEls.timer.checked = msg.timer_enabled;
+    sourceEls.goal.checked = msg.goal_enabled;
+    applySources();
+  }
+
+  // --- Подпись и размер: вкладка у каждого источника и свой предпросмотр ---
+
+  const sizePreviewEl = $("size-preview");
+  let sizePreviewTab = null; // для какой вкладки загружен предпросмотр
+
+  function selectSizeTab(name) {
+    activeSizeTab = name;
+    for (const tab of document.querySelectorAll("[data-size-tab]")) {
+      tab.setAttribute("aria-selected", String(tab.dataset.sizeTab === name));
+    }
+    for (const panel of document.querySelectorAll("[data-size-panel]")) panel.hidden = panel.dataset.sizePanel !== name;
+    sendSizePreview();
+  }
+  for (const tab of document.querySelectorAll("[data-size-tab]")) {
+    tab.addEventListener("click", () => selectSizeTab(tab.dataset.sizeTab));
+  }
+
+  // Предпросмотр того источника, который сейчас настраивают: счётчик, таймер или отсчёт до цели
+  function sendSizePreview() {
+    if (!shownPreset || $("label-section").hidden) return;
+    if (sizePreviewTab !== activeSizeTab) {
+      sizePreviewTab = activeSizeTab;
+      const show = activeSizeTab === "counter" ? "" : `&show=${activeSizeTab}`;
+      sizePreviewEl.src = `/overlay/?preview=1&mute=1${show}&preset=${encodeURIComponent(shownPreset)}`;
+      return; // стиль уйдёт, когда страница загрузится
+    }
+    const win = sizePreviewEl.contentWindow;
+    if (!win) return;
+    const scale = Number(scaleEls[activeSizeTab].value);
+    win.postMessage({
+      type: "style",
+      preset: shownPreset,
+      label: activeSizeTab === "timer" ? timerLabelEl.value.trim() : activeSizeTab === "counter" ? labelTextEl.value.trim() : "",
+      label_position: labelPositionEl.value,
+      scale,
+      timer_scale: scale,
+      goal_scale: scale,
+      visible: !$("tab-look").hidden,
+    }, location.origin);
+  }
+  sizePreviewEl.addEventListener("load", sendSizePreview);
+
   // --- Цели: особые числа и отсчёт «осталось N» ---
 
   const milestonesEl = $("milestones");
@@ -400,10 +499,10 @@
   const goalsStatusEl = $("goals-status");
   let goalsState = { milestones: [], goal: 0 };
   let currentCount = 0;
+  applySources(); // до ответа сервера: таймер включён, отсчёт до цели нет
 
   function renderGoalLeft() {
-    $("goal-line").hidden = !goalsState.goal;
-    $("goal-links").hidden = !goalsState.goal;
+    $("goal-line").hidden = !goalsState.goal || !sourceEls.goal.checked;
     $("goal-left").textContent = Math.max(goalsState.goal - currentCount, 0);
   }
 
@@ -737,6 +836,8 @@
       soundListEl.setAttribute("role", random ? "group" : "radiogroup");
       soundRandomBtn.setAttribute("aria-pressed", String(random));
       $("sound-random-note").hidden = !random;
+      poolAllBtn.hidden = !random;
+      poolAllBtn.textContent = allPoolIds().every((id) => pool.has(id)) ? "Снять все" : "Выбрать все";
       soundListEl.replaceChildren(
         soundItem(null, standardSoundName, on(null)),
         ...state.sounds.map((s) => soundItem(s.id, s.name, on(s.id)))
@@ -781,9 +882,21 @@
     const pool = new Set(soundState.pool || []);
     if (pool.has(key)) pool.delete(key);
     else pool.add(key);
-    await setRandom(true, [...pool]);
-    if (pool.has(key)) player.preview(id); // отметили — сразу слышно, что добавили
+    await setRandom(true, [...pool]); // отметка без звука: слушать — кнопкой ▶ у звука
   }
+
+  // Все звуки списка, которые можно отметить для рандома
+  function allPoolIds() {
+    return [STANDARD_ID, ...soundState.sounds.map((s) => s.id), ...(soundState.event_sounds || []).map((s) => s.id)];
+  }
+
+  const poolAllBtn = $("sound-pool-all");
+  poolAllBtn.addEventListener("click", () => {
+    if (!soundState) return;
+    const all = allPoolIds();
+    const pool = new Set(soundState.pool || []);
+    setRandom(true, all.every((id) => pool.has(id)) ? [] : all);
+  });
 
   soundRandomBtn.addEventListener("click", () => {
     if (!soundState) return;
@@ -914,6 +1027,7 @@
   // Превью загружается один раз, а стиль в нём меняется сообщением. Если бы iframe
   // перезагружался на каждую смену, при быстром переключении превью могло пропасть.
   function sendPreviewStyle() {
+    sendSizePreview();
     const win = presetPreviewEl.contentWindow;
     if (!win || !shownPreset) return;
     const message = {
@@ -921,8 +1035,7 @@
       preset: shownPreset,
       label: labelTextEl.value.trim(),
       label_position: labelPositionEl.value,
-      number_scale: Number(numberScaleEl.value),
-      label_scale: Number(labelScaleEl.value),
+      scale: Number(scaleEls.counter.value),
       transition: transitionEl.value,
       entrance: entranceEl.value,
       visible: !$("tab-look").hidden, // на скрытой вкладке превью не анимируется
@@ -1143,27 +1256,23 @@
   }
 
   timerLabelEl.addEventListener("input", () => {
+    sendSizePreview();
     clearTimeout(timerLabelTimer);
     timerLabelTimer = setTimeout(sendTimerLabel, 400);
   });
 
-  // Размер числа и подписи: проценты, 100 — по умолчанию
-  const numberScaleEl = $("number-scale");
-  const labelScaleEl = $("label-scale");
-  let scaleTimer = null;
+  // Размер числа вместе с подписью: проценты, 100 — по умолчанию. Свой у счётчика,
+  // таймера и отсчёта до цели (у дополнительных счётчиков — в их настройках).
+  const scaleEls = { counter: $("scale-counter"), timer: $("scale-timer"), goal: $("scale-goal") };
+  const scaleTimers = {};
   let scaleRequests = 0;
 
-  function showScaleValues() {
-    $("number-scale-value").textContent = `${numberScaleEl.value}%`;
-    $("label-scale-value").textContent = `${labelScaleEl.value}%`;
-  }
-
-  async function sendScale() {
-    clearTimeout(scaleTimer);
-    scaleTimer = null;
+  async function sendScale(source) {
+    clearTimeout(scaleTimers[source]);
+    scaleTimers[source] = null;
     scaleRequests += 1;
     try {
-      await api("POST", "/api/overlay/scale", { number: Number(numberScaleEl.value), label: Number(labelScaleEl.value) });
+      await api("POST", "/api/overlay/scale", { source, scale: Number(scaleEls[source].value) });
       setStatus($("scale-status"), "");
     } catch (e) {
       setStatus($("scale-status"), e.message, true);
@@ -1172,21 +1281,24 @@
     }
   }
 
-  function onScaleInput() {
-    showScaleValues();
-    sendPreviewStyle(); // превью меняется сразу, оверлей — когда замрёт ползунок
-    clearTimeout(scaleTimer);
-    scaleTimer = setTimeout(sendScale, 250);
+  for (const source of Object.keys(scaleEls)) {
+    scaleEls[source].addEventListener("input", () => {
+      $(`scale-${source}-value`).textContent = `${scaleEls[source].value}%`;
+      sendPreviewStyle(); // превью меняется сразу, оверлей — когда замрёт ползунок
+      clearTimeout(scaleTimers[source]);
+      scaleTimers[source] = setTimeout(() => sendScale(source), 250);
+    });
   }
-  numberScaleEl.addEventListener("input", onScaleInput);
-  labelScaleEl.addEventListener("input", onScaleInput);
 
-  function showServerScale(number, label) {
-    if (typeof number !== "number" || typeof label !== "number") return; // сервер старее страницы
-    if (scaleRequests > 0 || scaleTimer !== null || document.activeElement === numberScaleEl || document.activeElement === labelScaleEl) return;
-    numberScaleEl.value = number;
-    labelScaleEl.value = label;
-    showScaleValues();
+  function showServerScale(msg) {
+    const values = { counter: msg.scale, timer: msg.timer_scale, goal: msg.goal_scale };
+    for (const [source, value] of Object.entries(values)) {
+      const input = scaleEls[source];
+      if (typeof value !== "number") continue; // сервер старее страницы
+      if (scaleRequests > 0 || scaleTimers[source] || document.activeElement === input) continue;
+      input.value = value;
+      $(`scale-${source}-value`).textContent = `${value}%`;
+    }
     sendPreviewStyle();
   }
 
@@ -2251,7 +2363,8 @@
         showServerPreset(msg.preset);
         showServerLabel(msg.label, msg.label_position);
         showServerTimerLabel(msg.timer_label);
-        showServerScale(msg.number_scale, msg.label_scale);
+        showServerScale(msg);
+        showServerSources(msg);
         showServerMotion(msg);
       }
       else if (msg.count !== undefined) {

@@ -38,7 +38,7 @@ def test_add_update_remove_and_persist(tmp_path, list_path):
     path = tmp_path / "counters.json"
     counters = ExtraCounters(path, list_path)
     first = counters.add("  Паразиты \n", "parasites.txt")
-    assert first == {"id": "c1", "name": "Паразиты", "list": "parasites.txt", "preset": "swearcounter", "label": "", "count": 0}
+    assert first == {"id": "c1", "name": "Паразиты", "list": "parasites.txt", "preset": "swearcounter", "label": "", "scale": 100, "count": 0}
     counters.add("Маты", "swears.txt")
     counters.update("c1", preset="neon", label="Паразиты:")
     counters.add_count("c1", 3)
@@ -186,10 +186,18 @@ def test_api_lifecycle_and_broadcasts(client, hub):
         assert ws.receive_json() == {"type": "counters", "counters": []}
 
 
-@pytest.mark.parametrize("body", [{"preset": "Bad Id"}, {"label": "x" * 41}, {"list": "nope.txt"}, {"name": ""}])
+@pytest.mark.parametrize("body", [{"preset": "Bad Id"}, {"scale": 10}, {"scale": 500}, {"label": "x" * 41}, {"list": "nope.txt"}, {"name": ""}])
 def test_update_rejects_bad_values(client, body):
     client.post("/api/counters", json={"name": "Паразиты", "list": "parasites.txt"})
     assert client.post("/api/counters/c1", json=body).status_code == 400
+
+
+def test_counter_scale_is_saved_and_defaults_to_100(client):
+    created = client.post("/api/counters", json={"name": "Паразиты", "list": "parasites.txt"}).json()["counters"][0]
+    assert created["scale"] == 100
+    changed = client.post("/api/counters/c1", json={"scale": 140}).json()["counters"][0]
+    assert changed["scale"] == 140
+    assert client.get("/api/counters").json()["counters"][0]["scale"] == 140
 
 
 def test_unknown_counter_404(client):

@@ -69,8 +69,8 @@
     "Таймер «без мата» — отдельный источник:": "The “clean for” timer is a separate source:",
     "Отсчёт до цели — отдельный источник:": "The countdown to the goal is a separate source:",
     "Дополнительные счётчики": "Extra counters",
-    "Свой список слов, счёт и оверлей — например, слова-паразиты отдельно от матов. Цели, таймер, статистика и OBS — только у основного счётчика.":
-      "Their own word list, count and overlay — for example, filler words apart from swear words. Goals, the timer, statistics and OBS are only for the main counter.",
+    "Свой список слов, счёт и оверлей — например, слова-паразиты отдельно от матов. Статистика и OBS — только у основного счётчика.":
+      "Their own word list, count and overlay — for example, filler words apart from swear words. Statistics and OBS are only for the main counter.",
     "Название": "Name",
     "Название нового счётчика": "Name of the new counter",
     "Список слов нового счётчика": "Word list of the new counter",
@@ -105,17 +105,27 @@
     "Например: Без мата:": "For example: Swear-free for:",
     "Подпись таймера стоит с той же стороны, что и подпись счётчика. Пустое поле — только время.":
       "The timer label sits on the same side as the counter label. An empty field shows just the time.",
-    "Размер числа": "Number size",
-    "Размер подписи": "Label size",
-    "100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет: чтобы он был крупнее, растяните сам источник.":
-      "100% is the default size. The counter never grows beyond the OBS source window: to make it bigger, stretch the source itself.",
+    "Размер счётчика": "Counter size",
+    "Размер таймера «без мата»": "“No swearing” timer size",
+    "Размер отсчёта до цели": "Goal countdown size",
+    "Размер": "Size",
+    "Размер числа и подписи меняется вместе. Размер дополнительных счётчиков — в их настройках. 100% — размер по умолчанию. Больше окна источника в OBS счётчик не станет: чтобы он был крупнее, растяните сам источник.":
+      "Number and label are resized together. Extra counters have their own size in their settings. 100% is the default size. The counter never gets bigger than the OBS source window: to make it larger, stretch the source itself.",
     "Где подпись": "Label position",
     "Слева": "Left",
     "Справа": "Right",
     "Сверху": "Top",
     "Снизу": "Bottom",
-    "Подпись и число — один источник в OBS: двигаются и масштабируются вместе. Пустое поле — только число. Как это выглядит — в превью оформления ниже.":
-      "The label and the number are one source in OBS: they move and scale together. An empty field shows just the number. See how it looks in the preview below.",
+    "Подпись и число — один источник в OBS: двигаются и масштабируются вместе. Пустое поле — только число.":
+      "The label and the number are one source in OBS: they move and scale together. An empty field shows just the number.",
+    "Подпись и размер": "Label and size",
+    "Таймер": "Timer",
+    "Источник": "Source",
+    "Выбрать все": "Select all",
+    "Снять все": "Select none",
+    "Источник:": "Source:",
+    "Свои для каждого источника в OBS. Оформление и звук ниже — общие.": "Separate for each OBS source. The look and sound below are shared.",
+    "Предпросмотр": "Preview",
     // Раздел «Анимации» (overlay/motion.js, control/motion.js)
     "Анимации": "Animations",
     "Смена числа": "Number change",
@@ -128,8 +138,9 @@
     "Прятать через 20 секунд после мата": "Hide 20 seconds after a swear",
     "Прятать через 30 секунд после мата": "Hide 30 seconds after a swear",
     "Прятать через минуту после мата": "Hide a minute after a swear",
-    "Счётчик появляется на экране только при новом мате и сам прячется. Таймер «без мата» не прячется никогда.":
-      "The counter shows up only on a new swear and hides by itself. The swear-free timer never hides.",
+    "Счётчик появляется на экране только при новом мате и сам прячется.":
+      "The counter shows up only on a new swear and hides by itself.",
+    "Таймер «без мата» не прячется никогда.": "The swear-free timer never hides.",
     "Анимации окна программы": "App window animations",
     "Плавные": "Smooth",
     "Пружинистые": "Springy",
@@ -376,8 +387,10 @@
     "Например: 10, 50, 100": "For example: 10, 50, 100",
     "Цель": "Goal",
     "Без цели": "No goal",
-    "На особых числах и на цели оверлей празднует: звёзды и фанфары. До цели идёт отсчёт «осталось N» — на вкладке «Счётчик» и отдельным источником для OBS.":
-      "On special numbers and on the goal, the overlay celebrates with stars and fanfare. Before the goal there's a “N left” countdown — on the Counter tab and as a separate OBS source.",
+    "На особых числах оверлей «пикает» число: цифры на секунду заменяются значками цензуры.":
+      "On special numbers the overlay bleeps the number out: the digits are replaced by censor symbols for a second.",
+    "До цели идёт отсчёт «осталось N» — на вкладке «Счётчик» и отдельным источником для OBS.":
+      "Before the goal there is an “N left” countdown — on the Counter tab and as a separate OBS source.",
     "Особые числа — целые числа через запятую": "Special numbers are whole numbers separated by commas",
     "Цель — целое число; пустое поле — без цели": "The goal is a whole number; an empty field means no goal",
     "Сохранено": "Saved",
