@@ -143,12 +143,20 @@ window.createDingPlayer = function createDingPlayer() {
     bell(ctx, out, 2637.0, t + 0.18, 0.5); // E7
   }
 
-  // Фанфары на особом числе: восходящее арпеджио и аккорд в конце
-  function synthFanfare(ctx, out) {
-    const t = ctx.currentTime + 0.01;
-    const notes = [523.25, 659.25, 783.99]; // C5 E5 G5
-    notes.forEach((freq, i) => bell(ctx, out, freq, t + i * 0.12, 0.9));
-    for (const freq of [1046.5, 1318.5, 1568.0]) bell(ctx, out, freq, t + 0.4, 0.6); // C6 E6 G6
+  // Особое число: цензурное «пиии» на то время, пока число запикано (overlay.js, celebrate)
+  function synthBleep(ctx, out) {
+    const t = ctx.currentTime + 0.6;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = 1000;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(1, t + 0.01);
+    gain.gain.setValueAtTime(1, t + 0.98);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.03);
+    osc.connect(gain).connect(out);
+    osc.start(t);
+    osc.stop(t + 1.05);
   }
 
   // --- Событие «Хеллоуин» (app/events.py): синтезированные замены, если файлы не загрузились ---
@@ -257,13 +265,13 @@ window.createDingPlayer = function createDingPlayer() {
     play(standardBuffer("curse"), "curse");
   }
 
-  function playFanfare() {
+  function playBleep() {
     const ctx = context();
     if (!ctx || volume === 0) return;
     const out = ctx.createGain();
     out.gain.value = 0.3 * volume;
     out.connect(ctx.destination);
-    synthFanfare(ctx, out);
+    synthBleep(ctx, out);
   }
 
   // Прослушать звук из библиотеки (id) или стандартный (null), не меняя выбранный.
@@ -288,5 +296,5 @@ window.createDingPlayer = function createDingPlayer() {
   // В обычном браузере звук разрешается только после клика по странице (в OBS это не нужно)
   document.addEventListener("pointerdown", () => context());
 
-  return { apply, play: playActive, playFanfare, playCurse, preview, setStandard, canDecode, setVolume: (v) => (volume = v / 100) };
+  return { apply, play: playActive, playBleep, playCurse, preview, setStandard, canDecode, setVolume: (v) => (volume = v / 100) };
 };

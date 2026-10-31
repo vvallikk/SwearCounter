@@ -180,6 +180,7 @@ class CounterUpdate(BaseModel):
     list: str | None = None
     preset: str | None = None
     label: str | None = None
+    scale: int | None = None
 
 
 class GoalsChoice(BaseModel):
@@ -272,8 +273,13 @@ class EventChoice(BaseModel):
 
 
 class ScaleChoice(BaseModel):
-    number: int
-    label: int
+    source: str  # counter, timer или goal; у дополнительных счётчиков размер задаётся в их настройках
+    scale: int
+
+
+class SourcesChoice(BaseModel):
+    timer: bool
+    goal: bool
 
 
 class MotionChoice(BaseModel):
@@ -315,8 +321,14 @@ PRESET_ID = re.compile(r"[a-z0-9-]{1,32}")
 LABEL_POSITIONS = ("left", "right", "top", "bottom")
 DEFAULT_LABEL_POSITION = "left"
 LABEL_MAX_LENGTH = 40
-SCALE_RANGE = (25, 200)  # размер числа и подписи, проценты
+SCALE_RANGE = (25, 200)  # размер числа вместе с подписью, проценты
 DEFAULT_SCALE = 100
+# Источник оверлея → ключ настройки. Размер основного счётчика хранится под прежним ключом.
+SCALE_SETTINGS = {
+    "counter": "overlay_number_scale",
+    "timer": "overlay_timer_scale",
+    "goal": "overlay_goal_scale",
+}
 # Анимации переходов: список вариантов знает только оверлей (overlay/motion.js),
 # сервер проверяет форму id, как у пресетов. Незнакомый id оверлей заменит своим по умолчанию.
 DEFAULT_TRANSITION = "roll"
@@ -510,8 +522,13 @@ def create_app(
             "label": settings.get("overlay_label", ""),
             "label_position": settings.get("overlay_label_position", DEFAULT_LABEL_POSITION),
             "timer_label": settings.get("overlay_timer_label", ""),
-            "number_scale": settings.get("overlay_number_scale", DEFAULT_SCALE),
-            "label_scale": settings.get("overlay_label_scale", DEFAULT_SCALE),
+            "scale": settings.get(SCALE_SETTINGS["counter"], DEFAULT_SCALE),
+            # Какие источники для OBS показывать: таймер по умолчанию да, отсчёт до цели нет
+            # (кроме тех, у кого цель уже задана до появления галочки).
+            "timer_enabled": settings.get("overlay_timer_enabled", True),
+            "goal_enabled": settings.get("overlay_goal_enabled", bool(hub.goal)),
+            "timer_scale": settings.get(SCALE_SETTINGS["timer"], DEFAULT_SCALE),
+            "goal_scale": settings.get(SCALE_SETTINGS["goal"], DEFAULT_SCALE),
             "transition": settings.get("overlay_transition", DEFAULT_TRANSITION),
             "entrance": settings.get("overlay_entrance", DEFAULT_ENTRANCE),
             "autohide": settings.get("overlay_autohide", 0),
@@ -831,6 +848,11 @@ def create_app(
         except KeyError:
             raise HTTPException(404, "Такого счётчика нет") from None
 
+    def check_scale(scale: int) -> None:
+        low, high = SCALE_RANGE
+        if not low <= scale <= high:
+            raise HTTPException(400, f"Размер должен быть от {low} до {high}%")
+
     async def counters_changed() -> dict:
         message = hub.counters_message()
         await hub.broadcast(message)
@@ -856,8 +878,10 @@ def create_app(
         label = None if body.label is None else " ".join(body.label.split())
         if label is not None and len(label) > LABEL_MAX_LENGTH:
             raise HTTPException(400, f"Подпись длиннее {LABEL_MAX_LENGTH} символов")
+        if body.scale is not None:
+            check_scale(body.scale)
         try:
-            hub.extra.update(counter_id, name=body.name, list=body.list, preset=body.preset, label=label)
+            hub.extra.update(counter_id, name=body.name, list=body.list, preset=body.preset, label=label, scale=body.scale)
         except CounterError as e:
             raise HTTPException(400, str(e)) from None
         return await counters_changed()
@@ -1155,11 +1179,18 @@ def create_app(
 
     @app.post("/api/overlay/scale")
     async def post_overlay_scale(choice: ScaleChoice):
-        low, high = SCALE_RANGE
-        if not (low <= choice.number <= high and low <= choice.label <= high):
-            raise HTTPException(400, f"Размер должен быть от {low} до {high}%")
-        settings.set("overlay_number_scale", choice.number)
-        settings.set("overlay_label_scale", choice.label)
+        key = SCALE_SETTINGS.get(choice.source)
+        if key is None:
+            raise HTTPException(400, "Неверный источник")
+        check_scale(choice.scale)
+        settings.set(key, choice.scale)
+        await hub.broadcast(style_message())
+        return await get_overlay()
+
+    @app.post("/api/overlay/sources")
+    async def post_overlay_sources(choice: SourcesChoice):
+        settings.set("overlay_timer_enabled", choice.timer)
+        settings.set("overlay_goal_enabled", choice.goal)
         await hub.broadcast(style_message())
         return await get_overlay()
 

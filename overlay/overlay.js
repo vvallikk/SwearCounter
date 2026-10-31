@@ -8,9 +8,12 @@
   const FIT_MIN_DIGITS = 3;
   const FIT_WIDTH = 0.9;
   const FIT_HEIGHT = 0.7;
+  // Размер 100% занимает лишь эту долю от подгонки под окно: остаётся запас, чтобы размер
+  // больше 100% действительно увеличивал число (до краёв окна). Раньше 100% заполняло всё окно.
+  const FIT_DEFAULT = 0.6;
   const PREVIEW_INTERVAL_MS = 2500;
   const PREVIEW_COUNT = 42;
-  const LABEL_RATIO = 0.4; // размер подписи от размера числа
+  const LABEL_RATIO = 0.85; // размер подписи от размера числа: почти такая же
 
   // --- Параметры из адреса: ?size=120&color=ffffff&mute=1&preset=neon&preview=1&counter=c1 ---
   const params = new URLSearchParams(location.search);
@@ -43,28 +46,31 @@
 
   const root = document.documentElement;
   const motion = window.OVERLAY_MOTION;
-  // Размер числа и подписи со страницы управления: проценты от базового размера.
+  // Размер со страницы управления (число и подпись вместе): проценты от базового размера.
   // baseSize — размер после подгонки под окно; size — число с учётом своего масштаба.
   let baseSize = size;
-  let numberScale = 1;
-  let labelScale = 1;
+  let scale = 1;
   function setSize(px) {
     baseSize = px;
-    size = px * numberScale;
+    size = px * scale;
     root.style.setProperty("--size", size + "px");
-    root.style.setProperty("--label-size", px * LABEL_RATIO * labelScale + "px");
+    root.style.setProperty("--label-size", size * LABEL_RATIO + "px");
   }
   setSize(size);
 
-  function applyScale(msg) {
-    const number = Number(msg.number_scale) / 100;
-    const label = Number(msg.label_scale) / 100;
-    if (!(number > 0) || !(label > 0)) return; // сервер старее страницы
-    if (number === numberScale && label === labelScale) return;
-    numberScale = number;
-    labelScale = label;
+  function setScale(percent) {
+    const next = Number(percent) / 100;
+    if (!(next > 0) || next === scale) return; // сервер старее страницы или размер тот же
+    scale = next;
     if (autoSize) fitToWindow();
     else setSize(baseSize);
+  }
+
+  // У каждого источника свой размер: счётчик, таймер, отсчёт до цели. Размер
+  // дополнительного счётчика приходит в его описании (handleCounters).
+  function applyScale(msg) {
+    if (counterId) return;
+    setScale(showTimer ? msg.timer_scale : showGoal ? msg.goal_scale : msg.scale);
   }
   if (preview) root.setAttribute("data-preview", "");
 
@@ -74,7 +80,8 @@
   const valueEl = document.getElementById("value");
   const glowEl = document.getElementById("glow");
 
-  // Во сколько раз можно увеличить счётчик при размере FIT_BASE_PX, чтобы он влез в окно.
+  // Во сколько раз можно увеличить счётчик при размере FIT_BASE_PX: plain — чтобы он занял
+  // обычную долю окна (размер 100%), edge — вплотную к краям окна (предел для размера больше 100%).
   // Размеры без transform (offsetWidth), поэтому идущая анимация не мешает.
   function fitScale() {
     motion.settle(valueEl); // посреди смены числа в нём лишние цифры
@@ -85,26 +92,28 @@
     const height = counterEl.offsetHeight;
     valueEl.textContent = text;
     if (!width || !height) return null;
-    return Math.min((innerWidth * FIT_WIDTH) / width, (innerHeight * FIT_HEIGHT) / height);
+    const ratioWidth = innerWidth / width;
+    const ratioHeight = innerHeight / height;
+    return { plain: Math.min(ratioWidth * FIT_WIDTH, ratioHeight * FIT_HEIGHT), edge: Math.min(ratioWidth, ratioHeight) };
   }
 
-  // Подгоняет счётчик под окно, затем применяет свои масштабы числа и подписи, но не
-  // больше, чем влезает в окно: при 200% ничего не вылезает за края.
+  // Подгоняет счётчик под окно, затем применяет свой размер, но не больше, чем влезает в окно:
+  // размер больше 100% растёт до краёв окна и дальше не вылезает.
   let fitRetry = 0;
   function fitToWindow() {
     if (!autoSize) return;
-    const [savedNumber, savedLabel] = [numberScale, labelScale];
-    numberScale = labelScale = 1;
-    const plain = fitScale();
-    [numberScale, labelScale] = [savedNumber, savedLabel];
-    if (plain === null) {
+    const saved = scale;
+    scale = 1;
+    const fit = fitScale();
+    scale = saved;
+    if (fit === null) {
       // Окно скрыто (вкладка страницы управления): подгоним, когда его покажут
       setSize(FIT_BASE_PX);
       if (!fitRetry) fitRetry = requestAnimationFrame(() => { fitRetry = 0; fitToWindow(); });
       return;
     }
-    const scaled = numberScale === 1 && labelScale === 1 ? plain : fitScale();
-    setSize(Math.max(8, Math.floor(FIT_BASE_PX * Math.min(plain, scaled ?? plain))));
+    // setSize умножает на scale, поэтому делим: итоговый размер = min(plain * FIT_DEFAULT * scale, edge)
+    setSize(Math.max(8, Math.floor((FIT_BASE_PX * Math.min(fit.plain * FIT_DEFAULT * scale, fit.edge)) / scale)));
   }
 
   window.addEventListener("resize", fitToWindow);
@@ -116,6 +125,7 @@
     const text = String(n);
     const from = shownText;
     shownText = text;
+    endCensor();
     motion.settle(valueEl);
     const grew = text.length !== valueEl.textContent.length;
     valueEl.textContent = text;
@@ -452,6 +462,35 @@
     anim.onfinish = () => el.remove();
   }
 
+  // Тыквы по краям при каждом мате жутко трясутся из стороны в сторону: раздуваются, злобно
+  // раскаляются и затихают. Это псевдоэлементы (style.css), у них своя вечная качалка:
+  // эта анимация на время её перекрывает.
+  function jigglePumpkins() {
+    const STEPS = 8;
+    // flip = 1 — левая тыква, -1 — правая: трясутся в противофазе, навстречу друг другу
+    const shake = (flip) => {
+      const frames = [];
+      for (let i = 0; i <= STEPS; i++) {
+        const k = 1 - i / STEPS; // затухание
+        const side = (i % 2 ? 1 : -1) * flip;
+        frames.push({
+          transform: `translateX(${side * 28 * k}%) rotate(${side * 9 * k}deg) scale(${1 + 0.3 * k})`,
+          filter: `brightness(${1 + 0.7 * k}) drop-shadow(0 0 0.25em rgba(255, 90, 0, ${0.9 * k}))`,
+          offset: i / STEPS,
+        });
+      }
+      return frames;
+    };
+    for (const [owner, pseudoElement, flip] of [
+      [counterEl, "::before", 1],
+      [numberEl, "::before", 1],
+      [numberEl, "::after", -1],
+      [counterEl, "::after", -1],
+    ]) {
+      owner.animate(shake(flip), { duration: 500, easing: "linear", pseudoElement });
+    }
+  }
+
   function animateHalloween(delta) {
     valueEl.animate(
       [
@@ -466,13 +505,14 @@
     );
     glowEl.animate(
       [
-        { opacity: 0, transform: "scale(0.5)" },
-        { opacity: 0.75, transform: "scale(1)", offset: 0.2 },
-        { opacity: 0.3, transform: "scale(1.1)", offset: 0.5 },
-        { opacity: 0, transform: "scale(1.35)" },
+        { opacity: 0, transform: "scale(0.7)" },
+        { opacity: 0.88, transform: "scale(0.95)", offset: 0.3, easing: "ease-in-out" },
+        { opacity: 0.53, transform: "scale(1.1)", offset: 0.6, easing: "ease-in-out" },
+        { opacity: 0, transform: "scale(1.3)" },
       ],
-      { duration: 900, easing: "ease-out" }
+      { duration: 1500, easing: "ease-in-out" }
     );
+    jigglePumpkins();
     const count = 2 + Math.floor(Math.random() * 2);
     for (let i = 0; i < count; i++) {
       // Вверх-влево и вверх-вправо, чтобы не улетать за низ окна
@@ -562,38 +602,55 @@
     };
   }
 
-  // Особое число (10, 50, 100… или цель): поверх обычной анимации — покачивание и звёзды
-  const SPARKS = 12;
+  // Особое число (10, 50, 100… или цель): число «запикивается». После обычной смены цифры
+  // на секунду заменяются значками цензуры, как при пикании мата, и возвращаются с ударом.
+  // Цвет, шрифт и обводка остаются от текущего оформления.
+  const CENSOR_DELAY_MS = 600;
+  const CENSOR_MS = 1100;
+  const CENSOR_STEP_MS = 70;
+  let censor = null;
+
+  // Прерывает запикивание и сразу возвращает число (новая смена числа, повторное особое число)
+  function endCensor() {
+    if (!censor) return;
+    clearTimeout(censor.start);
+    clearInterval(censor.timer);
+    censor = null;
+    valueEl.style.width = "";
+    valueEl.style.textAlign = "";
+    valueEl.textContent = shownText;
+  }
+
   function celebrate() {
-    valueEl.animate(
-      [
-        { transform: "scale(1) rotate(0)" },
-        { transform: "scale(1.25) rotate(-8deg)", offset: 0.25 },
-        { transform: "scale(1.25) rotate(8deg)", offset: 0.5 },
-        { transform: "scale(1.12) rotate(-4deg)", offset: 0.75 },
-        { transform: "scale(1) rotate(0)" },
-      ],
-      { duration: 1200, delay: 500, easing: "ease-in-out" }
-    );
-    for (let i = 0; i < SPARKS; i++) {
-      const spark = document.createElement("span");
-      spark.className = "spark";
-      spark.textContent = "★";
-      numberEl.appendChild(spark);
-      const angle = (2 * Math.PI * i) / SPARKS;
-      // Разлёт в пределах числа: источник в OBS обычно подогнан под него, дальше звёзды обрежутся
-      const x = Math.cos(angle) * numberEl.offsetWidth * 0.6;
-      const y = Math.sin(angle) * numberEl.offsetHeight * 0.6;
-      const anim = spark.animate(
-        [
-          { transform: "translate(-50%, -50%) scale(0.3)", opacity: 0 },
-          { transform: "translate(-50%, -50%) scale(1)", opacity: 1, offset: 0.15 },
-          { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(0.6)`, opacity: 0 },
-        ],
-        { duration: 1400, delay: 300, easing: "ease-out", fill: "backwards" }
-      );
-      anim.onfinish = () => spark.remove();
-    }
+    endCensor();
+    const run = (censor = {});
+    run.start = setTimeout(() => {
+      motion.settle(valueEl);
+      // Значки шире или уже цифр: ширина числа фиксирована, чтобы всё вокруг не прыгало
+      valueEl.style.width = valueEl.offsetWidth + "px";
+      valueEl.style.textAlign = "center";
+      const length = shownText.length;
+      const began = performance.now();
+      const scramble = () => {
+        let glyphs = "";
+        for (let i = 0; i < length; i++) glyphs += CENSOR_GLYPHS[Math.floor(Math.random() * CENSOR_GLYPHS.length)];
+        valueEl.textContent = glyphs;
+      };
+      scramble();
+      run.timer = setInterval(() => {
+        if (performance.now() - began < CENSOR_MS) return scramble();
+        endCensor();
+        valueEl.animate(
+          [
+            { transform: "scale(1.4) rotate(-3deg)" },
+            { transform: "scale(0.95) rotate(2deg)", offset: 0.4 },
+            { transform: "scale(1.05) rotate(-1deg)", offset: 0.7 },
+            { transform: "scale(1) rotate(0)" },
+          ],
+          { duration: 500, easing: "ease-out" }
+        );
+      }, CENSOR_STEP_MS);
+    }, CENSOR_DELAY_MS);
   }
 
   function playIncrementAnimation(delta) {
@@ -662,10 +719,11 @@
     let count = PREVIEW_COUNT;
     let shown = true; // видно ли превью на странице управления (поле visible в сообщении)
     let timer = null;
-    setCount(count);
+    // Предпросмотр таймера и отсчёта до цели: пример значения, без прибавления
+    setCount(showTimer ? "12:34" : showGoal ? "7" : count);
     // Анимация идёт, только пока превью видно: на скрытой вкладке и в свёрнутом окне она ни к чему.
     function updateTimer() {
-      const run = shown && !document.hidden;
+      const run = shown && !document.hidden && !ownLabel;
       if (run && timer === null) {
         timer = setInterval(() => {
           count += 1;
@@ -680,7 +738,7 @@
     }
     updateTimer();
     document.addEventListener("visibilitychange", updateTimer);
-    setTimeout(() => playIncrementAnimation(1), 400);
+    if (!ownLabel) setTimeout(() => playIncrementAnimation(1), 400);
     // Страница управления меняет стиль без перезагрузки iframe тем же сообщением, что и сервер:
     // iframe.contentWindow.postMessage({ type: "style", preset: "neon", label: "Маты:", visible: true }, location.origin)
     window.addEventListener("message", (event) => {
@@ -727,6 +785,7 @@
     hadState = true;
     if (fixedPreset === null) applyPreset(counter.preset);
     extraLabel = counter.label;
+    setScale(counter.scale);
     applyLabel(extraLabel, labelPosition);
   }
 
@@ -826,11 +885,11 @@
         setCount(msg.count, true);
         wake();
         playIncrementAnimation(msg.delta || 1);
-        // В «Проклятом мате» особые числа и цель тоже отмечаются проклятием, а не звёздами и фанфарами
+        // В «Проклятом мате» особые числа и цель тоже отмечаются проклятием, а не запикиванием
         const cursed = cursedPreset() && (msg.curse || msg.milestone);
         if (cursed) curse(msg.count);
         else if (msg.milestone) celebrate();
-        if (player) (cursed ? player.playCurse : msg.milestone ? player.playFanfare : player.play)();
+        if (player) (cursed ? player.playCurse : msg.milestone ? player.playBleep : player.play)();
       } else if (msg.type === "sound") {
         if (player) player.apply(msg);
       } else if (msg.type === "style") {
